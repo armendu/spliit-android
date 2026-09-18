@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launch window in dark mode. Without this the first frame — before Compose has drawn
+         anything — is the light theme's white, which reads as a flash now that the app draws
+         behind the system bars rather than under a scrim. -->
+    <style name="Theme.Spliit" parent="android:Theme.Material.NoActionBar" />
+</resources>

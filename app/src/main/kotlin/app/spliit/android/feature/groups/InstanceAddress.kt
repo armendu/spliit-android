@@ -1,0 +1,67 @@
+package app.spliit.android.feature.groups
+
+import app.spliit.android.BuildConfig
+import java.net.URI
+
+/**
+ * Where a group lives, when nothing else says otherwise: the instance a group is created on, and
+ * the one a link that names no server — a bare group ID — is looked up against.
+ *
+ * `https://spliit.app/` matches the iOS app's own default. It is a `BuildConfig` field rather
+ * than a literal so a build can be pointed at a throwaway instance with the `spliit.baseUrl`
+ * property the Makefile already passes — which is the only way to exercise "paste a bare ID"
+ * against a server that actually has the group. Settings (Part 13) makes this a stored
+ * preference; a screen should read it from the state it is given rather than from here, so that
+ * change lands in one place.
+ */
+val DEFAULT_INSTANCE_BASE_URL: String = BuildConfig.DEFAULT_INSTANCE_BASE_URL
+
+/**
+ * Turns a Spliit instance's address into the base URL shape [RecentGroup][app.spliit.core.RecentGroup]
+ * stores it as, and back into something short enough to put in a row.
+ *
+ * A base URL is compared as a plain string elsewhere in this app (see CLAUDE.md on why
+ * `RecentGroup.instanceBaseUrl` is a `String` and not a `java.net.URL`), so the normalisation
+ * here — lower-cased scheme and host, a trailing slash — is what keeps two spellings of the same
+ * server from quietly becoming two different rows in the groups list.
+ */
+object InstanceAddress {
+
+    /**
+     * A short label for [baseUrl] — its host and port, without the scheme or a trailing slash —
+     * for the one place a row names the server a group is on.
+     */
+    fun displayName(baseUrl: String): String {
+        val uri = runCatching { URI(baseUrl) }.getOrNull()
+        val host = uri?.host ?: return baseUrl
+        val port = if (uri.port != -1) ":${uri.port}" else ""
+        val pathSuffix = uri.path?.trim('/')?.takeIf { it.isNotEmpty() }?.let { "/$it" } ?: ""
+        return host + port + pathSuffix
+    }
+
+    /**
+     * Normalises a typed server address — `spliit.example.com`, `10.0.2.2:3009`, or a full URL —
+     * into a base URL, or null when it names no host at all.
+     *
+     * A scheme is assumed (`https://`) when none was typed, since that is how people actually
+     * type an address out — nobody prefixes a scheme onto a Wi-Fi router label.
+     */
+    fun normalize(text: String): String? {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return null
+        val candidate = if (trimmed.contains("://")) trimmed else "https://$trimmed"
+        val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
+        if (uri.host.isNullOrBlank()) return null
+        val segments = (uri.path ?: "").split("/").filter { it.isNotEmpty() }
+        return baseUrlOf(uri, segments)
+    }
+
+    /** [uri]'s scheme and host, followed by [pathSegments] as the instance's own path prefix. */
+    internal fun baseUrlOf(uri: URI, pathSegments: List<String>): String {
+        val scheme = (uri.scheme ?: "https").lowercase()
+        val host = checkNotNull(uri.host) { "baseUrlOf requires a URI with a host" }.lowercase()
+        val port = if (uri.port != -1) ":${uri.port}" else ""
+        val path = if (pathSegments.isEmpty()) "/" else "/" + pathSegments.joinToString("/") + "/"
+        return "$scheme://$host$port$path"
+    }
+}

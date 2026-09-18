@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # 04:15 UTC daily, for the upstream-drift job below.
+    - cron: '15 4 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Nothing here needs a device: :api and :core are plain Kotlin/JVM and :app only has to
+    # assemble. That is what keeps this job in minutes rather than tens of them.
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Caches the Gradle distribution, the dependency cache and the build cache, and writes
+      # them back only from the default branch so a pull request cannot poison them.
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The Android SDK, provisioned explicitly rather than trusted to the runner image.
+      #
+      # This project compiles against `android-37.1` — the platform with a MINOR version, which
+      # is what `compileSdk = 37` + `compileSdkMinor = 1` in app/build.gradle.kts resolves to.
+      # Two things make that more delicate than a normal SDK install:
+      #
+      #  1. The platform is weeks old and is not on the runner image. It has to be installed.
+      #
+      #  2. Minor-versioned packages need cmdline-tools >= 20.0 to be parsed correctly. The
+      #     ubuntu-24.04 image ships 12.0, which does not merely fail — it mis-parses the
+      #     version and carries on, which is the silent-wrong-answer failure this repo keeps a
+      #     list of. Hence pinning the tools version below rather than taking the default; the
+      #     action's default is 20.0 today, and this pin is what stops that drifting under us.
+      - uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: 14742923 # 20.0 — the first release that parses Major.Minor
+          packages: 'platform-tools platforms;android-37.1 build-tools;37.0.0'
+          accept-android-sdk-licenses: 'true'
+
+      # The installer exits 0 even when it resolved nothing — "Package not found" is printed to
+      # stdout and the shell sees success. Verified locally against the current CLI. So assert
+      # the platform is actually on disk; without this, a missing platform surfaces much later
+      # as a confusing AGP error about compileSdk instead of as a failed setup step.
+      - name: Verify the SDK has the platform this project compiles against
+        run: |
+          test -d "$ANDROID_HOME/platforms/android-37.1" || {
+            echo "::error::android-37.1 was not installed. Available platforms:"
+            ls -1 "$ANDROID_HOME/platforms" || true
+            exit 1
+          }
+          test -d "$ANDROID_HOME/build-tools/37.0.0" || {
+            echo "::error::build-tools 37.0.0 was not installed."
+            exit 1
+          }
+
+      - run: make test
+      - run: make build
+      - run: make lint
+
+      # The one thing worth keeping when a build fails: which test, and what it expected.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-reports
+          path: |
+            api/build/reports/tests/
+            core/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+
+  # Why this job exists, and why it is separate.
+  #
+  # The `build` job runs against a pinned server image, which is what makes it reproducible —
+  # and is exactly why it cannot catch the failure this project has already been bitten by
+  # once: upstream renaming a tRPC procedure. `groups.stats.get` became `groups.stats.overview`,
+  # every pinned test stayed green, and the app shipped a polite, wrong "this server has no
+  # totals" to everyone on spliit.app.
+  #
+  # Only a job pointed at the real, current server can see that coming. It runs nightly rather
+  # than per-push because it is watching someone else's deploy schedule, not ours.
+  upstream-drift:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    # A red mark here is a signal to go and look, not a broken build. spliit.app being briefly
+    # down is not a defect in this repo, and a job that cries wolf gets muted.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: make test-live BASE_URL=https://spliit.app/
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: upstream-drift-reports
+          path: api/build/reports/tests/
+          if-no-files-found: ignore

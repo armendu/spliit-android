@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13's themed-icon layer: the system recolours whatever this draws, so the fill/stroke
+     colour below is arbitrary — only the shape matters. Same ring as ic_launcher_foreground. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,30 A24,24 0 1,1 53.99,30 Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="10"
+        android:fillColor="#00000000" />
+</vector>

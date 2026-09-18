@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose owns the real theme; this exists so the window has sane colours before the
+         first frame and during the launch animation. DESIGN.md is where the palette lives. -->
+    <style name="Theme.Spliit" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

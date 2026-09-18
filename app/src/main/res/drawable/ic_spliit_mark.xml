@@ -1,0 +1,31 @@
+<!-- The Spliit mark, from the project's own SVG. Two figures and the line that splits
+     between them; the brand green here is the logo's #059669, which is deliberately not
+     the scheme's primary — see DESIGN.md §1 on why those are two different colours. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:fillColor="#059669"
+        android:pathData="M16,0h32a16,16 0 0,1 16,16v32a16,16 0 0,1 -16,16h-32a16,16 0 0,1 -16,-16v-32a16,16 0 0,1 16,-16z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,16a8,8 0 1,0 0,16a8,8 0 1,0 0,-16z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85"
+        android:pathData="M42,16a8,8 0 1,0 0,16a8,8 0 1,0 0,-16z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,48C12,41.3726 17.3726,36 24,36H28C32.4183,36 36,39.5817 36,44V48H12Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85"
+        android:pathData="M36,48V45C36,40.5817 39.5817,37 44,37H46C51.5228,37 56,41.4772 56,47V48H36Z" />
+    <path
+        android:strokeColor="#059669"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M30,18L34,50" />
+</vector>

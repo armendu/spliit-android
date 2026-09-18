@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The adaptive launcher icon's background layer — the light-theme accent from DESIGN.md
+         §2. Android composites this layer identically regardless of the phone's system theme,
+         so there is no dark-mode counterpart to define. -->
+    <color name="ic_launcher_background">#059669</color>
+</resources>

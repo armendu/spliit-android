@@ -1,0 +1,107 @@
+name: spliit-android-e2e
+
+# A throwaway Spliit instance for the end-to-end suite.
+#
+# The database lives in tmpfs, so every `docker compose up` starts from an empty schema and
+# tests never inherit state from a previous run. Port 3009 keeps this clear of a Spliit dev
+# server running on the usual 3000.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: spliit
+      POSTGRES_PASSWORD: spliit
+      POSTGRES_DB: spliit
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U spliit -d spliit']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    image: ghcr.io/spliit-app/spliit:latest
+    ports:
+      - '3009:3000'
+    environment:
+      POSTGRES_PRISMA_URL: postgresql://spliit:spliit@db:5432/spliit
+      POSTGRES_URL_NON_POOLING: postgresql://spliit:spliit@db:5432/spliit
+      NEXT_PUBLIC_DEFAULT_CURRENCY_CODE: ''
+      # Document storage. The route that signs an upload needs only the four S3 settings; the
+      # flag is what the web UI reads, and it is set so this instance is one that really does
+      # keep documents rather than one that merely could.
+      NEXT_PUBLIC_ENABLE_EXPENSE_DOCUMENTS: 'true'
+      S3_UPLOAD_KEY: spliit
+      S3_UPLOAD_SECRET: spliitspliit
+      S3_UPLOAD_BUCKET: spliit
+      S3_UPLOAD_REGION: us-east-1
+      S3_UPLOAD_ENDPOINT: http://localhost:9009
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/api/health/readiness').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+
+  # Object storage for expense documents. Spliit never handles the file itself: it signs a PUT
+  # against a bucket and the client uploads straight to it, so the harness needs somewhere for
+  # that PUT to land and somewhere the app can then GET the picture back from.
+  #
+  # `S3_UPLOAD_ENDPOINT` below says `localhost:9009`, which is not an address this container can
+  # reach — and does not need to be. Signing is pure arithmetic over the request, so the server
+  # signs a URL it never visits; the one that has to reach it is the client. The bucket lives in
+  # tmpfs like the database, for the same reason.
+  #
+  # NOTE, and this is where Android differs from the iOS harness this was cloned from: an iOS
+  # simulator shares the host's network stack, so a signed `localhost:9009` just worked there.
+  # An Android emulator does not — `localhost` inside it is the emulator, and the host is
+  # `10.0.2.2` (see e2e/README.md). So a URL signed against `localhost` is one the app cannot
+  # fetch, and the endpoint above will need to become `http://10.0.2.2:9009` — or the client
+  # will need to rewrite the host — before documents work on an emulator.
+  #
+  # It is left as-is deliberately: documents are deferred to a later cycle, nothing reads these
+  # URLs yet, and changing the endpoint now would make this file differ from the iOS original
+  # for a feature that does not exist. The cycle that adds documents changes this line first.
+  s3:
+    # quay.io, and pinned. `minio/minio` on Docker Hub is GONE — the repository itself 404s,
+    # not merely the tag — and it took `make e2e-up` down with it for everyone. That is the
+    # argument against `:latest` in a harness: the failure arrives on an unrelated day, in
+    # somebody else's branch, and looks like their change broke the world.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    entrypoint:
+      - /bin/sh
+      - -c
+      # The bucket is a directory, so making it here is the whole of creating it. Its read
+      # policy is not, though — see `make e2e-up`.
+      - mkdir -p /data/spliit && exec minio server /data --address :9009
+    environment:
+      MINIO_ROOT_USER: spliit
+      MINIO_ROOT_PASSWORD: spliitspliit
+    ports:
+      - '9009:9009'
+    tmpfs:
+      - /data
+
+  # Opens the bucket for anonymous reads, which is what makes a stored document's URL a URL
+  # anybody can open — exactly what the real deployments do, and what the app assumes when it
+  # renders one. Behind a profile because it exits when it is finished, and `up --wait` treats a
+  # container that exits as one that failed; `make e2e-up` runs it separately.
+  s3-policy:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    profiles: ['setup']
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        until mc alias set e2e http://s3:9009 spliit spliitspliit >/dev/null 2>&1; do sleep 1; done;
+        mc mb --ignore-existing e2e/spliit;
+        mc anonymous set download e2e/spliit

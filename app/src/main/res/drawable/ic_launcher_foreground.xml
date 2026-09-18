@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The adaptive icon's foreground layer. Spliit has no bespoke brand mark yet — this is a
+     simple ring in the accent's foreground colour (white), confined to the safe zone (a 66dp
+     circle centred in the 108dp canvas) so it survives every launcher's own mask shape. It
+     closes the `MissingApplicationIcon` lint warning with something legible at launcher size,
+     not a coloured square standing in for a real gap. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,30 A24,24 0 1,1 53.99,30 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="10"
+        android:fillColor="#00000000" />
+</vector>

@@ -1,0 +1,1 @@
+{"error":{"json":{"message":"No procedure found on path \"groups.thisProcedureDoesNotExist\"","code":-32004,"data":{"code":"NOT_FOUND","httpStatus":404,"path":"groups.thisProcedureDoesNotExist"}}}}

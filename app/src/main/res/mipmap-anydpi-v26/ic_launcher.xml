@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Named -v26, not the unqualified `mipmap-anydpi` Android Lint's ObsoleteSdkInt suggests:
+     tried it, and AAPT refuses to resolve `@mipmap/ic_launcher` from an unqualified `anydpi`
+     folder (resource linking fails outright, "resource mipmap/ic_launcher not found"), even
+     though minSdk 26 makes the two folders equivalent at runtime. The version qualifier is
+     required by the resource *compiler*, not merely permitted by the *platform* — a case worth
+     recording since lint's own advice does not build. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>
