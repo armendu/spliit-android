@@ -13,6 +13,18 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+/**
+ * A signing variable that must be present and non-empty, or the build stops and says which one.
+ *
+ * Blank is treated as missing for the same reason as `SPLIIT_KEYSTORE_PATH` below: CI sets every
+ * one of these to "" when no keystore is configured, so "present" is not the same question as
+ * "has a value".
+ */
+private fun Project.required(name: String): String =
+    requireNotNull(providers.environmentVariable(name).orNull?.ifBlank { null }) {
+        "$name is empty or unset, but SPLIIT_KEYSTORE_PATH is set. Signing needs all four."
+    }
+
 android {
     namespace = "app.spliit.android"
 
@@ -70,13 +82,23 @@ android {
     // The keystore is read from a path, never checked in. `signingConfigs` is deliberately not
     // populated when the variables are missing, so a typo in one of them fails the build instead
     // of quietly falling back to a debug key on a release everyone assumed was properly signed.
-    val keystorePath = providers.environmentVariable("SPLIIT_KEYSTORE_PATH").orNull
+    //
+    // **`ifBlank` is not decoration.** An environment variable that is *set to the empty string*
+    // is not an absent one: `orNull` hands back "", the branch below is taken, and `file("")`
+    // fails the build with "Cannot convert '' to File". GitHub Actions cannot conditionally omit
+    // a key from an `env:` block, so the release workflow sets these to "" whenever no keystore
+    // secret is configured — which is the default state of a fresh fork, and which is exactly
+    // how the first real release build broke. Tested locally by *unsetting* the variable, which
+    // is the one case that was never going to reproduce it.
+    val keystorePath = providers.environmentVariable("SPLIIT_KEYSTORE_PATH").orNull?.ifBlank { null }
     if (keystorePath != null) {
         signingConfigs.create("release") {
             storeFile = file(keystorePath)
-            storePassword = providers.environmentVariable("SPLIIT_KEYSTORE_PASSWORD").get()
-            keyAlias = providers.environmentVariable("SPLIIT_KEY_ALIAS").get()
-            keyPassword = providers.environmentVariable("SPLIIT_KEY_PASSWORD").get()
+            // `required` rather than `.get()`: the failure names the variable, which is what
+            // makes a half-configured keystore diagnosable instead of a stack trace.
+            storePassword = required("SPLIIT_KEYSTORE_PASSWORD")
+            keyAlias = required("SPLIIT_KEY_ALIAS")
+            keyPassword = required("SPLIIT_KEY_PASSWORD")
         }
     }
 
