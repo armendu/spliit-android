@@ -249,7 +249,7 @@ fun GroupsListScreen(
                 is LoadState.Loaded -> if (current.value.isEmpty) {
                     CenteredScroll {
                         EmptyState(
-                            icon = "",
+                            // No `icon`: `art` below is what this one draws.
                             title = "A trip. A flat. Dinner with friends.",
                             description = "Create a group and Spliit keeps track of who paid, " +
                                 "so nobody has to run the numbers.",

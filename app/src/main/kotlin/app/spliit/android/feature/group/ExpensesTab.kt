@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.CategoryIcon
 import app.spliit.android.ui.design.DateHeader
@@ -96,7 +97,7 @@ internal fun ExpensesTab(
             if (page.expenses.isEmpty()) {
                 CenteredScroll {
                     EmptyState(
-                        icon = "",
+                        iconRes = R.drawable.ic_tab_expenses,
                         title = "No expenses yet",
                         description = "Add the first expense and Spliit will work out who owes what.",
                     )

@@ -1,7 +1,6 @@
 package app.spliit.android
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -93,17 +92,19 @@ class CreateGroupFlowTest {
         // useless here: the sheet still displays it in its own "Group name" field, so that wait
         // is satisfied instantly while the dashboard behind is still empty.
         rule.waitUntilGone(TestTags.GROUP_FORM_SHEET, timeoutMillis = 20_000)
-        rule.waitUntilExists(isGroupRow(), timeoutMillis = 20_000)
 
-        // The device is wiped by the install that precedes each run, so the group just created
-        // is the only one on the dashboard — hence `onNode` rather than picking one of several.
-        // A second row would mean the previous run's state survived, and every assertion below
-        // would be about the wrong group; `onNode` fails loudly on that rather than guessing.
-        // The row really is the one just created — checked here, on the dashboard, rather than
-        // after the tap: the group screen shows the same name in its app bar, so an assertion
-        // made afterwards would pass whichever row had been tapped.
-        rule.onNode(isGroupRow()).assert(hasText(name, substring = true))
-        rule.onNode(isGroupRow()).performClick()
+        // This group's row, not any row: a leftover from an earlier run would satisfy a wait on
+        // `isGroupRow()` the instant the sheet closed, and the click below would then race the
+        // dashboard reloading.
+        val row = isGroupRow() and hasText(name, substring = true)
+        rule.waitUntilExists(row, timeoutMillis = 20_000)
+
+        // Matched by name, not by being the only row. An earlier version of this took
+        // `onNode(isGroupRow())` on the assumption that reinstalling wipes the device — it does
+        // not: `adb install -r` keeps the app's data, so anything created by hand or by a run
+        // that failed half way is still on the dashboard, and the first row is then somebody
+        // else's group. Every assertion after that point would have been about the wrong one.
+        rule.onNode(row).performClick()
 
         // Each tab is opened, not merely present: three of the four fetch lazily, so a tab that
         // threw on its first load would otherwise go unnoticed.
