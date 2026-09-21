@@ -201,5 +201,5 @@ amount actually has a direction.
 
 ## Licence
 
-MIT, matching [Spliit](https://github.com/spliit-app/spliit) itself and the iOS app. The
-`LICENSE` file lands when this repo gets a remote.
+MIT, matching [Spliit](https://github.com/spliit-app/spliit) itself and the iOS app. See
+[LICENSE](LICENSE).
