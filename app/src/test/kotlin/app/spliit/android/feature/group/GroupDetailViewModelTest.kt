@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import app.spliit.core.RefreshLimiter
+import kotlin.time.Duration.Companion.seconds
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
@@ -682,6 +684,96 @@ class GroupDetailViewModelTest {
         assertTrue(page.activities[0].expenseStillExists)
         assertFalse(page.activities[1].expenseStillExists)
     }
+
+    // ---- rate limiting ------------------------------------------------------------------
+
+    /** A clock the test moves by hand, so none of this waits for real time to pass. */
+    private class FakeClock(var millis: Long = 0) {
+        operator fun invoke(): Long = millis
+    }
+
+    private fun routeWholeGroup() = route(
+        mapOf(
+            "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+            "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+            "groups.balances.list" to balancesListJson(""),
+        ),
+    )
+
+    @Test
+    fun `a second pull inside the window never reaches the server`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        routeWholeGroup()
+        val clock = FakeClock()
+        val viewModel = GroupDetailViewModel(
+            groupId = "g1",
+            recentGroupsStore = store,
+            refreshLimiter = RefreshLimiter(5.seconds, clock::invoke),
+        )
+
+        viewModel.refresh()
+        val afterLoad = server.requestCount
+
+        // The first pull consumes the window.
+        viewModel.refreshInPlace()
+        val afterAllowed = server.requestCount
+        assertTrue(afterAllowed > afterLoad, "the first pull should have fetched")
+
+        clock.millis = 1_000
+        viewModel.refreshInPlace()
+        assertEquals(afterAllowed, server.requestCount, "the refused pull should fetch nothing")
+
+        // And once the window has passed, pulling works again — a limiter that latched shut
+        // would satisfy the assertion above and still be a bug.
+        clock.millis = 10_000
+        viewModel.refreshInPlace()
+        assertTrue(server.requestCount > afterAllowed, "a pull after the window should fetch")
+    }
+
+    @Test
+    fun `a refused pull does not leave the spinner turning`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        routeWholeGroup()
+        val limiter = RefreshLimiter(5.seconds, FakeClock()::invoke)
+        limiter.allow() // consumed, so the pull below is refused
+        val viewModel = GroupDetailViewModel(
+            groupId = "g1",
+            recentGroupsStore = store,
+            refreshLimiter = limiter,
+        )
+
+        viewModel.refreshInPlace()
+
+        // PullToRefreshBox keeps its indicator up until the state says otherwise, so a dropped
+        // refresh that left this true would spin over nothing until the user navigated away.
+        assertFalse(viewModel.state.value.isRefreshing)
+    }
+
+    @Test
+    fun `a write clears the limiter, so the reload it triggers is never dropped`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        routeWholeGroup()
+        val limiter = RefreshLimiter(5.seconds, FakeClock()::invoke)
+        limiter.allow()
+        val viewModel = GroupDetailViewModel(
+            groupId = "g1",
+            recentGroupsStore = store,
+            refreshLimiter = limiter,
+        )
+        viewModel.refresh()
+        val before = server.requestCount
+
+        // Editing an expense and immediately pulling must not be refused: the screen is known to
+        // be stale, which is the case the window's reasoning does not cover.
+        viewModel.applyExpenseChange()
+        viewModel.refreshInPlace()
+
+        assertTrue(server.requestCount > before)
+    }
+
 }
 
 /** Two rows: one whose expense is still there, one whose expense has been deleted — which is the

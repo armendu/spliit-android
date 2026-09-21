@@ -1,0 +1,156 @@
+# Cutting a release: a tag in, a downloadable APK out.
+#
+# Trigger it by pushing an annotated tag whose name is `v` plus the version in
+# gradle/libs.versions.toml — `git tag -a v0.1.0 -m '…' && git push origin v0.1.0`. The job
+# below refuses to build if those two disagree, because the failure it prevents is silent: a
+# release page saying v0.2.0 whose APK reports 0.1.0 under Settings > Apps, and no way to tell
+# which is wrong six months later.
+#
+# `workflow_dispatch` is here for re-running a release whose upload failed after the build
+# succeeded. It builds from whatever ref you choose and does not create a release; the APK comes
+# out as a workflow artifact instead.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+# The default GITHUB_TOKEN is read-only on this repository's settings. Creating a release needs
+# write, and this is scoped to the one job rather than the workflow's default.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Identical to ci.yml's, and for the same reasons — see the long note there about why the
+      # platform is installed explicitly and why cmdline-tools is pinned to 20.0.
+      - uses: android-actions/setup-android@v4
+        with:
+          cmdline-tools-version: 14742923
+          packages: 'platform-tools platforms;android-37.1 build-tools;37.0.0'
+          accept-android-sdk-licenses: 'true'
+
+      - name: Verify the SDK has the platform this project compiles against
+        run: |
+          test -d "$ANDROID_HOME/platforms/android-37.1" || {
+            echo "::error::android-37.1 was not installed."
+            exit 1
+          }
+
+      # Read once, here, and reused by every step below — so "what version is this?" has one
+      # answer in this workflow too, not one per step.
+      - name: Read the version the build will stamp
+        id: version
+        run: |
+          version=$(grep -E '^appVersionName = ' gradle/libs.versions.toml | cut -d'"' -f2)
+          code=$(grep -E '^appVersionCode = ' gradle/libs.versions.toml | cut -d'"' -f2)
+          if [ -z "$version" ] || [ -z "$code" ]; then
+            echo "::error::Could not read appVersionName/appVersionCode from gradle/libs.versions.toml"
+            exit 1
+          fi
+          echo "name=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "Building $version ($code)"
+
+      - name: Check the tag and the version agree
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          expected="v${{ steps.version.outputs.name }}"
+          if [ "$tag" != "$expected" ]; then
+            echo "::error::Tag $tag does not match the app version ($expected). Update"
+            echo "::error::appVersionName in gradle/libs.versions.toml, or retag."
+            exit 1
+          fi
+
+      # The suite runs before anything is published. A release is the one build where "the tests
+      # were green on main" is not a good enough answer.
+      - run: make test
+      - run: make lint
+
+      # Present only when the four secrets are configured. Absent, the build falls back to the
+      # debug key — see app/build.gradle.kts for what that costs — and the release notes below
+      # say so plainly rather than letting somebody assume otherwise.
+      - name: Decode the signing keystore, if one is configured
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SPLIIT_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No SPLIIT_KEYSTORE_BASE64 secret; this APK will carry the debug key."
+          fi
+
+      - name: Assemble the release APK
+        env:
+          SPLIIT_KEYSTORE_PATH: ${{ steps.signing.outputs.signed == 'true' && format('{0}/release.jks', runner.temp) || '' }}
+          SPLIIT_KEYSTORE_PASSWORD: ${{ secrets.SPLIIT_KEYSTORE_PASSWORD }}
+          SPLIIT_KEY_ALIAS: ${{ secrets.SPLIIT_KEY_ALIAS }}
+          SPLIIT_KEY_PASSWORD: ${{ secrets.SPLIIT_KEY_PASSWORD }}
+        run: make apk-release
+
+      # Named for the version rather than left as app-release.apk, so a download sitting in
+      # somebody's folder still says what it is.
+      - name: Name the APK after the version
+        id: apk
+        run: |
+          out="spliit-${{ steps.version.outputs.name }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$out"
+          sha=$(sha256sum "$out" | cut -d' ' -f1)
+          echo "path=$out" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+
+      # Always uploaded, tag or not — this is what makes a manual run useful.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.path }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+
+      # `gh` rather than a third-party release action: it is already on the runner, it is the
+      # tool the repo's own house rule about dependencies would pick, and there is nothing here
+      # an action would do for us that one command does not.
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
+        run: |
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            echo "Spliit for Android ${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }})."
+            echo
+            echo "Download \`${{ steps.apk.outputs.path }}\` below and open it on the device."
+            echo "Android will ask you to allow installing from this source the first time."
+            echo
+            if [ "$SIGNED" != "true" ]; then
+              echo "> **This build is signed with a debug key.** It installs and runs, but Android"
+              echo "> identifies an app by its signature, so it cannot upgrade a copy installed from"
+              echo "> a differently-signed build — uninstall the old one first. Configure the"
+              echo "> \`SPLIIT_KEYSTORE_*\` repository secrets to publish properly signed releases."
+              echo
+            fi
+            echo "SHA-256: \`${{ steps.apk.outputs.sha256 }}\`"
+          } > "$notes"
+
+          gh release create "${GITHUB_REF#refs/tags/}" \
+            "${{ steps.apk.outputs.path }}" \
+            --title "Spliit for Android ${{ steps.version.outputs.name }}" \
+            --notes-file "$notes" \
+            ${{ steps.signing.outputs.signed != 'true' && '--prerelease' || '' }}

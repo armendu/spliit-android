@@ -520,10 +520,25 @@ private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab)
  *
  * Icons are not optional here the way they are in a `TabRow`: a `NavigationBar` item is drawn
  * icon-above-label, and the component reserves the icon slot whether or not one is supplied.
+ *
+ * **Transparent, not `surfaceContainer`.** M3's default container is a tone lighter than this
+ * app's background, which drew the bar as a pale band with the system navigation area below it
+ * in a third shade — three horizontal stripes at the bottom of a screen whose whole point is the
+ * list above them. Transparent lets the one background run from the last expense row to the
+ * bottom of the display, which is also what the status bar already does at the other end (see
+ * MainActivity's note on why both system bars are transparent).
+ *
+ * Nothing is lost to legibility, because nothing scrolls underneath: `Scaffold` measures this bar
+ * and hands its height to the content as padding, so the list stops above it rather than running
+ * beneath. The selected item keeps its own `secondaryContainer` pill, which is what marks the
+ * current tab once the bar itself has no edge.
  */
 @Composable
 private fun GroupBottomBar(selected: GroupDetailTab, onSelect: (GroupDetailTab) -> Unit) {
-    NavigationBar(modifier = Modifier.testTag(TestTags.GROUP_DETAIL_BOTTOM_BAR)) {
+    NavigationBar(
+        containerColor = Color.Transparent,
+        modifier = Modifier.testTag(TestTags.GROUP_DETAIL_BOTTOM_BAR),
+    ) {
         for (tab in GroupDetailTab.entries) {
             NavigationBarItem(
                 selected = tab == selected,

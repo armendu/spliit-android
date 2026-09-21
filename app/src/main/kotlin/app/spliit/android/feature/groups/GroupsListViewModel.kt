@@ -11,6 +11,7 @@ import app.spliit.core.LoadState
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
 import app.spliit.core.RecentGroupsStore
+import app.spliit.core.RefreshLimiter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -86,6 +87,8 @@ data class PendingRemoval(val groupId: String, val groupName: String)
 class GroupsListViewModel(
     private val recentGroupsStore: RecentGroupsStore,
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
+    /** Injected so the tests can drive its clock — see RefreshLimiter. */
+    private val refreshLimiter: RefreshLimiter = RefreshLimiter(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<LoadState<GroupsDashboard>>(LoadState.Loading)
@@ -130,7 +133,18 @@ class GroupsListViewModel(
         refreshJob = viewModelScope.launch { refresh() }
     }
 
-    fun retry() = load()
+    /**
+     * Rate-limited, unlike [load].
+     *
+     * This screen has no pull gesture, so the button beside a failure is the only thing a user
+     * can repeat — and it is the most expensive thing in the app when they do, because it fans
+     * out one request per stored group. [load] itself is left alone: it runs once per composition
+     * and is not something anybody can hammer.
+     */
+    fun retry() {
+        if (!refreshLimiter.allow()) return
+        load()
+    }
 
     /** Stamps [groupId] as just-opened, so it sorts to the top next time the list loads. */
     fun onGroupOpened(groupId: String) {

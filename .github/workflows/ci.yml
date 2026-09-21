@@ -68,6 +68,22 @@ jobs:
       - run: make build
       - run: make lint
 
+      # Every build's APK, downloadable from the run's own page for as long as GitHub keeps
+      # it. This is the "latest build" answer for anyone who wants to try a change before it is
+      # tagged — a tagged release (see release.yml) is the durable one.
+      #
+      # The *debug* APK, deliberately: it is what `make build` already produced a step ago, so
+      # this costs nothing, and a debug build is what somebody testing an unreleased change
+      # should be running anyway. Note GitHub wraps artifacts in a zip, so this downloads as
+      # spliit-debug-<sha>.zip with the APK inside.
+      - name: Upload this build's APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: spliit-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
+
       # The one thing worth keeping when a build fails: which test, and what it expected.
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -76,6 +92,7 @@ jobs:
           path: |
             api/build/reports/tests/
             core/build/reports/tests/
+            app/build/reports/tests/
             app/build/reports/lint-results-debug.html
           if-no-files-found: ignore
 
@@ -89,6 +106,11 @@ jobs:
   #
   # Only a job pointed at the real, current server can see that coming. It runs nightly rather
   # than per-push because it is watching someone else's deploy schedule, not ours.
+  #
+  # `make test-live` carries ApiContractDriftTest, which is the part that answers *what*
+  # changed rather than merely that something did: it compares the shape of every live response
+  # against the recorded fixture and names each field that appeared, vanished or changed type.
+  # Read the failure message itself — it is written to be the whole report.
   upstream-drift:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest

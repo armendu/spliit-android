@@ -15,6 +15,7 @@ import app.spliit.core.DateBucket
 import app.spliit.core.MoneyFormatter
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsStore
+import app.spliit.core.RefreshLimiter
 import app.spliit.core.LoadState
 import java.time.Clock
 import java.time.Instant
@@ -215,6 +216,8 @@ class GroupDetailViewModel(
     private val recentGroupsStore: RecentGroupsStore,
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
     private val clock: Clock = Clock.systemDefaultZone(),
+    /** Injected so the tests can drive its clock — see RefreshLimiter. */
+    private val refreshLimiter: RefreshLimiter = RefreshLimiter(),
 ) : ViewModel() {
 
     private companion object {
@@ -262,7 +265,12 @@ class GroupDetailViewModel(
         load()
     }
 
-    fun retry() = load()
+    /** Also limited: an error puts a button on screen, and a button beside an error message is
+     *  the other thing people tap repeatedly. */
+    fun retry() {
+        if (!refreshLimiter.allow()) return
+        load()
+    }
 
     /**
      * Everything on this screen again, without the skeletons — the pull-to-refresh gesture.
@@ -282,6 +290,18 @@ class GroupDetailViewModel(
     /** The work behind [pullToRefresh] — public, like [refresh], so tests drive it without a
      *  Main-dispatcher rule. */
     suspend fun refreshInPlace() {
+        // The rate limit lives on the work rather than on [pullToRefresh], for two reasons. It
+        // covers every caller instead of the one launcher, and it is reachable from a test:
+        // `viewModelScope` dispatches on Main, which the JVM suites deliberately do not install
+        // — a check inside the launcher is a check nothing can assert on.
+        //
+        // `isRefreshing` is cleared on the way out because PullToRefreshBox keeps its indicator
+        // up until the callback returns; dropping the work without this leaves a spinner
+        // turning over nothing.
+        if (!refreshLimiter.allow()) {
+            _state.update { it.copy(isRefreshing = false) }
+            return
+        }
         val baseUrl = resolvedInstanceBaseUrl ?: return refresh()
         _state.update { it.copy(isRefreshing = true) }
         try {
@@ -577,6 +597,10 @@ class GroupDetailViewModel(
     /** The work behind [reloadAfterExpenseChange] — public for the same reason as
      *  [applySavedExpense]. */
     suspend fun applyExpenseChange() {
+        // Never rate-limited, and it clears the window as well: something was just written, so
+        // what is on screen is known to be stale, and a pull immediately afterwards is asking
+        // about the change rather than repeating a gesture.
+        refreshLimiter.reset()
         val baseUrl = resolvedInstanceBaseUrl ?: return
         val client = clientFactory(baseUrl)
         coroutineScope {

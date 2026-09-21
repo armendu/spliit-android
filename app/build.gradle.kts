@@ -27,8 +27,12 @@ android {
         // The iOS bundle ID is not reused: there is no Play listing to update in place.
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        // What `connectedDebugAndroidTest` launches the instrumented suite with.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Both from the version catalogue, like every other version in this build — see
+        // CLAUDE.md. The release workflow reads the same two lines to check the git tag agrees.
+        versionCode = libs.versions.appVersionCode.get().toInt()
+        versionName = libs.versions.appVersionName.get()
 
         // Where a link that names no server — a bare group ID — is looked up, and what the "add
         // by link" placeholder is built from. `spliit.baseUrl` is the property CLAUDE.md reserves
@@ -44,6 +48,52 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // How a downloadable APK gets signed.
+    //
+    // Android will not install an unsigned APK, so a release build with no signing config is a
+    // file nobody can use. Two ways in, and which one applies is decided by whether the
+    // environment carries a keystore:
+    //
+    //   * **A real key**, from the four SPLIIT_KEYSTORE_* variables. The release workflow sets
+    //     them from repository secrets. This is what a build anyone is expected to *upgrade*
+    //     rather than reinstall has to use, because Android identifies an app by its signature:
+    //     two APKs signed by different keys are different apps as far as the installer is
+    //     concerned, however identical their contents.
+    //
+    //   * **The debug key**, when those are absent. Good enough to sideload and try, and it
+    //     means `make apk` produces something installable on a fresh clone with no setup at
+    //     all. Not good enough to ship from twice: the debug keystore is generated per machine
+    //     (and per CI run), so consecutive releases signed this way cannot replace each other.
+    //     The release workflow marks such a build clearly rather than passing it off.
+    //
+    // The keystore is read from a path, never checked in. `signingConfigs` is deliberately not
+    // populated when the variables are missing, so a typo in one of them fails the build instead
+    // of quietly falling back to a debug key on a release everyone assumed was properly signed.
+    val keystorePath = providers.environmentVariable("SPLIIT_KEYSTORE_PATH").orNull
+    if (keystorePath != null) {
+        signingConfigs.create("release") {
+            storeFile = file(keystorePath)
+            storePassword = providers.environmentVariable("SPLIIT_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("SPLIIT_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("SPLIIT_KEY_PASSWORD").get()
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+
+            // R8 is off for 0.1.0, on purpose rather than by oversight. Compose, kotlinx
+            // -serialization and the reflection-free DTOs here would each need their own keep
+            // rules, and an APK that shrinks correctly in every screen is something to verify
+            // with the instrumented suite on a device — not to switch on in the same change that
+            // first makes releases downloadable. The APK is a few megabytes either way.
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -99,6 +149,17 @@ dependencies {
     // rather than hand-rolling a fake transport — the same reasoning :api's own tests follow.
     testImplementation(libs.okhttp.mockwebserver)
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    // The instrumented suite. On a device, so JUnit4 and AndroidJUnitRunner — `useJUnitPlatform`
+    // above applies to unit tests only, and Compose's test rules are JUnit4 rules regardless.
+    // The BOM versions the two Compose artifacts, same as the implementation ones.
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    // Supplies the empty Activity that `createAndroidComposeRule` launches into. debug-only
+    // because it contributes a manifest entry that has no business in a release APK.
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
 // The same guard :api and :core carry, pointed at AGP's task name. This module's suites ran

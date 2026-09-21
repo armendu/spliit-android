@@ -219,6 +219,33 @@ that installs nothing, and the failure surfaces much later as an AGP complaint a
 `compileSdk`. CI asserts the platform directory exists afterwards; do the same for anything
 else it installs.
 
+**Refreshing is rate-limited, and the limit is on the work rather than the launcher.**
+`RefreshLimiter` allows one refresh per five seconds; pull-to-refresh and the retry buttons go
+through it, and first loads, lazily-opened tabs and write-triggered reloads do not — those happen
+once and must not be dropped. The check sits inside `refreshInPlace`/`applyExpenseChange`, not
+inside `pullToRefresh`, for a reason worth keeping: `viewModelScope` dispatches on Main, which the
+JVM suites deliberately do not install, so anything guarded inside the launcher is guarded where
+no unit test can reach it. Two things travel with this. A refused refresh must still clear
+`isRefreshing`, because `PullToRefreshBox` keeps its indicator up until the callback returns — drop
+the work without clearing it and the spinner turns over nothing. And a write **resets** the
+limiter: the screen is known to be stale, so the "you just asked" reasoning does not apply.
+
+**A fixture that still decodes is not a contract that still holds.** `ApiContractDriftTest`
+(`@Tag("live")`) compares the *shape* of every live response against its recorded fixture and
+names each field that appeared, vanished or changed type. The decode tests cannot do this: a model
+that declares a field optional accepts its disappearance silently, which is exactly how the
+`groups.stats` rename stayed green. Empty lists, nulls and superjson's `meta` are ignored on
+purpose — they describe how much data exists, not the contract — and `balances` is compared by its
+values because its keys are server-generated participant IDs. When a change is real, `make
+fixtures` re-records and the diff in that commit is the changelog.
+
+**Participant rows on the group form are sorted by name, so a row moves as you type into it.**
+`GroupFormDraft.sortedParticipants` re-sorts on every keystroke, which means a UI test that
+addresses `group_form_participant_field_1` because it was the second row added will type into
+whichever row is second *now*. The symptom is not a wrong name: it is the create sheet never
+closing, because the row left blank fails validation. The instrumented suite addresses the row by
+what is in it instead — see `blankParticipantFieldTag`.
+
 **Never write an unbounded scroll loop in a UI test.** On iOS that turned a missing element into
 a CI job that swiped for forty minutes. Bound the loop and assert.
 

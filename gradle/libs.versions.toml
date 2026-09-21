@@ -17,6 +17,15 @@ compileSdkMinor = "1"
 minSdk = "26"
 targetSdk = "37"
 
+# The app's own version — the one a release is tagged with and the one a downloaded APK reports
+# under Settings > Apps. `appVersionName` is the human one and must match the `vX.Y.Z` git tag a
+# release is cut from; .github/workflows/release.yml refuses to build if the two disagree, which
+# is what stops a tag saying one thing and the installed app another. `appVersionCode` is the
+# integer Android compares when deciding whether an APK is an upgrade, so it only ever goes up —
+# including for a release that changes nothing else.
+appVersionName = "0.1.0"
+appVersionCode = "1"
+
 # :api — the tRPC transport. OkHttp stands in for URLSession, kotlinx-serialization for Codable.
 okhttp = "5.5.0"
 kotlinxSerialization = "1.11.0"
@@ -24,6 +33,11 @@ kotlinxCoroutines = "1.11.0"
 
 # Tests. JUnit 6 on the JUnit Platform, run by Gradle's useJUnitPlatform().
 junit = "6.1.3"
+# The instrumented suite, which runs on a device and therefore on JUnit4 + AndroidJUnitRunner
+# rather than the JUnit Platform the JVM suites use. Compose's own test artifact takes its
+# version from the Compose BOM, like every other Compose dependency here.
+androidxTestJunit = "1.2.1"
+androidxTestRunner = "1.6.2"
 
 # :app — Compose and the AndroidX pieces around it.
 composeBom = "2026.09.00"
@@ -42,6 +56,10 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 # --- tests --------------------------------------------------------------------------------
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
 # Versioned with OkHttp itself, so it always speaks the same HTTP stack the client does.
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version.ref = "okhttp" }

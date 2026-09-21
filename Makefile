@@ -2,6 +2,7 @@
 #
 #   make test      every JVM unit suite (no emulator)
 #   make build     assemble the debug APK
+#   make apk-release  assemble the release APK a GitHub release ships
 #   make lint      Android Lint
 #   make e2e       the instrumented suite against the shared server
 #   make run       install and launch the debug APK on the running emulator
@@ -45,7 +46,7 @@ E2E_URL      ?= http://10.0.2.2:3009/
 E2E_HOST_URL ?= http://localhost:3009/
 
 .DEFAULT_GOAL := help
-.PHONY: help test build lint test-live e2e e2e-up e2e-down e2e-seed fixtures emulator run shot clean
+.PHONY: help test build apk-release lint test-live e2e e2e-up e2e-down e2e-seed fixtures emulator run shot clean
 
 help: ## List these targets
 	@grep -E '^[a-z0-9-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -64,6 +65,14 @@ test: ## Fast unit tests — every JVM suite, no emulator
 
 build: ## Assemble the debug APK
 	@$(GRADLE) :app:assembleDebug
+
+# The downloadable one. Signed with a real key when the four SPLIIT_KEYSTORE_* variables are in
+# the environment and with the debug key otherwise — app/build.gradle.kts explains the trade. It
+# is a separate target from `build` because a release build is slower and is not what you want
+# while working; `make run` deliberately keeps installing the debug APK.
+apk-release: ## Assemble the release APK (the one a GitHub release ships)
+	@$(GRADLE) :app:assembleRelease
+	@echo "Wrote app/build/outputs/apk/release/app-release.apk"
 
 lint: ## Android Lint
 	@$(GRADLE) lint
