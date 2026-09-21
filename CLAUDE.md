@@ -9,11 +9,39 @@ yet. Adding something the spec for this cycle does not list is not being helpful
 
 ## How work happens here
 
-There is no remote yet, so cycle 1 lands on the branch directly. The iOS repo's rule — nothing
-commits to `main`, every change arrives through a worktree and a pull request — is adopted the
-moment a remote exists, and is worth adopting early rather than retrofitting.
-
 Commits in this repo need `-c commit.gpgsign=false --no-verify`; signing and hooks hang here.
+
+### Commit messages
+
+**[Conventional Commits](https://www.conventionalcommits.org).** The same format the docs
+vault uses, so one habit covers both:
+
+```
+type(scope): summary in the imperative, lower case, no full stop
+```
+
+`type` is one of **feat, fix, docs, test, build, ci, refactor, perf, chore, revert**. `scope` is
+the part of the repo it lands in — **api, core, app, build, ci, design, e2e** — and is left off
+when a change spans everything. Keep the subject under about 72 characters.
+
+```
+fix(build): treat blank signing variables as unset
+docs: rewrite the README for people who just want the app
+feat(core): rate-limit refreshing
+```
+
+**A body is for *why*, and only when why is not obvious.** A one-line change does not need one;
+a decision, a trap, or a bug whose cause is not visible in the diff does. That is the same rule
+the code comments follow — see *Style* at the bottom of this file. What the change does is
+already in the diff.
+
+`git config commit.template .gitmessage` puts the format in front of you while you write.
+
+Nothing enforces this in a hook, deliberately: hooks hang in this repo, which is why every
+commit here passes `--no-verify` anyway. It is a convention people keep, not a gate.
+
+Commits made before this was written do not follow it, and are left alone — they are pushed, and
+rewriting shared history to tidy up message formatting is a bad trade.
 
 ## Commands
 

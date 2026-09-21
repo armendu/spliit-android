@@ -1,0 +1,11 @@
+# <type>(<scope>): <summary in the imperative, lower case, no full stop>
+#
+# Types:  feat fix docs test build ci refactor perf chore revert
+# Scopes: api core app build ci design e2e  (omit if it spans everything)
+#
+# Keep the subject under ~72 characters. Then leave a blank line and explain
+# WHY, if why is not obvious. Skip the body entirely for a one-line change.
+#
+#   fix(app): stop the empty state drawing a tile with nothing in it
+#   docs: rewrite the README for people who just want the app
+#   feat(core): rate-limit refreshing
