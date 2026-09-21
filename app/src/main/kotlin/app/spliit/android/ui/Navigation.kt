@@ -3,6 +3,9 @@ package app.spliit.android.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +43,16 @@ import app.spliit.core.RecentGroupsStore
  */
 object Routes {
     const val GROUPS = "groups"
-    const val GROUP_FORM = "groups/form"
+
+    /**
+     * Editing an existing group — "Edit group", from the group screen's overflow menu.
+     *
+     * There is no create route any more. Creating a group is a sheet over the dashboard (see
+     * [app.spliit.android.feature.groups.CreateGroupSheet]), which is also what made this route
+     * necessary: [app.spliit.android.feature.groups.GroupFormScreen] has supported EDIT since
+     * Part 10, and the only way in was `groups/form` with no id, so editing was unreachable.
+     */
+    const val GROUP_EDIT = "groups/{groupId}/edit"
     const val GROUP_DETAIL = "groups/{groupId}"
 
     // Three ways into one screen — iOS's `createExpense`, `editExpense(id)` and
@@ -55,12 +67,25 @@ object Routes {
     const val EXPENSE_FORM_CREATE = "groups/{groupId}/expenses/new"
     const val EXPENSE_FORM_SETTLE = "groups/{groupId}/settle/{from}/{to}/{amount}"
     const val SETTINGS = "settings"
-    const val CURRENCY_PICKER = "settings/currency"
     const val ACTIVE_USER_PICKER = "groups/{groupId}/active-user"
 
     fun groupDetail(groupId: String) = "groups/$groupId"
 
+    fun groupEdit(groupId: String) = "groups/$groupId/edit"
+
     fun expenseFormCreate(groupId: String) = "groups/$groupId/expenses/new"
+
+    /**
+     * Results a form hands back to the group screen it was opened from, through the previous
+     * back-stack entry's `SavedStateHandle`.
+     *
+     * The group screen no longer reloads on its way back into composition — that is the whole
+     * point of `loadIfNeeded` — so a full-screen form that *did* write something has to say so.
+     * Two keys rather than one, because the two invalidate opposite things: an expense cannot
+     * change the group, and a group edit does not move a single amount.
+     */
+    const val RESULT_EXPENSES_CHANGED = "result_expenses_changed"
+    const val RESULT_GROUP_CHANGED = "result_group_changed"
 
     /** @param amountMinorUnits the suggested payment, in the group's minor units. */
     fun expenseFormSettle(groupId: String, from: String, to: String, amountMinorUnits: Long) =
@@ -113,28 +138,49 @@ fun SpliitNavHost(
                     viewModelFactory { initializer { AddGroupByUrlViewModel(recentGroupsStore) } }
                 },
             )
-            GroupsListScreen(
-                viewModel = viewModel,
-                addGroupViewModel = addGroupViewModel,
-                onGroupClick = { navController.navigate(Routes.groupDetail(it.groupId)) },
-                onCreateGroup = { navController.navigate(Routes.GROUP_FORM) },
-                // The settings screen itself is Part 13; this route is already a wired stub.
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-            )
-        }
-
-        composable(Routes.GROUP_FORM) {
-            val viewModel: GroupFormViewModel = viewModel(
+            // Creating a group is a sheet over this screen rather than a destination — see
+            // CreateGroupSheet — so its ViewModel is scoped to this entry alongside the
+            // dashboard's, and reset each time the sheet opens (which is also where the current
+            // default instance is read).
+            val createGroupViewModel: GroupFormViewModel = viewModel(
                 factory = remember {
                     viewModelFactory {
                         initializer {
                             GroupFormViewModel(
                                 mode = GroupFormMode.CREATE,
                                 groupId = null,
-                                // The *current* default — Settings can have changed it since the
-                                // app launched, and this factory re-runs fresh every time "Create
-                                // group" is navigated to (unlike the groups list's own long-lived
-                                // ViewModel), so reading the holder here is always up to date.
+                                instanceBaseUrl = AppSettingsHolder.defaultInstanceBaseUrl,
+                                recentGroupsStore = recentGroupsStore,
+                            )
+                        }
+                    }
+                },
+            )
+            GroupsListScreen(
+                viewModel = viewModel,
+                addGroupViewModel = addGroupViewModel,
+                createGroupViewModel = createGroupViewModel,
+                onGroupClick = { navController.navigate(Routes.groupDetail(it.groupId)) },
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+            )
+        }
+
+        composable(Routes.GROUP_EDIT) { backStackEntry ->
+            val groupId = checkNotNull(backStackEntry.arguments?.getString("groupId"))
+            val viewModel: GroupFormViewModel = viewModel(
+                key = groupId,
+                factory = remember(groupId) {
+                    viewModelFactory {
+                        initializer {
+                            GroupFormViewModel(
+                                mode = GroupFormMode.EDIT,
+                                groupId = groupId,
+                                // Which server the group is on is a fact about the group, not a
+                                // default: EDIT resolves it from the stored row rather than from
+                                // the app's current default, which a self-hosted group would not
+                                // be on. Handed in here because the ViewModel's constructor takes
+                                // it; the form offers no field to change it (a group cannot move
+                                // servers).
                                 instanceBaseUrl = AppSettingsHolder.defaultInstanceBaseUrl,
                                 recentGroupsStore = recentGroupsStore,
                             )
@@ -144,11 +190,15 @@ fun SpliitNavHost(
             )
             GroupFormScreen(
                 viewModel = viewModel,
-                // Back to the list, where the group just created now shows up.
-                onSaved = { navController.popBackStack() },
+                onSaved = {
+                    // The group screen behind this does not reload on its way back — see
+                    // GroupDetailViewModel.loadIfNeeded — so the one thing that did change is
+                    // announced rather than re-read speculatively.
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle?.set(Routes.RESULT_GROUP_CHANGED, true)
+                    navController.popBackStack()
+                },
                 onCancel = { navController.popBackStack() },
-                // The real picker is Part 13; this route is already a wired stub (below).
-                onPickCurrency = { navController.navigate(Routes.CURRENCY_PICKER) },
             )
         }
 
@@ -163,10 +213,32 @@ fun SpliitNavHost(
                     viewModelFactory { initializer { GroupDetailViewModel(groupId, recentGroupsStore) } }
                 },
             )
+            // What a full-screen form did while this screen was off the stack. The group screen
+            // no longer reloads on its way back into composition, so the two results below are
+            // how it learns — and each invalidates only what its own form could have changed.
+            val savedStateHandle = backStackEntry.savedStateHandle
+            val expensesChanged by savedStateHandle
+                .getStateFlow(Routes.RESULT_EXPENSES_CHANGED, false)
+                .collectAsState()
+            LaunchedEffect(expensesChanged) {
+                if (!expensesChanged) return@LaunchedEffect
+                savedStateHandle[Routes.RESULT_EXPENSES_CHANGED] = false
+                viewModel.reloadAfterExpenseChange()
+            }
+            val groupChanged by savedStateHandle
+                .getStateFlow(Routes.RESULT_GROUP_CHANGED, false)
+                .collectAsState()
+            LaunchedEffect(groupChanged) {
+                if (!groupChanged) return@LaunchedEffect
+                savedStateHandle[Routes.RESULT_GROUP_CHANGED] = false
+                viewModel.groupEdited()
+            }
+
             GroupDetailScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onAddExpense = { navController.navigate(Routes.expenseFormCreate(groupId)) },
+                onEditGroup = { navController.navigate(Routes.groupEdit(groupId)) },
                 // Editing is a sheet over this screen, not a destination — hence a ViewModel
                 // handed in rather than a route navigated to. Scoped to this nav entry and keyed
                 // on the expense, so it outlives the sheet: the undo offered after a delete is
@@ -233,9 +305,6 @@ fun SpliitNavHost(
             )
             SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
-        composable(Routes.CURRENCY_PICKER) {
-            Placeholder(icon = "CU", title = "Currency", part = "Part 13")
-        }
         composable(Routes.ACTIVE_USER_PICKER) {
             Placeholder(icon = "AU", title = "Who are you?", part = "Part 13")
         }
@@ -264,9 +333,21 @@ private fun ExpenseForm(
             }
         },
     )
-    // Back to the group, which reloads on its way into composition — so a saved, deleted or
-    // undone expense is already reflected in both the list and the balances.
-    ExpenseFormScreen(viewModel = viewModel, onClose = { navController.popBackStack() })
+    ExpenseFormScreen(
+        viewModel = viewModel,
+        onClose = {
+            // The group screen behind this no longer reloads on its way back into composition,
+            // so a write has to announce itself. Read from the ViewModel rather than taken as a
+            // parameter, because `onClose` fires for a cancel as well as for a save, and a
+            // cancelled form must not cost the group a round of requests.
+            val current = viewModel.state.value
+            if (current.savedExpenseId != null || current.deleted != null) {
+                navController.previousBackStackEntry
+                    ?.savedStateHandle?.set(Routes.RESULT_EXPENSES_CHANGED, true)
+            }
+            navController.popBackStack()
+        },
+    )
 }
 
 @Composable

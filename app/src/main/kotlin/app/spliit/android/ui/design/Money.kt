@@ -64,6 +64,23 @@ enum class MoneySign {
 
     /** A zero balance — the absence of the axis, not a third point on it. */
     SETTLED,
+
+    /**
+     * An expense amount in a list — `primary`, the brand green.
+     *
+     * **Not a direction, and deliberately not on the ledger axis.** DESIGN.md §4: an expense has
+     * no sign to carry, so it never takes [POSITIVE] or [NEGATIVE] whatever its value; it takes
+     * the brand colour because the amount is what people scan a ledger for and in `on-surface`
+     * it is the same colour as the title beside it. That costs a little of the rule that colour
+     * means direction, and it holds only because the two never share a screen — the expense list
+     * has no balances in it and the balances tab has no expense rows. **Putting an expense
+     * amount and a balance in one view is the case this does not cover.**
+     *
+     * One tier, unlike the ledger pair: `primary` is `#006948` in light (6.74:1 on the canvas)
+     * and the lightened `PrimaryDark` in dark, both of which clear the body-text threshold — so
+     * there is no size below which this has to darken.
+     */
+    EXPENSE,
     ;
 
     companion object {
@@ -94,6 +111,7 @@ private fun MoneySign.tint(size: MoneySize): Color {
         MoneySign.POSITIVE -> if (useLargeTier) colors.moneyPositiveLarge else colors.moneyPositiveText
         MoneySign.NEGATIVE -> if (useLargeTier) colors.moneyNegativeLarge else colors.moneyNegativeText
         MoneySign.SETTLED -> MaterialTheme.colorScheme.onSurfaceVariant
+        MoneySign.EXPENSE -> MaterialTheme.colorScheme.primary
     }
 }
 

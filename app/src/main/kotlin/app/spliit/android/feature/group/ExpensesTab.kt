@@ -32,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +43,7 @@ import app.spliit.android.ui.design.CategoryIcon
 import app.spliit.android.ui.design.DateHeader
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.Money
+import app.spliit.android.ui.design.MoneySign
 import app.spliit.android.ui.design.MoneySize
 import app.spliit.api.ExpenseListItem
 import app.spliit.core.LoadState
@@ -202,22 +205,51 @@ internal fun ExpenseRow(
                 modifier = Modifier.testTag(TestTags.expenseRowTitle(expense.id)),
             )
             Spacer(Modifier.height(2.dp))
-            Text(
-                text = paidForDescription(expense),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.testTag(TestTags.expenseRowPaidBy(expense.id)),
-            )
+            // Two facts, two lines. Run together as "Paid by Ana for Ana, Bruno and Chloé" the
+            // *second* one truncates first at row width — and that is the half somebody is
+            // checking. The payer takes the smaller label style and the split takes body, so the
+            // extra line reads as a subordinate detail rather than adding a third equal-weight
+            // line to every row in the list.
+            //
+            // Merged, because two Texts in a column are two fragments to a screen reader. The
+            // pair announces the one sentence it used to be.
+            Column(
+                modifier = Modifier
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = accessibleSplitDescription(expense)
+                    },
+            ) {
+                Text(
+                    text = "Paid by ${expense.paidBy.name}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag(TestTags.expenseRowPaidBy(expense.id)),
+                )
+                val forWhom = paidForDescription(expense)
+                if (forWhom != null) {
+                    Text(
+                        text = "For $forWhom",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag(TestTags.expenseRowPaidFor(expense.id)),
+                    )
+                }
+            }
         }
 
         Column(horizontalAlignment = Alignment.End) {
-            // No direction on an expense amount — it never carries a ledger tint. See
-            // MoneySign.NONE's own doc.
+            // `primary`, not the surrounding text colour — DESIGN.md §4. An expense amount still
+            // carries no *direction*, and never takes the ledger axis; the brand green is a
+            // different token doing a different job, which is "this is the number you came to
+            // read". See MoneySign.EXPENSE for what that trade costs.
             Money(
                 value = formatter.format(expense.amount.toLong()),
                 size = MoneySize.ROW,
+                sign = MoneySign.EXPENSE,
                 isReimbursement = expense.isReimbursement,
                 testTag = TestTags.expenseRowAmount(expense.id),
             )
@@ -231,16 +263,30 @@ internal fun ExpenseRow(
     }
 }
 
-/** "Paid by Ana for Bruno and Chidi" — the split, in one line a row has room for. The full
- *  breakdown is one tap away, on the expense form. */
-private fun paidForDescription(expense: ExpenseListItem): String {
+/**
+ * "Bruno and Chidi" — who an expense was paid *for*, or null when the server named nobody.
+ *
+ * Just the list. The "Paid by …" half is its own line now (see [ExpenseRow]), and the full
+ * breakdown is one tap away on the expense form.
+ */
+internal fun paidForDescription(expense: ExpenseListItem): String? {
     val names = expense.paidFor.map { it.participant.name }
-    val forWhom = when (names.size) {
+    return when (names.size) {
         0 -> null
         1 -> names[0]
         else -> names.dropLast(1).joinToString(", ") + " and " + names.last()
     }
-    return if (forWhom == null) "Paid by ${expense.paidBy.name}" else "Paid by ${expense.paidBy.name} for $forWhom"
+}
+
+/** The two lines as the one sentence they used to be, for a screen reader — which would
+ *  otherwise hear "Paid by Ana" and "For Bruno and Chidi" as unrelated fragments. */
+internal fun accessibleSplitDescription(expense: ExpenseListItem): String {
+    val forWhom = paidForDescription(expense)
+    return if (forWhom == null) {
+        "Paid by ${expense.paidBy.name}"
+    } else {
+        "Paid by ${expense.paidBy.name} for $forWhom"
+    }
 }
 
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)

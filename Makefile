@@ -1,6 +1,6 @@
 # Everything this project needs, from the command line. Android Studio is never required.
 #
-#   make test      fast unit tests (seconds, no emulator)
+#   make test      every JVM unit suite (no emulator)
 #   make build     assemble the debug APK
 #   make lint      Android Lint
 #   make e2e       the instrumented suite against the shared server
@@ -53,8 +53,14 @@ help: ## List these targets
 # :api and :core are plain Kotlin/JVM, which is the whole point of them being separate modules:
 # the transport, money maths and split logic are testable in seconds with nothing booted. If
 # this target ever needs an emulator, a dependency has gone in the wrong module.
-test: ## Fast unit tests — the JVM modules, no emulator
-	@$(GRADLE) :api:test :core:test
+#
+# :app's unit tests are here too. They are JVM tests — ViewModels and pure presentation
+# functions, no Robolectric and no device — but they do pay for AGP's resource and manifest
+# tasks, so the target is tens of seconds rather than the seconds :api and :core take. They
+# were written from Part 9 onward and ran nowhere at all until this line existed, which is the
+# kind of gap that only shows up when somebody counts the tests rather than the green ticks.
+test: ## Fast unit tests — every JVM suite, no emulator
+	@$(GRADLE) :api:test :core:test :app:testDebugUnitTest
 
 build: ## Assemble the debug APK
 	@$(GRADLE) :app:assembleDebug

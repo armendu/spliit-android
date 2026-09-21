@@ -387,7 +387,314 @@ class GroupDetailViewModelTest {
         assertEquals(LoadState.Loading, viewModel.state.value.expenses)
         assertEquals(LoadState.Loading, viewModel.state.value.balances)
     }
+
+    // ---- what a loaded group costs to re-enter -------------------------------------------------
+
+    @Test
+    fun `loadIfNeeded asks for nothing once the group is loaded`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+        val afterFirstLoad = server.requestCount
+        assertEquals(3, afterFirstLoad, "the first load is the group, the first expense page and the balances")
+
+        // The screen's own LaunchedEffect(Unit) re-runs on every fresh composition — coming back
+        // from the expense form, from the group editor, from anywhere. This is the guard that
+        // makes that free.
+        viewModel.loadIfNeeded()
+        yield()
+
+        assertEquals(afterFirstLoad, server.requestCount)
+    }
+
+    @Test
+    fun `the totals are not asked for until the tab is opened`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        val asked = mutableListOf<String>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.url.encodedPath
+                asked += path.substringAfterLast('/')
+                val body = when {
+                    path.endsWith("groups.get") ->
+                        """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}"""
+                    path.endsWith("groups.expenses.list") -> expensesListJson("", hasMore = false, nextCursor = 0)
+                    path.endsWith("groups.balances.list") -> balancesListJson("")
+                    path.endsWith("groups.stats.overview") ->
+                        """{"totalGroupSpendings":4200,"totalParticipantSpendings":null,
+                           "totalParticipantShare":null,
+                           "categories":[{"categoryId":0,"grouping":"Uncategorized","name":"General","total":4200}]}"""
+                            .trimIndent()
+                    else -> return MockResponse.Builder().code(404).body("no fixture for $path").build()
+                }
+                return MockResponse.Builder().code(200).body(okBody(body)).build()
+            }
+        }
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        assertFalse(asked.any { it.startsWith("groups.stats") }, "nothing should have asked for totals yet")
+
+        viewModel.loadStats(app.spliit.api.TrpcClient(instance), participantId = null)
+
+        assertTrue(asked.contains("groups.stats.overview"))
+        val stats = (viewModel.state.value.stats as LoadState.Loaded).value
+        assertEquals(4200L, stats.totalGroupSpendings)
+        assertEquals(listOf(4200), stats.categories.map { it.total })
+    }
+
+    @Test
+    fun `an instance answering neither stats name says so rather than offering a retry`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        // Both names 404 with the shape tRPC uses for a route it has never heard of.
+        val unknownProcedure = """{"error":{"json":{"message":"No procedure found on path \"x\"",
+            "code":-32004,"data":{"code":"NOT_FOUND","httpStatus":404,"path":"x"}}}}""".trimIndent()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse.Builder().code(404).body(unknownProcedure).build()
+        }
+
+        viewModel.loadStats(app.spliit.api.TrpcClient(instance), participantId = null)
+
+        assertTrue(viewModel.state.value.statsUnavailable)
+        assertEquals(LoadState.Failed(null), viewModel.state.value.stats)
+    }
+
+    @Test
+    fun `an expense change refreshes the totals only once the tab has been opened`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        val statsBody = """{"totalGroupSpendings":4200,"totalParticipantSpendings":null,"totalParticipantShare":null}"""
+        val asked = mutableListOf<String>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.url.encodedPath
+                asked += path.substringAfterLast('/')
+                val body = when {
+                    path.endsWith("groups.get") ->
+                        """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}"""
+                    path.endsWith("groups.expenses.list") -> expensesListJson("", hasMore = false, nextCursor = 0)
+                    path.endsWith("groups.balances.list") -> balancesListJson("")
+                    path.endsWith("groups.stats.overview") -> statsBody
+                    path.endsWith("groups.activities.list") -> """{"activities":[],"hasMore":false,"nextCursor":0}"""
+                    else -> return MockResponse.Builder().code(404).body("no fixture for $path").build()
+                }
+                return MockResponse.Builder().code(200).body(okBody(body)).build()
+            }
+        }
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        // Nobody has opened Totals or the activity log, so an expense change reads neither — and
+        // the group and the categories are never read by this path at all.
+        asked.clear()
+        viewModel.applyExpenseChange()
+        // A set, not a list: the two go out concurrently and finish in whatever order the
+        // server answers them.
+        assertEquals(setOf("groups.expenses.list", "groups.balances.list"), asked.toSet())
+        assertFalse(asked.contains("groups.get"))
+        assertFalse(asked.contains("categories.list"))
+
+        // Open Totals once, and from then on it is kept current.
+        viewModel.loadStats(app.spliit.api.TrpcClient(instance), participantId = null)
+        asked.clear()
+        viewModel.applyExpenseChange()
+        assertTrue(asked.contains("groups.stats.overview"))
+        assertFalse(asked.contains("groups.get"))
+    }
+
+    @Test
+    fun `a group edit reads the group back and never the expense list`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        val group = (viewModel.state.value.group as LoadState.Loaded).value
+        // Everything the information tab needs comes off the same read.
+        assertEquals(instance, group.instanceBaseUrl)
+        assertEquals("EUR", group.currencyCode)
+        assertNull(group.information)
+    }
+
+    // ---- search --------------------------------------------------------------------------------
+
+    @Test
+    fun `search sends the typed text as the server-side filter`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        var sentInput: String? = null
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                sentInput = request.url.queryParameter("input")
+                return MockResponse.Builder().code(200).body(
+                    okBody(
+                        expensesListJson(
+                            expenseJson("e1", "Taxi", 1000, "2025-06-01T00:00:00.000Z"),
+                            hasMore = false,
+                            nextCursor = 1,
+                        ),
+                    ),
+                ).build()
+            }
+        }
+
+        viewModel.search("  taxi  ")
+        // The field keeps exactly what was typed; only the query sent is trimmed.
+        assertEquals("  taxi  ", viewModel.state.value.search.query)
+        viewModel.runSearch("taxi")
+
+        assertTrue(sentInput?.contains("\"filter\":\"taxi\"") == true, "expected filter in $sentInput")
+        val results = viewModel.state.value.search.results as LoadState.Loaded
+        assertEquals(listOf("e1"), results.value.map { it.id })
+    }
+
+    @Test
+    fun `a cancelled search does not report a failure`() = runBlocking {
+        // The keystroke after this one is already searching. CLAUDE.md: TrpcClient propagates a
+        // real CancellationException rather than dressing it up as a network failure, and a
+        // cancelled search has nothing to say — reporting it put "Couldn't search" on screen
+        // between characters for anyone typing slower than the debounce.
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse.Builder().code(200).body(okBody(expensesListJson("", hasMore = false, nextCursor = 0)))
+                    // Long enough that the cancellation below lands inside the request.
+                    .bodyDelay(5, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+        }
+
+        viewModel.search("ta")
+        val job = launch { viewModel.runSearch("ta") }
+        yield()
+        job.cancel()
+        job.join()
+
+        assertFalse(
+            viewModel.state.value.search.results is LoadState.Failed,
+            "a cancelled search must not leave an error on screen",
+        )
+    }
+
+    @Test
+    fun `emptying the field drops the results rather than asking for the whole group`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+        val before = server.requestCount
+
+        viewModel.search("")
+
+        assertNull(viewModel.state.value.search.results)
+        assertEquals(before, server.requestCount)
+    }
+
+    // ---- the activity log ----------------------------------------------------------------------
+
+    @Test
+    fun `the activity log is not read until it is opened`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        val asked = mutableListOf<String>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.url.encodedPath
+                asked += path.substringAfterLast('/')
+                val body = when {
+                    path.endsWith("groups.get") ->
+                        """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}"""
+                    path.endsWith("groups.expenses.list") -> expensesListJson("", hasMore = false, nextCursor = 0)
+                    path.endsWith("groups.balances.list") -> balancesListJson("")
+                    path.endsWith("groups.activities.list") -> activitiesJson
+                    else -> return MockResponse.Builder().code(404).body("no fixture for $path").build()
+                }
+                return MockResponse.Builder().code(200).body(okBody(body)).build()
+            }
+        }
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+        assertFalse(asked.contains("groups.activities.list"))
+
+        viewModel.loadFirstActivitiesPage(app.spliit.api.TrpcClient(instance))
+
+        assertTrue(asked.contains("groups.activities.list"))
+        val page = (viewModel.state.value.activities as LoadState.Loaded).value
+        assertEquals(listOf("a1", "a2"), page.activities.map { it.id })
+        // The title is the activity's own `data` column — the expense's title *as it was*.
+        assertEquals("Taxi", page.activities[0].title)
+        // `expense` beside the row, not `expenseId`, is what says a row can be opened.
+        assertTrue(page.activities[0].expenseStillExists)
+        assertFalse(page.activities[1].expenseStillExists)
+    }
 }
+
+/** Two rows: one whose expense is still there, one whose expense has been deleted — which is the
+ *  distinction an activity row's tappability turns on. */
+private val activitiesJson = """
+    {"activities":[
+      {"id":"a1","groupId":"g1","time":"2025-06-02T10:00:00.000Z","activityType":"CREATE_EXPENSE",
+       "participantId":"p1","expenseId":"e1","data":"Taxi",
+       "expense":{"id":"e1","title":"Taxi Ride","amount":1000}},
+      {"id":"a2","groupId":"g1","time":"2025-06-01T10:00:00.000Z","activityType":"DELETE_EXPENSE",
+       "participantId":null,"expenseId":"e9","data":"Dinner","expense":null}
+    ],"hasMore":false,"nextCursor":2}
+""".trimIndent()
 
 // ExpenseListItem's trailing `_count` field is a private property — Prisma's aggregate, per its
 // own doc — so it (and everything after it) must be supplied positionally rather than by name.

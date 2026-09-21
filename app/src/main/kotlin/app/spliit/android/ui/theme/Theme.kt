@@ -34,6 +34,15 @@ data class SpliitExtendedColors(
     val moneyNegativeBg: Color,
     val brandAccentSoft: Color,
     val monogramPalette: List<Color>,
+    /**
+     * A tint per category grouping — DESIGN.md §5. Resolved here, with everything else, rather
+     * than branched on [isSystemInDarkTheme] at the call site: the light and dark values of one
+     * hue are deliberately different colours (the bolt's amber/yellow split), so a use site that
+     * picked between them itself would be a second place for that reasoning to go missing.
+     * Unknown groupings are absent, and [app.spliit.android.ui.design.CategoryIcon] falls back to
+     * the row's own colour for them.
+     */
+    val categoryGlyphs: Map<String, Color>,
 )
 
 private val LocalSpliitColors = staticCompositionLocalOf<SpliitExtendedColors> {
@@ -93,6 +102,7 @@ private val LightExtendedColors = SpliitExtendedColors(
     moneyNegativeBg = BalanceNegativeBgLight,
     brandAccentSoft = BrandAccentSoftLight,
     monogramPalette = MonogramColors,
+    categoryGlyphs = CategoryGlyphColorsLight,
 )
 
 private val DarkExtendedColors = SpliitExtendedColors(
@@ -107,6 +117,7 @@ private val DarkExtendedColors = SpliitExtendedColors(
     moneyNegativeBg = BalanceNegativeDark.copy(alpha = 0.16f),
     brandAccentSoft = PrimaryDark.copy(alpha = 0.16f),
     monogramPalette = MonogramColors,
+    categoryGlyphs = CategoryGlyphColorsDark,
 )
 
 /**

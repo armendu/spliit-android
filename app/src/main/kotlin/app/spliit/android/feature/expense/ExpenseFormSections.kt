@@ -88,7 +88,16 @@ internal fun AmountEntry(
         Text(
             text = formatter.currencySymbol.ifBlank { draft.groupCurrencyCode.orEmpty() },
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // `primary`, not a muted grey — DESIGN.md §4. Two roles, two colours: the symbol says
+            // *which money this is* and the figure beside it says how much. Drawn in one grey the
+            // symbol reads as decoration and the eye skips it, which is wrong on the one screen
+            // where the currency is a real question — a group counted in yen and one counted in
+            // euros differ by nothing else here.
+            //
+            // The figure itself stays `on-surface`, including in the converted read-out below,
+            // and an expense *row*'s amount takes `primary` while this one does not: a value
+            // being edited reads as a state rather than a value once it is tinted.
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(Modifier.width(8.dp))
 
@@ -500,107 +509,6 @@ internal fun CurrencySection(
         modifier = Modifier.fillMaxWidth().testTag(TestTags.EXPENSE_FORM_CONVERSION_RATE_FIELD),
     )
     FieldProblems(state, ExpenseFormDraft.Field.CONVERSION_RATE, formatter)
-}
-
-/**
- * The currency this expense was paid in.
- *
- * The full picker with its promoted codes and custom symbols is Part 13's; this is the subset
- * the expense form needs — every ISO currency the platform knows, filtered as you type, with the
- * group's own at the top because coming back to it is the common case.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun CurrencyPickerSheet(
-    selectedCode: String?,
-    groupCurrencyCode: String?,
-    onSelect: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var query by remember { mutableStateOf("") }
-    val all = remember { Currencies.all() }
-    val groupCurrency = groupCurrencyCode?.let { Currencies.named(it) }
-    val matches = remember(query, all) {
-        if (query.isBlank()) {
-            all
-        } else {
-            all.filter {
-                it.name.contains(query, ignoreCase = true) || it.code.contains(query, ignoreCase = true)
-            }
-        }
-    }
-
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Text(
-                text = "Paid in",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text("Search currencies") },
-                singleLine = true,
-                shape = FieldShape,
-                modifier = Modifier.fillMaxWidth().testTag(TestTags.EXPENSE_FORM_CURRENCY_SEARCH_FIELD),
-            )
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                if (groupCurrency != null && query.isBlank()) {
-                    item(key = "group_${groupCurrency.code}") {
-                        CurrencyRow(
-                            code = groupCurrency.code,
-                            name = "${groupCurrency.name} — the group's own",
-                            isSelected = selectedCode.equals(groupCurrency.code, ignoreCase = true),
-                            onClick = { onSelect(groupCurrency.code) },
-                        )
-                    }
-                }
-                items(matches, key = { it.code }) { currency ->
-                    CurrencyRow(
-                        code = currency.code,
-                        name = currency.name,
-                        isSelected = selectedCode.equals(currency.code, ignoreCase = true),
-                        onClick = { onSelect(currency.code) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CurrencyRow(code: String, name: String, isSelected: Boolean, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .testTag(TestTags.expenseFormCurrencyOption(code))
-            .padding(vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = code,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.width(52.dp),
-        )
-        Text(
-            text = name,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-            color = if (isSelected) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-        )
-    }
 }
 
 // ---- odds and ends ---------------------------------------------------------------------------

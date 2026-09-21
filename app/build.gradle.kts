@@ -90,10 +90,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // Design-system unit tests (MonogramPalette, MoneySign, DateBucketText) plus Part 10's
-    // ViewModel and URL-parsing tests — none of these need Android or a device, only a runner.
-    // `make test` does not run this module (it only builds :api and :core, on purpose — see
-    // CLAUDE.md); `:app:testDebugUnitTest` does.
+    // Design-system unit tests (MonogramPalette, MoneySign, DateBucketText) plus the ViewModel,
+    // presentation and URL-parsing suites — none of these need Android or a device, only a
+    // runner. `make test` runs them alongside :api and :core.
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     // A real HTTP server on a loopback port for the ViewModel tests to point a TrpcClient at,
@@ -101,3 +100,22 @@ dependencies {
     testImplementation(libs.okhttp.mockwebserver)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+// The same guard :api and :core carry, pointed at AGP's task name. This module's suites ran
+// nowhere at all for several parts — not in `make test`, not in CI — and nothing failed, which
+// is precisely the failure mode a check on "did anything run" exists to catch.
+val verifyTestsRan by tasks.registering {
+    val resultsDir = layout.buildDirectory.dir("test-results/testDebugUnitTest")
+    val label = project.path
+    outputs.upToDateWhen { false }
+    doLast {
+        val reports = resultsDir.get().asFile
+            .listFiles { file -> file.name.startsWith("TEST-") && file.extension == "xml" }
+            .orEmpty()
+        check(reports.isNotEmpty()) { "$label ran no tests at all — the suite is empty." }
+    }
+}
+
+// `matching` rather than `named`: AGP registers its variant test tasks after this script is
+// evaluated, so asking for the task by name here fails outright with "task not found".
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach { finalizedBy(verifyTestsRan) }

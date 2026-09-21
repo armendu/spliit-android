@@ -70,6 +70,7 @@ import app.spliit.android.AppSettingsHolder
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.EmptyState
+import app.spliit.android.ui.design.SpliitFab
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -100,8 +101,8 @@ private val CardShape = RoundedCornerShape(16.dp)
 fun GroupsListScreen(
     viewModel: GroupsListViewModel,
     addGroupViewModel: AddGroupByUrlViewModel,
+    createGroupViewModel: GroupFormViewModel,
     onGroupClick: (GroupListItem) -> Unit,
-    onCreateGroup: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
@@ -109,7 +110,20 @@ fun GroupsListScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var isAddMenuOpen by remember { mutableStateOf(false) }
     var isAddSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var isCreateSheetOpen by rememberSaveable { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+    // Fully expanded: CreateGroupSheet *is* the whole form, so a partial anchor would put a drag
+    // between somebody and the participant they came to add.
+    val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Creating a group is a sheet over this screen rather than a destination, so the form's
+    // ViewModel lives as long as the dashboard does and has to be put back to a blank draft each
+    // time — including re-reading the *current* default instance, which Settings can have changed
+    // since the app launched. The same shape as addGroupViewModel.reset() beside it.
+    val openCreateSheet = {
+        createGroupViewModel.resetForCreate(AppSettingsHolder.defaultInstanceBaseUrl)
+        isCreateSheetOpen = true
+    }
 
     // Reruns whenever this screen is freshly composed — including on the way back from creating a
     // group, when the ViewModel itself (scoped to the nav entry, so it survives) would otherwise
@@ -194,21 +208,14 @@ fun GroupsListScreen(
             // link somebody sent them.
             val dashboard = (state as? LoadState.Loaded)?.value
             if (dashboard != null && !dashboard.isEmpty) {
-                // DESIGN.md §4: "FAB — extended pill, primary on on-primary." M3's own FAB
-                // default (primaryContainer/onPrimaryContainer) is a baseline tone this theme
-                // never tunes — see Color.kt: only primary itself is seeded from the accent — so
-                // both colours are given explicitly, the same pair the empty state's own "Create
-                // group" button draws in, rather than left to read as two different brand
-                // colours.
-                ExtendedFloatingActionButton(
-                    onClick = onCreateGroup,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    icon = {
-                        Text("+", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    },
-                    text = { Text("Create group") },
-                    modifier = Modifier.testTag(TestTags.GROUPS_LIST_FAB),
+                // Colour, shape, description and tooltip all come from SpliitFab — one
+                // definition, so this FAB and the group screen's cannot drift into two greens
+                // again, which is exactly what happened when only one of them passed its colours.
+                SpliitFab(
+                    icon = R.drawable.ic_plus,
+                    contentDescription = "Create group",
+                    onClick = openCreateSheet,
+                    testTag = TestTags.GROUPS_LIST_FAB,
                 )
             }
         },
@@ -259,7 +266,7 @@ fun GroupsListScreen(
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
                                 Button(
-                                    onClick = onCreateGroup,
+                                    onClick = openCreateSheet,
                                     modifier = Modifier.testTag(TestTags.GROUPS_LIST_EMPTY_CREATE_BUTTON),
                                 ) {
                                     Text("Create group")
@@ -293,6 +300,19 @@ fun GroupsListScreen(
                 }
             }
         }
+    }
+
+    if (isCreateSheetOpen) {
+        CreateGroupSheet(
+            viewModel = createGroupViewModel,
+            sheetState = createSheetState,
+            onCreated = {
+                isCreateSheetOpen = false
+                // The group is on the stored list now; the dashboard is what shows it.
+                viewModel.load()
+            },
+            onDismiss = { isCreateSheetOpen = false },
+        )
     }
 
     if (isAddSheetOpen) {
@@ -528,12 +548,6 @@ private fun GroupRow(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupMetadataRow(group: GroupListItem) {
-    // The *current* default, not the build constant — a group created before Settings changed the
-    // default instance still reads as "on the default" here, which is correct: this compares
-    // against where a group would be created today, and Settings changing does not move a group
-    // already on the list (see AppSettingsHolder).
-    val showsInstance = group.instanceBaseUrl != AppSettingsHolder.defaultInstanceBaseUrl
-
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -556,14 +570,12 @@ private fun GroupMetadataRow(group: GroupListItem) {
                 contentDescription = createdDateContentDescription(createdAt),
             )
         }
-        if (showsInstance) {
-            Text(
-                text = InstanceAddress.displayName(group.instanceBaseUrl),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag(TestTags.groupsListRowInstance(group.groupId)),
-            )
-        }
+        // No server here, deliberately. It used to appear for any group not on the current
+        // default, and on a phone it wrapped the row onto a second line for the one fact most
+        // people never need. The group's server has not gone anywhere — the group's own
+        // **Information** tab states it, and the create form's **Advanced** section is where it
+        // is chosen. The cost, which is real: two groups of the same name on two servers are
+        // indistinguishable in this list until one of them is opened.
     }
 }
 

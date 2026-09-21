@@ -8,6 +8,7 @@ import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcClientError
 import app.spliit.api.TrpcServerError
+import app.spliit.core.Currencies
 import app.spliit.core.GroupFormDraft
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsStore
@@ -93,14 +94,49 @@ class GroupFormViewModel(
         if (mode == GroupFormMode.EDIT) load()
     }
 
+    /**
+     * Back to a blank group, on [instanceBaseUrl].
+     *
+     * Creating a group is a sheet over the dashboard rather than a destination, so this instance
+     * lives as long as that screen does and is handed back for every create — where a
+     * navigated-to form got a fresh one each time. Without this, a second create would open
+     * holding the first one's participants, its typed name and, worst of all, its `savedGroupId`,
+     * which closes the sheet the instant it appears.
+     *
+     * [instanceBaseUrl] is re-read rather than remembered from construction because Settings can
+     * have changed the default since the app launched.
+     */
+    fun resetForCreate(instanceBaseUrl: String) {
+        _state.value = GroupFormUiState(
+            mode = GroupFormMode.CREATE,
+            instanceAddressText = instanceBaseUrl,
+            resolvedInstanceBaseUrl = InstanceAddress.normalize(instanceBaseUrl),
+        )
+        knownParticipants = emptyList()
+    }
+
     fun load() {
         viewModelScope.launch { refreshForEdit() }
     }
 
     suspend fun refreshForEdit() {
         val id = checkNotNull(groupId) { "refreshForEdit requires EDIT mode" }
-        val instanceBaseUrl = checkNotNull(_state.value.resolvedInstanceBaseUrl)
         _state.update { it.copy(isLoading = true, loadError = null) }
+        // Which server the group is on is a fact about *the group*, resolved from its stored row
+        // — never the app's current default, which a self-hosted group is not on and which
+        // Settings can have changed since the group was added. The constructor's value is only a
+        // fallback for a group with no row, which this app's routes cannot currently produce.
+        val instanceBaseUrl = try {
+            recentGroupsStore.load().groups.firstOrNull { it.groupId == id }?.instanceBaseUrl
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        } ?: _state.value.resolvedInstanceBaseUrl ?: run {
+            _state.update { it.copy(isLoading = false, loadError = "This group isn't in your list anymore.") }
+            return
+        }
+        _state.update { it.copy(resolvedInstanceBaseUrl = instanceBaseUrl) }
         try {
             val client = clientFactory(instanceBaseUrl)
             val response = client.call(SpliitEndpoints.groupsGetDetails(id))
@@ -130,6 +166,18 @@ class GroupFormViewModel(
     fun setInformation(information: String) = updateDraft { it.copy(information = information) }
 
     fun setCustomSymbol(symbol: String) = updateDraft { it.copy(currency = symbol) }
+
+    /** Picking a real currency, which sets the symbol with it — see
+     *  [GroupFormDraft.withCurrency]. A code the platform does not know leaves the draft alone
+     *  rather than clearing the currency it already had. */
+    fun setCurrency(code: String) = updateDraft { draft ->
+        Currencies.named(code, draft.locale)?.let(draft::withCurrency) ?: draft
+    }
+
+    /** Dropping the ISO code and keeping the symbol as free text. A Spliit group is allowed to
+     *  be counted in a bare "$" with nothing behind it — the web app's own default — so this is
+     *  a state to reach deliberately, not a failure to pick properly. */
+    fun useCustomSymbol() = updateDraft { it.withCustomSymbol() }
 
     fun addParticipant() = updateDraft { it.withParticipantAdded() }
 

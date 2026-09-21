@@ -60,7 +60,9 @@ object TestTags {
     fun groupsListRowName(groupId: String) = "groups_list_row_name_$groupId"
     fun groupsListRowParticipants(groupId: String) = "groups_list_row_participants_$groupId"
     fun groupsListRowCreatedDate(groupId: String) = "groups_list_row_created_$groupId"
-    fun groupsListRowInstance(groupId: String) = "groups_list_row_instance_$groupId"
+    // No `groupsListRowInstance`: the row no longer names the server. It wrapped onto a second
+    // line for the one fact most people never need — the group's own Information tab states it,
+    // and the create sheet's Advanced section is where it is chosen.
     fun groupsListRowMenuButton(groupId: String) = "groups_list_row_menu_$groupId"
     fun groupsListRowStar(groupId: String) = "groups_list_row_star_$groupId"
     fun groupsListRowArchive(groupId: String) = "groups_list_row_archive_$groupId"
@@ -77,8 +79,16 @@ object TestTags {
     const val GROUP_FORM_NAME_FIELD = "group_form_name_field"
     const val GROUP_FORM_NAME_ERROR = "group_form_name_error"
     const val GROUP_FORM_CURRENCY_ROW = "group_form_currency_row"
+    const val GROUP_FORM_CURRENCY_SEARCH_FIELD = "group_form_currency_search_field"
     const val GROUP_FORM_CUSTOM_SYMBOL_FIELD = "group_form_custom_symbol_field"
     const val GROUP_FORM_INFORMATION_FIELD = "group_form_information_field"
+
+    /**
+     * The disclosure that hides the server address when *creating* a group. Absent when editing
+     * one — a group cannot move servers, so that form shows the address outright.
+     */
+    const val GROUP_FORM_ADVANCED_TOGGLE = "group_form_advanced_toggle"
+    const val GROUP_FORM_SHEET = "group_form_sheet"
     const val GROUP_FORM_SERVER_FIELD = "group_form_server_field"
     const val GROUP_FORM_SERVER_ERROR = "group_form_server_error"
     const val GROUP_FORM_ADD_PARTICIPANT_BUTTON = "group_form_add_participant_button"
@@ -93,8 +103,65 @@ object TestTags {
     // ---- group detail (Part 11) ------------------------------------------------------------
     const val GROUP_DETAIL_BACK_BUTTON = "group_detail_back_button"
     const val GROUP_DETAIL_ADD_EXPENSE_FAB = "group_detail_add_expense_fab"
+
+    /**
+     * The same action as [GROUP_DETAIL_ADD_EXPENSE_FAB], as a top-app-bar icon.
+     *
+     * Only one of the two is on screen at a time — see
+     * [app.spliit.android.feature.group.GroupDetailLayout]: the bottom-bar layout has no FAB,
+     * because M3 dropped the docked-FAB pattern and one floating over a navigation bar covers
+     * it. A test that wants "add an expense" has to ask for whichever the current layout draws.
+     */
+    const val GROUP_DETAIL_ADD_EXPENSE_ACTION = "group_detail_add_expense_action"
     const val GROUP_DETAIL_TAB_EXPENSES = "group_detail_tab_expenses"
     const val GROUP_DETAIL_TAB_BALANCES = "group_detail_tab_balances"
+    const val GROUP_DETAIL_TAB_TOTALS = "group_detail_tab_totals"
+    const val GROUP_DETAIL_TAB_INFORMATION = "group_detail_tab_information"
+    const val GROUP_DETAIL_BOTTOM_BAR = "group_detail_bottom_bar"
+
+    // Search — an app-bar action that expands into a field, not a fifth tab.
+    const val GROUP_DETAIL_SEARCH_BUTTON = "group_detail_search_button"
+    const val GROUP_DETAIL_SEARCH_FIELD = "group_detail_search_field"
+    const val GROUP_DETAIL_SEARCH_CLOSE = "group_detail_search_close"
+    const val SEARCH_RESULTS = "search_results"
+    const val SEARCH_LOADING = "search_loading"
+
+    // The overflow: the two actions that act on the group rather than on what is in it.
+    const val GROUP_DETAIL_MENU_BUTTON = "group_detail_menu_button"
+    const val GROUP_DETAIL_MENU_EDIT_GROUP = "group_detail_menu_edit_group"
+    const val GROUP_DETAIL_MENU_SHARE_GROUP = "group_detail_menu_share_group"
+
+    // ---- totals tab -------------------------------------------------------------------------
+    const val TOTALS_SKELETON = "totals_skeleton"
+    const val TOTALS_GROUP_AMOUNT = "totals_group_amount"
+    const val TOTALS_YOUR_SPENDING_AMOUNT = "totals_your_spending_amount"
+    const val TOTALS_YOUR_SHARE_AMOUNT = "totals_your_share_amount"
+    const val TOTALS_YOU_BUTTON = "totals_you_button"
+
+    fun totalsCategoryName(categoryId: Int) = "totals_category_name_$categoryId"
+    fun totalsCategoryAmount(categoryId: Int) = "totals_category_amount_$categoryId"
+
+    // ---- information tab --------------------------------------------------------------------
+    const val INFORMATION_SKELETON = "information_skeleton"
+    const val INFORMATION_NOTE = "information_note"
+    const val INFORMATION_NOTE_EMPTY = "information_note_empty"
+    const val INFORMATION_EDIT_NOTE_BUTTON = "information_edit_note_button"
+    const val INFORMATION_CURRENCY = "information_currency"
+    const val INFORMATION_CREATED = "information_created"
+    const val INFORMATION_SERVER = "information_server"
+    const val INFORMATION_ACTIVITY_BUTTON = "information_activity_button"
+    const val INFORMATION_YOU_BUTTON = "information_you_button"
+
+    fun informationParticipant(participantId: String) = "information_participant_$participantId"
+
+    // ---- the activity log, a sheet over the group screen --------------------------------------
+    const val ACTIVITY_LOG_SHEET = "activity_log_sheet"
+    const val ACTIVITY_LOG_SKELETON = "activity_log_skeleton"
+    const val ACTIVITY_LOG_RETRY_BUTTON = "activity_log_retry_button"
+    const val ACTIVITY_LOG_LOAD_MORE = "activity_log_load_more"
+
+    fun activityRow(activityId: String) = "activity_row_$activityId"
+    fun activityRowSummary(activityId: String) = "activity_row_summary_$activityId"
     const val GROUP_DETAIL_RETRY_BUTTON = "group_detail_retry_button"
     const val GROUP_DETAIL_EXPENSES_SKELETON = "group_detail_expenses_skeleton"
     const val GROUP_DETAIL_LOAD_MORE = "group_detail_load_more"
@@ -108,6 +175,10 @@ object TestTags {
     fun expenseRowTitle(expenseId: String) = "expense_row_title_$expenseId"
     fun expenseRowAmount(expenseId: String) = "expense_row_amount_$expenseId"
     fun expenseRowPaidBy(expenseId: String) = "expense_row_paid_by_$expenseId"
+
+    /** The second metadata line — who the expense was paid *for*. Absent when the server named
+     *  nobody, so a test that asserts on it must allow for a row that has none. */
+    fun expenseRowPaidFor(expenseId: String) = "expense_row_paid_for_$expenseId"
 
     // ---- expense form (Part 12) ------------------------------------------------------------
     const val EXPENSE_FORM_CLOSE_BUTTON = "expense_form_close_button"
@@ -145,6 +216,8 @@ object TestTags {
     fun expenseFormParticipantValue(participantId: String) = "expense_form_participant_value_$participantId"
     fun expenseFormParticipantAmount(participantId: String) = "expense_form_participant_amount_$participantId"
     fun expenseFormCurrencyOption(code: String) = "expense_form_currency_option_$code"
+
+    fun groupFormCurrencyOption(code: String) = "group_form_currency_option_$code"
 
     fun balanceRowAmount(participantId: String) = "balance_row_amount_$participantId"
     fun reimbursementRow(index: Int) = "reimbursement_row_$index"

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -140,5 +141,59 @@ class GroupFormViewModelTest {
 
         assertTrue(viewModel.state.value.draft.participants.isEmpty())
         assertEquals(null, viewModel.state.value.blockedParticipantMessage)
+    }
+
+    // ---- currency ---------------------------------------------------------------------------
+
+    private fun createViewModel() = GroupFormViewModel(
+        mode = GroupFormMode.CREATE,
+        groupId = null,
+        instanceBaseUrl = server.url("/").toString(),
+        recentGroupsStore = FakeRecentGroupsStore(),
+    )
+
+    @Test
+    fun `picking a currency sets the symbol with it, so the form never shows two answers`() {
+        val viewModel = createViewModel()
+        // The default is a bare "$" with no code behind it — the web app's own.
+        assertTrue(viewModel.state.value.draft.usesCustomSymbol)
+
+        viewModel.setCurrency("EUR")
+
+        val draft = viewModel.state.value.draft
+        assertEquals("EUR", draft.currencyCode)
+        // EUR rather than a more interesting code because a currency's *symbol* is rendered for
+        // a locale: JPY is "¥" under a Japanese default and "JP¥" under an American one, so an
+        // assertion on it would pass or fail depending on the machine running the suite.
+        assertEquals("€", draft.currency)
+        // Which is what makes the standalone symbol field disappear: the row above it now says
+        // everything that field was there to say.
+        assertFalse(draft.usesCustomSymbol)
+    }
+
+    @Test
+    fun `a code the platform does not know leaves the currency it already had`() {
+        val viewModel = createViewModel()
+        viewModel.setCurrency("GBP")
+
+        viewModel.setCurrency("XYZ")
+
+        val draft = viewModel.state.value.draft
+        assertEquals("GBP", draft.currencyCode)
+    }
+
+    @Test
+    fun `choosing a custom symbol drops the code and keeps the symbol to edit`() {
+        val viewModel = createViewModel()
+        viewModel.setCurrency("GBP")
+        assertEquals("£", viewModel.state.value.draft.currency)
+
+        viewModel.useCustomSymbol()
+
+        val draft = viewModel.state.value.draft
+        // The symbol survives — it is now free text rather than a consequence of the code.
+        assertEquals("£", draft.currency)
+        assertNull(draft.currencyCode)
+        assertTrue(draft.usesCustomSymbol)
     }
 }

@@ -285,6 +285,59 @@ public object SpliitEndpoints {
          * on the way in. Absent when the request named nobody.
          */
         public val totalParticipantShare: Double? = null,
+        /**
+         * What the group's spending is made of, beyond its sum. Null on any instance still
+         * answering the removed `groups.stats.get`, which carried the three figures above and
+         * nothing else — which is the whole reason every field below this line is nullable.
+         */
+        public val summary: StatsSummary? = null,
+        /** Spending per category, largest first, as the server folds it. Null on an older
+         *  instance — see [summary]. */
+        public val categories: List<CategoryTotal>? = null,
+    )
+
+    /**
+     * The group's spending described rather than merely totalled — `summary` on the overview
+     * payload.
+     *
+     * [firstDate] and [lastDate] are plain `YYYY-MM-DD` strings on the wire, **not** superjson
+     * `Date`s: the envelope's `meta.values` annotates neither, and declaring them `Instant` would
+     * ask the contextual instant decoder to read a date-only string. They are dates without a
+     * time and are carried as what they are.
+     */
+    @Serializable
+    public data class StatsSummary(
+        public val expenseCount: Int? = null,
+        /** Minor units. The same figure as [GroupStatsResponse.totalGroupSpendings]. */
+        public val totalSpending: Int? = null,
+        /** Minor units, already divided by the server — never divide this again. */
+        public val averageExpense: Int? = null,
+        public val largestExpense: LargestExpense? = null,
+        public val firstDate: String? = null,
+        public val lastDate: String? = null,
+    )
+
+    @Serializable
+    public data class LargestExpense(
+        public val title: String? = null,
+        /** Minor units. */
+        public val amount: Int? = null,
+    )
+
+    /**
+     * One category's share of the group's spending.
+     *
+     * [grouping] rather than [name] is what picks the glyph, the same top-level key the web app
+     * and [ExpenseCategory] already key on — a category the server has invented since this client
+     * shipped still lands on a sensible icon rather than none.
+     */
+    @Serializable
+    public data class CategoryTotal(
+        public val categoryId: Int,
+        public val grouping: String? = null,
+        public val name: String? = null,
+        /** Minor units. Negative for a category that netted out as income. */
+        public val total: Int,
     )
 
     /**

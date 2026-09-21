@@ -123,3 +123,44 @@ internal val MonogramColors = listOf(
     Color(0xFF6B7A1F), // olive
     Color(0xFF7C3AED), // violet
 )
+
+// ---- category glyphs ---------------------------------------------------------------------
+
+/**
+ * One hue per category grouping — DESIGN.md §5's table, measured against the tile the glyph sits
+ * on rather than against the page. The **glyph** takes the colour; the tile stays neutral and
+ * nothing is filled, so a row gains a hue to scan by without gaining a second saturated block
+ * competing with the amount.
+ *
+ * **The light and dark values of a hue are not the same colour, and the bolt is why.** A true
+ * yellow — `#FBBF24`, what "the bolt should be yellow" actually means — measures **1.52:1**
+ * against the light tile and is effectively invisible on it; even `#D97706` is 2.90:1, still
+ * under the 3:1 bar a meaningful non-text graphic has to clear. So light gets a deep amber and
+ * dark gets the yellow. Swapping the light value for something brighter to make the two match
+ * will look right on the screen it is chosen on and vanish on a bright one: the rule is that a
+ * hue reads as the colour it was asked to be wherever that colour can be seen, and darkens where
+ * it cannot.
+ *
+ * Keyed by `grouping`, the same top-level key [app.spliit.android.ui.design.CategoryGlyphs]
+ * already picks the drawable with — so a category the server invents after this ships falls back
+ * with its glyph rather than half-matching.
+ */
+internal val CategoryGlyphColorsLight = mapOf(
+    "Utilities" to Color(0xFFB45309), // deep amber, not yellow — see above
+    "Uncategorized" to Color(0xFF15803D),
+    "Food and Drink" to Color(0xFFC2410C),
+    "Transportation" to Color(0xFF1D4ED8),
+    "Entertainment" to Color(0xFF7E22CE),
+    "Home" to Color(0xFF0F766E),
+    "Life" to Color(0xFFBE123C),
+)
+
+internal val CategoryGlyphColorsDark = mapOf(
+    "Utilities" to Color(0xFFFBBF24),
+    "Uncategorized" to Color(0xFF4ADE80),
+    "Food and Drink" to Color(0xFFFB923C),
+    "Transportation" to Color(0xFF7DB3FF),
+    "Entertainment" to Color(0xFFC4A0F5),
+    "Home" to Color(0xFF5EEAD4),
+    "Life" to Color(0xFFFDA4AF),
+)

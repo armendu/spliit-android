@@ -2,6 +2,7 @@ package app.spliit.android.feature.group
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.spliit.api.Activity
 import app.spliit.api.ExpenseListItem
 import app.spliit.api.Participant
 import app.spliit.api.Reimbursement
@@ -9,14 +10,19 @@ import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcClientError
 import app.spliit.api.TrpcServerError
+import app.spliit.api.groupStats
 import app.spliit.core.DateBucket
+import app.spliit.core.MoneyFormatter
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.LoadState
 import java.time.Clock
+import java.time.Instant
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,15 +30,25 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import app.spliit.core.Participant as CoreParticipant
 
-/** The group screen's currency-bearing detail — everything both tabs draw from that only
- *  `groups.get` carries. */
+/** The group screen's currency-bearing detail — everything the tabs draw from that only
+ *  `groups.get` carries, plus the one thing it does not: which server answered. */
 data class GroupInfo(
     val id: String,
     val name: String,
+    /** The group's note, as the information tab shows it. Blank and absent mean the same thing
+     *  here; the tab trims before deciding which it is. */
+    val information: String?,
     /** Free-text, e.g. "$" or "CHF" — see [app.spliit.core.MoneyFormatter]'s own note. */
     val currencySymbol: String,
     val currencyCode: String?,
+    val createdAt: Instant,
     val participants: List<Participant>,
+    /**
+     * The instance this group is on, resolved from its stored row rather than from the app's
+     * default — **the share link is built from this**. A self-hosted group shared as a
+     * spliit.app link opens nothing, so the default must never stand in for it.
+     */
+    val instanceBaseUrl: String,
 )
 
 /** One page of the expense list, as `groups.expenses.list` answers it — carried whole rather
@@ -58,6 +74,49 @@ data class BalancesInfo(
     val reimbursements: List<Reimbursement>,
 )
 
+/**
+ * The totals tab's answer, already reduced to what it draws.
+ *
+ * [yourShareMinorUnits] is rounded here rather than on the wire: `totalParticipantShare` is the
+ * one amount in the API that is not an integer, and an instance older than the web app's *Shares*
+ * change sends thirds of a cent. It stays a `Double` through [SpliitEndpoints.GroupStatsResponse]
+ * and becomes whole minor units at exactly this boundary — never by dividing anything.
+ *
+ * [summary] and [categories] are absent on an instance still answering the removed
+ * `groups.stats.get`, which carries the three figures and nothing else. The tab draws what it
+ * has; it does not treat their absence as a failure.
+ */
+data class StatsInfo(
+    val totalGroupSpendings: Long,
+    val yourSpendings: Long?,
+    val yourShareMinorUnits: Long?,
+    val summary: SpliitEndpoints.StatsSummary?,
+    val categories: List<SpliitEndpoints.CategoryTotal>,
+)
+
+/** One page of the activity log, newest first — the same offset-cursor shape as [ExpensesPage]. */
+data class ActivitiesPage(
+    val activities: List<Activity>,
+    val hasMore: Boolean,
+    val nextCursor: Int,
+)
+
+/**
+ * The search field's state, kept beside the expense list rather than narrowing it.
+ *
+ * The server does the matching — `groups.expenses.list` takes a case-insensitive `filter` on the
+ * title — so a search covers the whole group, not only the pages paged in. [results] is null
+ * exactly while nothing has been typed: an empty result and an unasked question are different
+ * sentences with different ways out of them.
+ */
+data class SearchUiState(
+    val isActive: Boolean = false,
+    /** Exactly what is in the field, including whitespace — the field's own value, not the
+     *  trimmed query that was sent. */
+    val query: String = "",
+    val results: LoadState<List<ExpenseListItem>>? = null,
+)
+
 data class GroupDetailUiState(
     val group: LoadState<GroupInfo> = LoadState.Loading,
     val expenses: LoadState<ExpensesPage> = LoadState.Loading,
@@ -66,6 +125,20 @@ data class GroupDetailUiState(
     /** Who this phone is in this group, resolved via [app.spliit.core.RecentGroupsSnapshot.actorId]
      *  — null both before anyone has answered and once a remembered answer has left the group. */
     val activeParticipantId: String? = null,
+    /** [LoadState.Loading] both before the totals tab has been opened and while its request is
+     *  out; [statsRequested] is what tells those apart, and only the tab itself needs to. */
+    val stats: LoadState<StatsInfo> = LoadState.Loading,
+    /**
+     * This instance answers neither name the totals go by. Not a failure: there is nothing to
+     * retry and nothing the user did wrong, so the tab says so once and offers no button.
+     */
+    val statsUnavailable: Boolean = false,
+    val activities: LoadState<ActivitiesPage> = LoadState.Loading,
+    val isLoadingMoreActivities: Boolean = false,
+    val search: SearchUiState = SearchUiState(),
+    /** A pull-to-refresh is in flight. Distinct from [LoadState.Loading], which replaces what is
+     *  on screen with a skeleton — a refresh leaves the numbers up until new ones arrive. */
+    val isRefreshing: Boolean = false,
 )
 
 /** One bucket's worth of expenses, newest bucket first — see [bucketExpenses]. */
@@ -146,6 +219,14 @@ class GroupDetailViewModel(
 
     private companion object {
         const val PAGE_SIZE = 20
+
+        /**
+         * How long a pause in typing counts as "done typing".
+         *
+         * Every keystroke cancels the job before it, so this delay is only ever survived by the
+         * last one — which is what makes it a debounce rather than a lag. See [search].
+         */
+        const val SEARCH_DEBOUNCE_MILLIS = 250L
     }
 
     private val _state = MutableStateFlow(GroupDetailUiState())
@@ -161,7 +242,63 @@ class GroupDetailViewModel(
         viewModelScope.launch { refresh() }
     }
 
+    /**
+     * Loads the group, but only if it is not already here.
+     *
+     * The screen's `LaunchedEffect(Unit)` runs again every time this composable is freshly
+     * composed — coming back from the expense form, from the group editor, from anywhere this
+     * screen was left rather than popped. The ViewModel is scoped to the nav entry and survives
+     * all of that, so re-entering a loaded group used to re-read the group, the whole first page
+     * of expenses and the balances for nothing. iOS guards the same call with
+     * `guard group == nil else { return }`; this is that guard.
+     *
+     * Whoever wants fresh numbers asks for them: pull-to-refresh calls [pullToRefresh], a failure
+     * offers [retry], and a write calls [reloadAfterExpenseChange]. Nothing is served from an
+     * HTTP cache — see [TrpcClient]'s own no-store note; a cached GET would quietly serve stale
+     * balances.
+     */
+    fun loadIfNeeded() {
+        if (_state.value.group is LoadState.Loaded) return
+        load()
+    }
+
     fun retry() = load()
+
+    /**
+     * Everything on this screen again, without the skeletons — the pull-to-refresh gesture.
+     *
+     * Deliberately not [refresh], which resets the three sections to [LoadState.Loading] and so
+     * replaces the numbers a user is looking at with a skeleton for the length of a round trip.
+     * A refresh that blanks the screen is indistinguishable from a reload, and the spinner
+     * already says work is happening.
+     *
+     * The lazy sections are refreshed only if they have been asked for once — see
+     * [refreshStatsIfRequested] and [refreshActivitiesIfLoaded].
+     */
+    fun pullToRefresh() {
+        viewModelScope.launch { refreshInPlace() }
+    }
+
+    /** The work behind [pullToRefresh] — public, like [refresh], so tests drive it without a
+     *  Main-dispatcher rule. */
+    suspend fun refreshInPlace() {
+        val baseUrl = resolvedInstanceBaseUrl ?: return refresh()
+        _state.update { it.copy(isRefreshing = true) }
+        try {
+            val client = clientFactory(baseUrl)
+            coroutineScope {
+                val group = async { reloadGroupInPlace(client, baseUrl) }
+                val expenses = async { loadFirstExpensesPage(client, keepOnFailure = true) }
+                val balances = async { loadBalances(client, keepOnFailure = true) }
+                val stats = async { refreshStatsIfRequested(client) }
+                val activities = async { refreshActivitiesIfLoaded(client) }
+                val search = async { reloadSearch(client) }
+                group.await(); expenses.await(); balances.await(); stats.await(); activities.await(); search.await()
+            }
+        } finally {
+            _state.update { it.copy(isRefreshing = false) }
+        }
+    }
 
     /** The actual load — see [app.spliit.android.feature.groups.GroupsListViewModel.refresh]
      *  for why tests call this directly. */
@@ -233,9 +370,12 @@ class GroupDetailViewModel(
             val info = GroupInfo(
                 id = group.id,
                 name = group.name,
+                information = group.information,
                 currencySymbol = group.currency,
                 currencyCode = group.currencyCode,
+                createdAt = group.createdAt,
                 participants = group.participants,
+                instanceBaseUrl = instanceBaseUrl,
             )
             _state.update { it.copy(group = LoadState.Loaded(info), activeParticipantId = actorId) }
         } catch (e: CancellationException) {
@@ -247,7 +387,40 @@ class GroupDetailViewModel(
         }
     }
 
-    private suspend fun loadFirstExpensesPage(client: TrpcClient) {
+    /**
+     * Re-reads the group without touching the stored row or the active participant.
+     *
+     * [loadGroup] is the *opening* of a group: it stamps `lastOpenedAt` and re-resolves who this
+     * phone is. A refresh is neither — the group is already open and the answer to "who are
+     * you?" has not moved — so this reads the one thing that can have changed on the server and
+     * leaves the rest alone. A failure keeps what is on screen: the name in the title bar being
+     * a moment old beats it being replaced by an error panel.
+     */
+    private suspend fun reloadGroupInPlace(client: TrpcClient, instanceBaseUrl: String) {
+        val group = try {
+            client.call(SpliitEndpoints.groupsGet(groupId)).group ?: return
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TrpcServerError) {
+            return
+        } catch (e: TrpcClientError) {
+            return
+        }
+        val info = GroupInfo(
+            id = group.id,
+            name = group.name,
+            information = group.information,
+            currencySymbol = group.currency,
+            currencyCode = group.currencyCode,
+            createdAt = group.createdAt,
+            participants = group.participants,
+            instanceBaseUrl = instanceBaseUrl,
+        )
+        _state.update { it.copy(group = LoadState.Loaded(info)) }
+    }
+
+    /** @param keepOnFailure see [loadBalances]. */
+    private suspend fun loadFirstExpensesPage(client: TrpcClient, keepOnFailure: Boolean = false) {
         try {
             val response = client.call(SpliitEndpoints.expensesList(groupId, cursor = 0, limit = PAGE_SIZE))
             val page = ExpensesPage(response.expenses, response.hasMore, response.nextCursor)
@@ -255,9 +428,9 @@ class GroupDetailViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: TrpcServerError) {
-            _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
+            if (!keepOnFailure) _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
         } catch (e: TrpcClientError) {
-            _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
+            if (!keepOnFailure) _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
         }
     }
 
@@ -353,8 +526,10 @@ class GroupDetailViewModel(
         coroutineScope {
             val row = async { reloadExpenseRow(client, expenseId) }
             val balances = async { loadBalances(client, keepOnFailure = true) }
+            val derived = async { reloadDerivedAfterExpenseChange(client) }
             row.await()
             balances.await()
+            derived.await()
         }
     }
 
@@ -377,7 +552,81 @@ class GroupDetailViewModel(
             )
         }
         val baseUrl = resolvedInstanceBaseUrl ?: return
-        loadBalances(clientFactory(baseUrl), keepOnFailure = true)
+        val client = clientFactory(baseUrl)
+        coroutineScope {
+            val balances = async { loadBalances(client, keepOnFailure = true) }
+            val derived = async { reloadDerivedAfterExpenseChange(client) }
+            balances.await()
+            derived.await()
+        }
+    }
+
+    /**
+     * An expense was written from somewhere this screen does not own the result of — the
+     * full-screen create form, or a settle-up — so everything an expense can move is read again.
+     *
+     * iOS's `reloadAfterExpenseChange`, with the same list and the same two deliberate omissions:
+     * **not** the group and **not** the categories. An expense cannot rename a group, change its
+     * currency, add a participant or invent a category, so re-reading either would be two
+     * requests that can only ever answer what we already have.
+     */
+    fun reloadAfterExpenseChange() {
+        viewModelScope.launch { applyExpenseChange() }
+    }
+
+    /** The work behind [reloadAfterExpenseChange] — public for the same reason as
+     *  [applySavedExpense]. */
+    suspend fun applyExpenseChange() {
+        val baseUrl = resolvedInstanceBaseUrl ?: return
+        val client = clientFactory(baseUrl)
+        coroutineScope {
+            val expenses = async { loadFirstExpensesPage(client, keepOnFailure = true) }
+            val balances = async { loadBalances(client, keepOnFailure = true) }
+            val derived = async { reloadDerivedAfterExpenseChange(client) }
+            expenses.await()
+            balances.await()
+            derived.await()
+        }
+    }
+
+    /**
+     * The three things an expense change also moves, each only if somebody is looking at it: the
+     * open search (whose results are a view of the same expenses and would otherwise still show
+     * the old title), the totals, and the activity log — which has just gained the line
+     * describing the change.
+     */
+    private suspend fun reloadDerivedAfterExpenseChange(client: TrpcClient) {
+        coroutineScope {
+            val search = async { reloadSearch(client) }
+            val stats = async { refreshStatsIfRequested(client) }
+            val activities = async { refreshActivitiesIfLoaded(client) }
+            search.await()
+            stats.await()
+            activities.await()
+        }
+    }
+
+    /**
+     * The group itself was edited — its name, its note, its participants — so read it again.
+     *
+     * Its own entry point rather than a flag on [reloadAfterExpenseChange], because the two
+     * invalidate opposite things: an expense cannot change the group, and a group edit does not
+     * move a single amount. The balances do come along, since removing a participant takes their
+     * column out of them.
+     */
+    fun groupEdited() {
+        viewModelScope.launch {
+            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
+            val client = clientFactory(baseUrl)
+            coroutineScope {
+                val group = async { reloadGroupInPlace(client, baseUrl) }
+                val balances = async { loadBalances(client, keepOnFailure = true) }
+                val activities = async { refreshActivitiesIfLoaded(client) }
+                group.await()
+                balances.await()
+                activities.await()
+            }
+        }
     }
 
     /**
@@ -452,6 +701,283 @@ class GroupDetailViewModel(
             val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
             val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
             _state.update { it.copy(activeParticipantId = actorId) }
+
+            // Two of the totals are this participant's, so answering the question changes the
+            // answer — but only for a tab somebody has actually opened.
+            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
+            if (statsRequested) loadStats(clientFactory(baseUrl), actorId)
         }
     }
+
+    // ---- the totals tab ----------------------------------------------------------------------
+    //
+    // Lazy, and deliberately so: this is another request on a screen that already makes three,
+    // and no other tab needs it. iOS words the rule as "three tabs' worth of editing should not
+    // pay for an answer nobody has asked to see" — so nothing here runs until the tab is opened,
+    // and `statsRequested` is what every later invalidation checks.
+
+    /** Whether the totals tab has ever been opened. Separate from [statsParticipantId], which has
+     *  null as a real answer — the group's total with nobody's share beside it. */
+    private var statsRequested = false
+    private var statsParticipantId: String? = null
+
+    /**
+     * The totals, unless they are already the answer to this exact question.
+     *
+     * Keyed on the participant as well as on having been asked once, because two of the three
+     * figures are theirs: re-answering "who are you?" from this screen has to ask again.
+     */
+    fun loadStatsIfNeeded() {
+        val state = _state.value
+        if (state.group !is LoadState.Loaded) return
+        if (statsRequested && statsParticipantId == state.activeParticipantId) return
+        refreshStats()
+    }
+
+    /** The same, unconditionally — "Try again", and the tab's own pull-to-refresh. */
+    fun refreshStats() {
+        viewModelScope.launch {
+            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
+            loadStats(clientFactory(baseUrl), _state.value.activeParticipantId)
+        }
+    }
+
+    /** Re-runs the totals for whoever they were last run for, and does nothing until the tab has
+     *  been opened once. */
+    private suspend fun refreshStatsIfRequested(client: TrpcClient) {
+        if (!statsRequested) return
+        loadStats(client, statsParticipantId)
+    }
+
+    /** The work behind both entry points — public, like [refresh], so tests drive it without a
+     *  Main-dispatcher rule. */
+    suspend fun loadStats(client: TrpcClient, participantId: String?) {
+        statsRequested = true
+        statsParticipantId = participantId
+        _state.update { it.copy(stats = LoadState.Loading, statsUnavailable = false) }
+        try {
+            // Through the `groupStats` extension, never a bare procedure: an instance that
+            // predates the rename answers `groups.stats.overview` with NOT_FOUND, and asking only
+            // the current name is what shipped a wrong "this server has no totals".
+            val response = client.groupStats(groupId, participantId)
+            // The picker may have moved on while this was in flight; somebody else's share must
+            // not become the answer under your name.
+            if (statsParticipantId != participantId) return
+            _state.update {
+                it.copy(
+                    stats = LoadState.Loaded(
+                        StatsInfo(
+                            totalGroupSpendings = response.totalGroupSpendings.toLong(),
+                            yourSpendings = response.totalParticipantSpendings?.toLong(),
+                            // Rounded here, on the way to the display, and never divided — see
+                            // StatsInfo's own note on why this arrives as a Double at all.
+                            yourShareMinorUnits = response.totalParticipantShare
+                                ?.takeIf { share -> share.isFinite() }
+                                ?.let { share -> MoneyFormatter.roundMinorUnits(share) },
+                            summary = response.summary,
+                            categories = response.categories.orEmpty(),
+                        ),
+                    ),
+                    statsUnavailable = false,
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TrpcServerError) {
+            if (e.isUnknownProcedure) {
+                // Neither name. Not a failure — there is nothing to retry and nothing the user
+                // did wrong, so the tab says so once and offers no button.
+                _state.update { it.copy(stats = LoadState.Failed(null), statsUnavailable = true) }
+            } else {
+                _state.update { it.copy(stats = LoadState.Failed(e.message)) }
+            }
+        } catch (e: TrpcClientError) {
+            _state.update { it.copy(stats = LoadState.Failed(e.message)) }
+        }
+    }
+
+    // ---- the activity log --------------------------------------------------------------------
+
+    /**
+     * The log, the first time it is looked at.
+     *
+     * Deliberately not part of [refresh]: it is the one thing on this screen nothing else needs,
+     * so loading it with the rest would put a request every group open pays for behind the three
+     * that actually draw the screen. A failure is not retried from here — the log offers a button
+     * for that — and an empty log that loaded is left alone.
+     */
+    fun loadActivitiesIfNeeded() {
+        if (activitiesRequested) return
+        retryActivities()
+    }
+
+    fun retryActivities() {
+        viewModelScope.launch {
+            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
+            loadFirstActivitiesPage(clientFactory(baseUrl))
+        }
+    }
+
+    private var activitiesRequested = false
+
+    /** Re-reads the log after a change that wrote to it, but only once it has been read once:
+     *  fetching a log for a screen nobody has opened is a request for something nobody is
+     *  looking at, and it will fetch itself the moment they do. */
+    private suspend fun refreshActivitiesIfLoaded(client: TrpcClient) {
+        if (!activitiesRequested) return
+        loadFirstActivitiesPage(client, keepOnFailure = true)
+    }
+
+    /** Public, like [refresh], so tests drive it without a Main-dispatcher rule. */
+    suspend fun loadFirstActivitiesPage(client: TrpcClient, keepOnFailure: Boolean = false) {
+        activitiesRequested = true
+        if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Loading) }
+        try {
+            val response = client.call(SpliitEndpoints.activitiesList(groupId, cursor = 0, limit = PAGE_SIZE))
+            _state.update {
+                it.copy(
+                    activities = LoadState.Loaded(
+                        ActivitiesPage(response.activities, response.hasMore, response.nextCursor),
+                    ),
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TrpcServerError) {
+            if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Failed(e.message)) }
+        } catch (e: TrpcClientError) {
+            if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Failed(e.message)) }
+        }
+    }
+
+    fun loadMoreActivities() {
+        viewModelScope.launch { loadNextActivitiesPage() }
+    }
+
+    /** Public for the same reason as [loadNextExpensesPage]. */
+    suspend fun loadNextActivitiesPage() {
+        val current = (_state.value.activities as? LoadState.Loaded)?.value ?: return
+        if (!current.hasMore || _state.value.isLoadingMoreActivities) return
+        val baseUrl = resolvedInstanceBaseUrl ?: return
+
+        _state.update { it.copy(isLoadingMoreActivities = true) }
+        try {
+            val response = client(baseUrl).call(
+                SpliitEndpoints.activitiesList(groupId, cursor = current.nextCursor, limit = PAGE_SIZE),
+            )
+            // The log grows at the *top*, so a page fetched after something new was recorded
+            // repeats a row rather than skipping one. Same guard as the expense list.
+            val known = current.activities.mapTo(HashSet()) { it.id }
+            val merged = current.activities + response.activities.filterNot { it.id in known }
+            _state.update {
+                it.copy(
+                    activities = LoadState.Loaded(
+                        ActivitiesPage(merged, response.hasMore, response.nextCursor),
+                    ),
+                    isLoadingMoreActivities = false,
+                )
+            }
+        } catch (e: CancellationException) {
+            _state.update { it.copy(isLoadingMoreActivities = false) }
+            throw e
+        } catch (e: TrpcServerError) {
+            _state.update { it.copy(isLoadingMoreActivities = false) }
+        } catch (e: TrpcClientError) {
+            _state.update { it.copy(isLoadingMoreActivities = false) }
+        }
+    }
+
+    // ---- search ------------------------------------------------------------------------------
+
+    /** The in-flight search, cancelled by the next keystroke. Holding the job is what makes the
+     *  delay in [runSearch] a debounce: only the last one ever survives it. */
+    private var searchJob: Job? = null
+
+    fun setSearchActive(active: Boolean) {
+        if (!active) {
+            searchJob?.cancel()
+            searchJob = null
+            _state.update { it.copy(search = SearchUiState()) }
+        } else {
+            _state.update { it.copy(search = it.search.copy(isActive = true)) }
+        }
+    }
+
+    /**
+     * Answers [text], after a pause long enough to mean the typing has stopped.
+     *
+     * Every call cancels the one before it, so the delay below is only ever reached by the last
+     * keystroke — and the cancellation lands *in the delay*, before a request goes out, for
+     * anyone typing faster than that.
+     *
+     * When it does land in a request instead, [TrpcClient] propagates a real
+     * [CancellationException] rather than dressing it up as a network failure, and [runSearch]
+     * catches it separately from the two error types. Reporting it would put "Couldn't search"
+     * on screen between characters for anyone typing slower than the debounce.
+     */
+    fun search(text: String) {
+        _state.update { it.copy(search = it.search.copy(isActive = true, query = text)) }
+        searchJob?.cancel()
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) {
+            // An emptied field is not a search for nothing: drop the results and go back to the
+            // prompt rather than asking the server for the whole group again.
+            searchJob = null
+            _state.update { it.copy(search = it.search.copy(results = null)) }
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            runSearch(trimmed)
+        }
+    }
+
+    /** The request itself, without the debounce — public so a test can drive one search without
+     *  waiting out a timer. */
+    suspend fun runSearch(query: String) {
+        val baseUrl = resolvedInstanceBaseUrl ?: return
+        _state.update { it.copy(search = it.search.copy(results = LoadState.Loading)) }
+        try {
+            val response = client(baseUrl).call(
+                SpliitEndpoints.expensesList(groupId, cursor = 0, limit = PAGE_SIZE, filter = query),
+            )
+            // The field may have moved on while this was in flight; a stale page must not become
+            // the answer to a question nobody asked.
+            if (_state.value.search.query.trim() != query) return
+            _state.update { it.copy(search = it.search.copy(results = LoadState.Loaded(response.expenses))) }
+        } catch (e: CancellationException) {
+            // The keystroke after this one is already searching. Nothing to report, and nothing
+            // to leave on screen either — rethrown so the cancelled job dies as one.
+            throw e
+        } catch (e: TrpcServerError) {
+            if (_state.value.search.query.trim() == query) {
+                _state.update { it.copy(search = it.search.copy(results = LoadState.Failed(e.message))) }
+            }
+        } catch (e: TrpcClientError) {
+            if (_state.value.search.query.trim() == query) {
+                _state.update { it.copy(search = it.search.copy(results = LoadState.Failed(e.message))) }
+            }
+        }
+    }
+
+    /** Re-runs whatever the field currently asks, for when an expense changed underneath it. */
+    private suspend fun reloadSearch(client: TrpcClient) {
+        val query = _state.value.search.query.trim()
+        if (query.isEmpty()) return
+        try {
+            val response = client.call(
+                SpliitEndpoints.expensesList(groupId, cursor = 0, limit = PAGE_SIZE, filter = query),
+            )
+            if (_state.value.search.query.trim() != query) return
+            _state.update { it.copy(search = it.search.copy(results = LoadState.Loaded(response.expenses))) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TrpcServerError) {
+            // The results on screen are a moment old rather than wrong; an error panel over them
+            // would be worse than that.
+        } catch (e: TrpcClientError) {
+        }
+    }
+
+    private fun client(baseUrl: String): TrpcClient = clientFactory(baseUrl)
 }

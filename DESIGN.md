@@ -186,7 +186,35 @@ Two components that look alike do different jobs, and the distinction decides wh
 - **Destructive actions** — full width, in the `error-container` tone with `on-error-container`
   text, not a solid `error` fill. Loud enough to find, quiet enough not to be what the eye lands
   on first, and separated from the confirm action. Measured: 7.24:1 light, 8.96:1 dark.
-- **Amount entry** — oversized, centred, currency symbol beside the figure.
+- **Amount entry** — oversized, centred, currency symbol beside the figure. **The symbol is
+  `primary`; the figure is `on-surface`.** Two roles, two colours: the symbol says which money
+  this is, the number says how much. Drawn in one muted grey the symbol reads as decoration and
+  the eye skips it, which is wrong on the one screen where the currency is a real question — a
+  group counted in yen and one counted in euros differ by nothing else. Measured 6.74:1 light,
+  10.88:1 dark.
+- **An expense row gives the split its own line.** Who paid and who it was paid for are two
+  facts, and run together as "Paid by Ana for Ana, Bruno and Chloé" the second one truncates
+  first — which is the half someone is checking. Payer on one line, the people it covers on the
+  next.
+- **An expense amount is `primary`.** Drawn in `on-surface` it is the same colour as the title
+  beside it and the list reads as a wall of text; the amount is what people scan a ledger for and
+  it should be findable without reading.
+
+  **This is the one place the colour system gives something up, and it is worth being honest
+  about.** Everywhere else in this app colour means *direction* — `balance-positive` is owed to
+  you, `balance-negative` is owed by you, neutral is an amount with no direction at all, which is
+  exactly what an expense is. Tinting expenses spends a little of that: colour now also just
+  means "this is money".
+
+  It stays workable because the two never share a screen. The expense list has no balances in it
+  and the Balances tab has no expense rows, so brand green and ledger green are never side by
+  side asking to be told apart. **The ledger axis remains exclusive to balances** — an expense
+  never takes `balance-positive` or `balance-negative`, whatever its sign, because an expense has
+  no sign to carry.
+- **A picker opens as a sheet over whatever asked for it**, including over another sheet. The
+  currency picker is reached from the group form, which is a full screen when editing and a
+  drawer when creating; routing to it worked in the first case and silently did nothing in the
+  second, because a sheet has no back stack to push onto. A sheet works in both.
 - **Progressive disclosure** — a setting most people never touch is collapsed behind *Advanced*,
   prefilled from its default. The server address on the create-group sheet is the case in point:
   it moved there once Settings could hold a default, but it did **not** disappear, because

@@ -440,4 +440,45 @@ class SpliitEndpointsTest {
 
         assertEquals(1416.67, decoded.totalParticipantShare)
     }
+
+    @Test
+    fun `the overview fixture decodes the summary and the category breakdown`() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(200).body(Fixture.text("groups.stats.overview")).build())
+
+        val result = client.groupStats("g1")
+
+        val summary = requireNotNull(result.summary)
+        assertEquals(4, summary.expenseCount)
+        assertEquals(63680, summary.totalSpending)
+        assertEquals(15920, summary.averageExpense)
+        assertEquals("Apartment", summary.largestExpense?.title)
+        assertEquals(48000, summary.largestExpense?.amount)
+        // Date-only strings, not superjson `Date`s — the envelope annotates neither.
+        assertEquals("2025-08-11", summary.firstDate)
+        assertEquals("2026-09-14", summary.lastDate)
+
+        val categories = requireNotNull(result.categories)
+        assertEquals(1, categories.size)
+        assertEquals("Uncategorized", categories[0].grouping)
+        assertEquals("General", categories[0].name)
+        assertEquals(63680, categories[0].total)
+    }
+
+    /**
+     * The shape the **removed** `groups.stats.get` answers with: the three top-level figures and
+     * nothing else. Everything the overview added has to decode as absent rather than throw, or
+     * the totals tab breaks on exactly the self-hosted instances the fallback exists for.
+     */
+    @Test
+    fun `a three-figure payload leaves every field the overview added null`() {
+        val body = okBody(
+            """{"totalGroupSpendings":63680,"totalParticipantSpendings":6050,"totalParticipantShare":17627}""",
+        )
+
+        val decoded = SuperJson.decodeResponse(SpliitEndpoints.GroupStatsResponse.serializer(), body)
+
+        assertEquals(63680, decoded.totalGroupSpendings)
+        assertNull(decoded.summary)
+        assertNull(decoded.categories)
+    }
 }

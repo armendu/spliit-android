@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.R
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
+import app.spliit.android.ui.design.CurrencyPickerSheet
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.core.Currencies
 import app.spliit.core.ExpenseFormDraft
@@ -378,13 +379,17 @@ internal fun ExpenseFormBody(
 
     if (showCurrencyPicker) {
         CurrencyPickerSheet(
+            title = "Paid in",
             selectedCode = draft.originalCurrencyCode,
-            groupCurrencyCode = group.currencyCode,
+            promotedCode = group.currencyCode,
+            promotedSuffix = " — the group's own",
             onSelect = {
                 viewModel.setCurrency(it)
                 showCurrencyPicker = false
             },
             onDismiss = { showCurrencyPicker = false },
+            tag = TestTags::expenseFormCurrencyOption,
+            searchFieldTag = TestTags.EXPENSE_FORM_CURRENCY_SEARCH_FIELD,
         )
     }
 }

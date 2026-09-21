@@ -229,9 +229,12 @@ class ExpenseFormViewModel(
             val group = GroupInfo(
                 id = loadedGroup.id,
                 name = loadedGroup.name,
+                information = loadedGroup.information,
                 currencySymbol = loadedGroup.currency,
                 currencyCode = loadedGroup.currencyCode,
+                createdAt = loadedGroup.createdAt,
                 participants = loadedGroup.participants,
+                instanceBaseUrl = instanceBaseUrl,
             )
             val draft = buildDraft(group, expense, row.defaultSplit, row.participantId)
             initialDraft = draft
