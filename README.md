@@ -17,8 +17,9 @@ phone just keeps a list of the groups you have opened.
 
 Grab the `.apk`, open it on your phone, and allow installing from that source when Android asks.
 
-Want a build of something that isn't released yet? Every push builds one: open any run under
-[Actions](../../actions/workflows/ci.yml) and the APK is attached at the bottom of the page.
+Want a build of something that isn't released yet? Every push to `master` and every pull
+request produces one: open the run under [Actions](../../actions/workflows/ci.yml) and the APK
+is attached at the bottom of the page.
 
 ## Build it yourself
 
@@ -46,6 +47,19 @@ find out your toolchain is set up correctly. Run `make` on its own to see everyt
 | `make test-live` | the API client against a real server |
 
 Android Studio is never required — but if you open the project in it, everything works there too.
+
+## Branches
+
+`master` is the released branch. It is the only thing that builds, and a tag on it is what
+publishes a release — so it stays protected and takes changes through pull requests rather than
+direct pushes.
+
+`development` is where work happens. Pushing to it does not spend a CI run; opening the pull
+request into `master` is what asks for one.
+
+```
+work on development  →  pull request  →  CI runs  →  merge to master  →  tag  →  release
+```
 
 ## Releasing
 

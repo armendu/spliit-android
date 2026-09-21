@@ -1,7 +1,16 @@
 name: CI
 
+# Master and pull requests only.
+#
+# `push:` with no filter meant every branch and every tag, so work in progress burned a full
+# build on each commit and a tag ran CI twice — once here and once inside the release workflow,
+# which runs the same suites itself. Day-to-day work happens on `development`, and what matters
+# about a commit there is whether it survives the pull request into master, which the
+# `pull_request` trigger below still covers.
 on:
   push:
+    branches:
+      - master
   pull_request:
   schedule:
     # 04:15 UTC daily, for the upstream-drift job below.
