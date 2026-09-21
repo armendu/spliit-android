@@ -9,6 +9,24 @@ yet. Adding something the spec for this cycle does not list is not being helpful
 
 ## How work happens here
 
+**Work on `development`; `master` is what ships.** `master` is protected — changes arrive by
+pull request, and the `build` check has to be green before one can merge. It is also the only
+branch CI builds, and the only branch a release tag is cut from.
+
+```
+development  →  pull request  →  CI  →  master  →  tag  →  release
+```
+
+Pushing to `development` deliberately spends no CI run. What matters about a commit there is
+whether it survives the pull request, which is where the suites run.
+
+Two things about that protection are worth knowing rather than discovering. **Admins bypass it.**
+`enforce_admins` is off, so a direct push to `master` from the repository owner still goes
+through — git prints `Bypassed rule violations` and does it anyway. The rule is a guard rail for
+the normal path, not a lock. And **`build` is the only required check**: `upstream-drift` is
+skipped on a push, and requiring a check that never runs would make every pull request
+unmergeable.
+
 Commits in this repo need `-c commit.gpgsign=false --no-verify`; signing and hooks hang here.
 
 ### Commit messages
