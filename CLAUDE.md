@@ -64,7 +64,7 @@ Versions live in `gradle/libs.versions.toml` and nowhere else.
 | Gradle | 9.7.1 | AGP 9.4 requires ≥ 9.6.0 |
 | AGP | 9.4.0 | max API level 37 |
 | Kotlin | 2.4.20 | the Compose compiler plugin is versioned with it |
-| JDK | 21 | Android Studio's JBR; AGP needs ≥ 17 |
+| JDK | 21 | the toolchain every module compiles against; AGP needs ≥ 17 |
 | compileSdk / targetSdk | 37 (minor 1) | see below |
 | minSdk | 26 | `java.time` natively, so `:core` needs no date library |
 
@@ -103,6 +103,21 @@ platform install leaves you with a different minor, that one line is what change
 These are the iOS app's hard-won list, rewritten for Kotlin. Every one of them fails *silently* —
 no crash, no error, just a wrong number on a screen. They are roughly in order of how quietly
 they go wrong.
+
+**The JDK that runs Gradle is not the JDK the build compiles with, and Android Studio moves
+the first one out from under you.** The Makefile points `JAVA_HOME` at Studio's JBR so Gradle
+itself has something modern to run on; the modules separately ask for a **21** toolchain. Those
+were the same JDK until a Studio update took the JBR to 25, at which point the build stopped
+with "Cannot find a Java installation … matching {languageVersion=21}" — on a machine whose only
+other JDK is the system 11. The failure names the toolchain, not the JBR, so it reads as a
+project misconfiguration rather than as an IDE upgrade. `settings.gradle.kts` applies the foojay
+resolver, which lets Gradle fetch the JDK the build asked for instead of taking whatever happens
+to be installed. Do not "fix" a repeat of this by bumping the toolchain to match the JBR: that
+silently changes the bytecode target for everyone, CI included.
+
+*Running `updateDaemonJvm` is not the fix either.* It writes
+`gradle/gradle-daemon-jvm.properties` pinning the **daemon**, which was never the thing that was
+wrong, and leaves the toolchain error exactly as it was.
 
 **The bundled emulator segfaults; update it before believing a boot failure.** The SDK shipped
 `emulator` 35.5.10 (2024), which dies with `Segmentation fault: 11` in `qemu-system-aarch64`
