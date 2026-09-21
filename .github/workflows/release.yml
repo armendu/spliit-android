@@ -149,8 +149,14 @@ jobs:
             echo "SHA-256: \`${{ steps.apk.outputs.sha256 }}\`"
           } > "$notes"
 
+          # Published as a normal release, not a pre-release, even when it carries the debug
+          # key: this is the build people are meant to download, and burying it under
+          # "Pre-release" while it is the only one there hides the thing the tag exists to
+          # publish. The notes above say plainly what the signature is; that is the honest
+          # place for the caveat, rather than a label that also changes where the release
+          # appears.
           gh release create "${GITHUB_REF#refs/tags/}" \
             "${{ steps.apk.outputs.path }}" \
             --title "Spliit for Android ${{ steps.version.outputs.name }}" \
             --notes-file "$notes" \
-            ${{ steps.signing.outputs.signed != 'true' && '--prerelease' || '' }}
+            --latest
