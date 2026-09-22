@@ -4,30 +4,24 @@ import java.util.Locale
 
 // How a group's expenses are usually divided, remembered so the next one starts there.
 //
-// A saved split is the client's, not the server's. `saveDefaultSplittingOptions` is sent on
-// every expense write, validated, and read by no procedure: the web app keeps its own copy in
-// localStorage and ours lives on the recent-group row. The two never reconcile.
+// A saved split is the client's: `saveDefaultSplittingOptions` is sent, validated, and read by no
+// procedure. The web app keeps its own in localStorage; ours lives on the recent-group row.
 //
-// Three rules, each earning its place by being wrong the obvious way:
+// Three rules, each wrong the obvious way:
 //
-//  1. BY_AMOUNT keeps only its mode. Its shares are one receipt's amounts and would not add up
-//     to the next expense, so seeding with them seeds numbers that look deliberate and are not.
+//  1. BY_AMOUNT keeps only its mode. Its shares are one receipt's amounts and will not add up to
+//     the next expense, so seeding with them seeds numbers that look deliberate and are not.
 //  2. A split naming a participant who has left is dropped whole, not trimmed. 70/30 minus the
-//     30 is a split nobody chose; falling back to the group default is visible and correctable.
-//  3. An even split of the whole group is stored as membership alone. Under EVENLY a share says
-//     nothing beyond who was in it, and "everybody" should stay right after someone joins.
-//     Stored as today's names, a flatmate moving in next month would be silently left out. The
-//     other modes cannot do this: nobody joins a 50/30/20 without breaking it, so they keep
-//     their names and a newcomer sits out until an expense includes them.
+//     30 is a split nobody chose; the group default is visible and correctable.
+//  3. An even split of the whole group is stored as membership alone, so a flatmate who moves in
+//     next month is included rather than silently left out. The other modes keep their names:
+//     nobody joins a 50/30/20 without breaking it.
 
 /**
- * How a group's expenses are usually divided, remembered on the client so the next expense
- * started in this group can begin there instead of blank.
+ * How a group's expenses are usually divided, so the next one can start there instead of blank.
  *
- * @property shares Everyone remembered, and what each was given, on the ×100 scale the protocol
- *   already stores share counts and percentages on, see [ExpenseSubmission.PaidFor.shares].
- *   Null under [SplitMode.BY_AMOUNT], and null for an even split of the whole group, see the
- *   rules at the top of this file for why each is nothing rather than something.
+ * @property shares Everyone remembered and what each was given, on the protocol's ×100 scale.
+ *   Null under [SplitMode.BY_AMOUNT] and for an even split of the whole group, see rules 1 and 3.
  */
 public data class DefaultSplit(
     public val splitMode: SplitMode,
@@ -35,11 +29,8 @@ public data class DefaultSplit(
 ) {
 
     /**
-     * Whether this still describes a split of [participants].
-     *
-     * Only false when [shares] names somebody who has left, a fresh participant is not a
-     * problem, they were simply never in it. Null [shares] (rule 1 or rule 3) always applies:
-     * there is nothing in it that could go stale.
+     * Whether this still describes a split of [participants]. False only when [shares] names
+     * somebody who has left; a new participant was simply never in it. Null shares always apply.
      */
     public fun appliesTo(participants: List<Participant>): Boolean {
         val shares = shares ?: return true
@@ -48,29 +39,19 @@ public data class DefaultSplit(
     }
 
     /**
-     * This split, or the group's plain default when it no longer [appliesTo] [participants].
-     *
-     * The alternative, trimming the stale names out of [shares], produces a split nobody
-     * chose (rule 2). Degrading instead of throwing is what keeps this a place a new expense can
-     * always start from, including the case every one of its participants has since left.
+     * This split, or the group's plain default once it no longer [appliesTo] [participants].
+     * Trimming the stale names instead would produce a split nobody chose (rule 2).
      */
     public fun orDefaultFor(participants: List<Participant>): DefaultSplit =
         if (appliesTo(participants)) this else DEFAULT
 
     /**
-     * Seeds a new expense's participants from this split.
+     * Seeds a new expense's participants from this split. Anyone not remembered is covered,
+     * which is rule 3 paying off. Under BY_AMOUNT [shares] is always null (rule 1), so rows come
+     * back at the "1" a blank expense starts with.
      *
-     * With nothing remembered for somebody, including everybody, when [shares] is null, the
-     * split covers them: that is rule 3 paying off, and it is also how a blank expense has always
-     * started. Values come back at the same precision [ExpenseFormDraft] reads them at, so a
-     * draft built from this list validates and totals exactly as the expense that was saved did.
-     *
-     * There is no group currency to seed [SplitMode.BY_AMOUNT] with here: [shares] is always null
-     * under it (rule 1), so its participants come back at the "1" every row starts with, waiting
-     * for the amounts this expense actually has.
-     *
-     * @param locale Used to spell a fractional share, a comma or a dot, so the text this seeds
-     *   matches what [ExpenseFormDraft] will read it back with; whole shares need none.
+     * @param locale Spells a fractional share with the right separator, so [ExpenseFormDraft]
+     *   reads back what this wrote.
      */
     public fun apply(
         participants: List<Participant>,
@@ -91,12 +72,8 @@ public data class DefaultSplit(
         public val DEFAULT: DefaultSplit = DefaultSplit(splitMode = SplitMode.EVENLY)
 
         /**
-         * What to remember from an expense that has just been submitted.
-         *
-         * Built from [submission] rather than from the draft that produced it, because these
-         * numbers have already passed validation: every share is a positive number, parsed, and -
-         * under the modes that require it, adding up. A draft still being typed into offers no
-         * such guarantee, and remembering an unfinished split would be remembering a mistake.
+         * What to remember from an expense just submitted. Built from [submission], not the
+         * draft: these numbers have passed validation, and a draft being typed into has not.
          */
         public fun remembering(
             submission: ExpenseSubmission,

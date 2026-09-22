@@ -12,19 +12,13 @@ import java.util.Currency as IsoCurrency
 /**
  * Formats the integer minor units the API deals in.
  *
- * Minor units are not always hundredths. `1234` is 12.34 in a two-decimal currency, ¥1,234 in
- * yen, and 1.234 in a Gulf dinar. Sixteen of the currencies offered have no minor unit and seven
- * have three, so `/ 100` anywhere here is a number wrong by 100x or 1000x on a screen that looks
- * entirely plausible. Ask [minorUnitDigits].
+ * **Minor units are not always hundredths.** `1234` is 12.34 in a two-decimal currency, ¥1,234
+ * in yen and 1.234 in a Gulf dinar; 16 of the offered currencies have no minor unit and 7 have
+ * three. `/ 100` here is a figure wrong by 100x that still looks plausible. Ask [minorUnitDigits].
  *
- * A group's `currency` is free text ("$", "CHF", "kr"); only newer groups carry an ISO code. The
- * code decides precision, the symbol decides what is drawn, and the reader's locale decides
- * grouping and placement, so a French reader gets `1 234,56 €` and an American `$1,234.56` for
- * the same stored integer.
- *
- * Minor units are [Long] though the wire carries [Int]: a sum overflows 32 bits in a small-unit
- * currency well before the figure is unreasonable, and an overflow is a wrong number, not an
- * error.
+ * The ISO code decides precision, the group's free-text symbol decides what is drawn, and the
+ * reader's locale decides grouping. [Long], not the wire's [Int]: a sum overflows 32 bits in a
+ * small-unit currency well before the figure is unreasonable, and an overflow is a wrong number.
  */
 public class MoneyFormatter(
     /** What amounts are drawn with, the group's free-text `currency`. */
@@ -36,10 +30,8 @@ public class MoneyFormatter(
     /** How many digits the stored integer keeps behind the decimal point. */
     public val minorUnitDigits: Int = minorUnitDigits(currencyCode)
 
-    // java.text formatters are mutable and explicitly not thread-safe, unlike Foundation's,
-    // which the iOS app can share freely. Built once because building one is the expensive part,
-    // and guarded because a MoneyFormatter is held by a ViewModel and read from whichever thread
-    // composes.
+    // java.text formatters are mutable and not thread-safe, unlike Foundation's. Built once
+    // because that is the expensive part, guarded because composition can read from any thread.
     private val currencyFormat: DecimalFormat by lazy { buildCurrencyFormat() }
     private val plainFormat: DecimalFormat by lazy { buildPlainFormat() }
 
@@ -130,12 +122,10 @@ public class MoneyFormatter(
         }
 
         /**
-         * Parses what someone typed into minor units, rounding half-up at the last digit the
-         * currency has room for.
+         * Parses typed text into minor units, rounding half-up at the currency's last digit.
          *
-         * @param minorUnitDigits what to scale by, from the group's currency. The default suits
-         *   a share count or a percentage, which the protocol scales by 100 whatever the group
-         *   is denominated in.
+         * @param minorUnitDigits what to scale by. The default suits a share or a percentage,
+         *   which the protocol scales by 100 whatever the group is denominated in.
          */
         public fun parseMinorUnits(
             text: String,
@@ -165,13 +155,10 @@ public class MoneyFormatter(
          * The number in typed or pasted text, as a decimal. Public because a conversion rate is
          * not money: rounding one to the group's precision would turn 0.9241 into 0.92.
          *
-         * Anything that is not a digit, separator or leading minus is dropped. The hard part is
-         * that `,` is the decimal point in Paris and the thousands separator in New York, and
-         * keyboards disagree with locales: reading "42,50" as 4250 is a hundredfold error.
-         *
-         * So a separator the locale spells decimals with is a decimal point. Otherwise the last
-         * separator is one *unless* it looks like a group (exactly three digits after, nothing
-         * else) and either the locale groups with it or there is more than one.
+         * `,` is the decimal point in Paris and the thousands separator in New York, and
+         * keyboards disagree with locales, so reading "42,50" as 4250 is a hundredfold error.
+         * A separator the locale spells decimals with wins; otherwise the last separator is a
+         * decimal point unless it looks like a group.
          */
         public fun parseDecimal(text: String, locale: Locale = Locale.getDefault()): BigDecimal? {
             val symbols = DecimalFormatSymbols.getInstance(locale)

@@ -4,20 +4,15 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * How often a screen may ask the server again.
+ * How often a screen may ask the server again. Pull-to-refresh costs a round trip per section,
+ * and neither end rate-limits, so idly tugging a list is several requests a second against what
+ * may be somebody's Raspberry Pi.
  *
- * Pull-to-refresh is a gesture people repeat, and it costs one round trip per section, so idly
- * tugging a list is several requests a second against what may be someone's Raspberry Pi.
- * Neither end rate-limits, which leaves the client.
+ * A minimum interval rather than a bucket, which would allow a burst then stop dead mid-gesture.
+ * It covers the repeatable gestures only: first loads and reloads after a write happen once.
  *
- * A minimum interval rather than a quota: a bucket allows a burst then stops dead mid-gesture,
- * where "pull twice quickly and the second one does not go" is something anyone can describe.
- *
- * It covers only the repeatable gestures, pull-to-refresh and retry. First loads, a tab opened
- * for the first time, and reloads after a write happen once and must not be dropped.
- *
- * @param now Injected so tests do not sleep. The wall clock can jump; a jump costs at most one
- *   extra or one skipped refresh, which is not worth a monotonic-clock dependency.
+ * @param now Injected so tests do not sleep. A wall-clock jump costs one extra or one skipped
+ *   refresh, which is not worth a monotonic-clock dependency.
  */
 public class RefreshLimiter(
     private val minInterval: Duration = DEFAULT_MIN_INTERVAL,
@@ -27,11 +22,8 @@ public class RefreshLimiter(
     private var lastAllowedAt: Long? = null
 
     /**
-     * True when the caller may go to the server, and records that it did.
-     *
-     * Named for the fact that it has an effect: calling this twice is not the same as calling it
-     * once, and a caller that asks without intending to act on the answer has consumed the
-     * window for whoever asks next.
+     * True when the caller may go to the server, and records that it did. Calling this twice is
+     * not calling it once: asking without acting consumes the window for whoever asks next.
      */
     public fun allow(): Boolean = synchronized(lock) {
         val at = now()
@@ -42,11 +34,8 @@ public class RefreshLimiter(
     }
 
     /**
-     * Forgets the last refresh, so the next [allow] succeeds.
-     *
-     * For the cases where the screen's contents changed underneath the limiter and the usual
-     * "you just asked" reasoning no longer holds, switching to a different group, or a write
-     * that has to be read back.
+     * Forgets the last refresh, so the next [allow] succeeds. For when the screen changed
+     * underneath it, a different group or a write, and "you just asked" no longer holds.
      */
     public fun reset(): Unit = synchronized(lock) { lastAllowedAt = null }
 

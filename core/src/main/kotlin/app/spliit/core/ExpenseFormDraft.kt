@@ -224,14 +224,9 @@ public data class ExpenseFormDraft(
         }
 
     /**
-     * What each included participant owes, in the group's minor units.
-     *
-     * Apportioned in whole minor units: a third of 10.00 is 334/333/333, and the sum is exact.
-     * The extra unit goes to the participants earliest in this list, which is the server's
-     * participant order, so every device and both apps apportion identically. That ordering is
-     * why this is a list and not a Map.
-     *
-     * Empty while the amount or any share is not yet a usable number.
+     * What each included participant owes, in whole minor units: a third of 10.00 is 334/333/333
+     * and the sum is exact. The extra unit goes to whoever is earliest in the server's
+     * participant order, so every device apportions identically, which is why this is a list.
      */
     public fun splitAmounts(): List<ParticipantAmount> {
         val included = includedParticipants
@@ -619,12 +614,11 @@ public data class ExpenseFormDraft(
         private const val WHOLE = 100_00L
 
         /**
-         * A blank expense for a group: everyone included, split evenly.
+         * A blank expense: everyone included, split evenly.
          *
-         * @param paidBy who the user says they are here. An ID the group no longer has falls
-         *   back to the first participant rather than naming a stranger.
-         * @param defaultSplit the group's remembered split, if any. One naming somebody who has
-         *   left is dropped whole rather than trimmed, so it cannot silently exclude anyone.
+         * @param paidBy who the user says they are. An ID the group no longer has falls back to
+         *   the first participant rather than naming a stranger.
+         * @param defaultSplit dropped whole if it names somebody who has left, never trimmed.
          */
         public fun creating(
             participants: List<Participant>,
@@ -649,10 +643,8 @@ public data class ExpenseFormDraft(
 
         /**
          * A reimbursement prefilled from a suggested payment. Spliit has no "mark as paid": a
-         * debt is settled by recording an expense the payer paid for the payee alone. The split
-         * is therefore one-sided, and never worth remembering as a default.
-         *
-         * @param amountMinorUnits the suggested payment, in the group's minor units.
+         * debt is settled by an expense the payer paid for the payee alone, so the split is
+         * one-sided and never worth remembering as a default.
          */
         public fun settling(
             fromParticipantId: String,
@@ -776,12 +768,9 @@ public data class ExpenseFormDraft(
         }
 
         /**
-         * Apportions [total] across [weights] in whole minor units, largest remainder first,
-         * ties broken by position (see [splitAmounts]).
-         *
-         * Floor division, not truncation, so the leftover is never negative and a refund
-         * apportions like an expense. Products go through [BigInteger] because `total * weight`
-         * overflows a Long well before either factor looks unreasonable.
+         * Apportions [total] across [weights], largest remainder first, ties by position. Floor
+         * division rather than truncation, so a refund apportions like an expense; products go
+         * through [BigInteger] because `total * weight` overflows a Long sooner than it looks.
          */
         private fun apportion(total: Long, weights: List<Long>): List<Long> {
             val divisor = weights.fold(BigInteger.ZERO) { sum, weight -> sum + weight.toBigInteger() }
@@ -869,17 +858,11 @@ public data class ExpenseSubmission(
     )
 
     /**
-     * The same values in the wire's widths. The three conversion fields do not share one notion
-     * of empty, measured against a live instance:
-     *
-     * - [originalCurrency]: null here becomes an explicit JSON null, the only conversion field
-     *   whose schema accepts one, and so the only way to stop an expense being converted.
-     * - [originalAmount] and [conversionRate]: null here means *omitted*. Both answer 400 to a
-     *   JSON null, and neither is cleared, so the stored figures stay put and inert. Nothing
-     *   reads either without [originalCurrency].
-     *
-     * Leaving them behind rather than blanking them is what the web app and iOS do, and all
-     * three write to one database, so the same action must leave the same state.
+     * The same values in the wire's widths. The three conversion fields disagree about empty,
+     * measured against a live instance: a null [originalCurrency] is sent as an explicit JSON
+     * null, the only one whose schema accepts it and so the only way to stop a conversion, while
+     * a null [originalAmount] or [conversionRate] is *omitted*, because both answer 400 to null.
+     * The stale figures stay put and inert, which is what the web app and iOS also leave behind.
      */
     public data class Wire(
         public val title: String,

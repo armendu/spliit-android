@@ -86,14 +86,9 @@ public data class RecentGroupsSnapshot(
         get() = orderedGroups.filter { it.isArchived }
 
     /**
-     * Adds [group], or moves it to the front and refreshes what a server just told us, while
-     * keeping what only this phone knows.
-     *
-     * [group] comes fresh from the server and carries no participant answer, split or flags, so
-     * the existing row's win. Without that, opening a starred group would unstar it. Anything
-     * else that comes to live on a row belongs in this list too.
-     *
-     * Removes any tombstone: opening a group outranks another device having deleted it.
+     * Adds [group], or moves it to the front, keeping what only this phone knows: [group] comes
+     * from the server with no participant answer, split or flags, so the existing row's win.
+     * Without that, opening a starred group would unstar it. Any tombstone is removed.
      */
     public fun opening(group: RecentGroup, now: Instant = Instant.now()): RecentGroupsSnapshot {
         val existing = groups.firstOrNull { it.groupId == group.groupId }
@@ -128,11 +123,8 @@ public data class RecentGroupsSnapshot(
     ): RecentGroupsSnapshot = modifying(groupId, now) { it.copy(defaultSplit = defaultSplit) }
 
     /**
-     * Stars [groupId], or takes the star away. Starring un-archives.
-     *
-     * No-op for an unknown group, silent on [RecentGroup.lastOpenedAt]. It does stamp
-     * [RecentGroup.updatedAt] even though nothing reorders: an unstamped star is one the next
-     * merge may discard.
+     * Stars [groupId] or takes the star away; starring un-archives. Stamps [RecentGroup.updatedAt]
+     * even though nothing reorders: an unstamped star is one the next merge may discard.
      */
     public fun settingStarred(
         groupId: String,
@@ -192,22 +184,15 @@ public data class RecentGroupsSnapshot(
         public val TOMBSTONE_LIFETIME: Duration = Duration.ofDays(90)
 
         /**
-         * Combines what two devices know, in a way that gives the same answer whichever one is
-         * asking, so two phones that have both seen both snapshots agree without another round
-         * trip.
+         * Combines what two devices know, giving the same answer whichever one is asking:
          *
-         * The rules, in the order they matter, see the note at the top of this file for why each
-         * one is what it is:
-         *
-         *  1. A row either side has is kept: this is a union, not a replace.
-         *  2. A group both sides have is taken whole from whichever [RecentGroup.updatedAt] is
-         *     newer, never field by field, since the fields on a row were last edited together.
-         *  3. A tombstone newer than a surviving row's [RecentGroup.updatedAt] removes it; a
-         *     tombstone the row's own edit postdates does not, the edit is evidence the deletion
-         *     was undone (via [opening]) on the device that made it.
+         *  1. A row either side has is kept: a union, not a replace.
+         *  2. A row both sides have is taken whole from the newer [RecentGroup.updatedAt], never
+         *     field by field, since a row's fields were last edited together.
+         *  3. A tombstone newer than the surviving row removes it; one the row's own edit
+         *     postdates does not, that edit being evidence the deletion was undone.
          *  4. Tombstones older than [TOMBSTONE_LIFETIME] are dropped before they can act.
-         *  5. Ordering is not merged at all, it is [orderedGroups], computed fresh from whatever
-         *     [RecentGroup.lastOpenedAt] survives.
+         *  5. Ordering is not merged, it is recomputed from the surviving [lastOpenedAt]s.
          */
         public fun merging(
             mine: RecentGroupsSnapshot,

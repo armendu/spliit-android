@@ -27,32 +27,21 @@ import java.time.format.DateTimeParseException
 import java.util.UUID
 
 /**
- * The superjson envelope the Spliit API wraps every tRPC payload in.
+ * The superjson envelope the Spliit API wraps every tRPC payload in:
+ * `{"json": <value>, "meta": {"values": …}}`, where `meta.values` annotates what plain JSON
+ * cannot express.
  *
- * superjson sends `{"json": <value>, "meta": {"values": …}}`, where `meta.values` maps
- * dot-separated key paths to annotations for values plain JSON cannot express, `Date`,
- * `undefined`, `Decimal`.
- *
- * Decoding deliberately ignores `meta.values`. Our models are statically typed, so a field the
- * server annotated as a date is already declared [Instant] here and parses straight from its
- * ISO-8601 string, and `groups.list` builds `createdAt` with `.toISOString()` and sends it with
- * no annotation at all, so trusting the metadata would break exactly that one endpoint. Encoding
- * *does* emit annotations, because the server rebuilds real `Date` instances before its own zod
- * validation runs, and a write that arrives without them is rejected.
- *
- * Timestamps in models are declared `@Contextual val x: Instant`: the serializer for them is
- * supplied per call, which is what lets encoding slip a marker into every date it writes (see
- * [encodeEnvelope]) while decoding uses a plain parser.
+ * **Decoding ignores `meta.values`; encoding still emits it.** Our models are statically typed,
+ * and `groups.list` sends `createdAt` with no annotation at all, so trusting the metadata breaks
+ * exactly that endpoint. Writes need the annotations, because the server rebuilds real `Date`
+ * instances before its zod validation runs.
  */
 public object SuperJson {
 
     /**
-     * Wraps [value] in a superjson envelope, annotating every [Instant] it contains.
-     *
-     * kotlinx-serialization offers no way to learn, after the fact, which strings in the tree came
-     * from timestamps. So dates are written behind a per-call random prefix and the prefix is
-     * stripped on a second pass over the tree, recording the key path of each one it finds. The
-     * prefix carries a UUID, so no real payload string can collide with it.
+     * Wraps [value] in a superjson envelope, annotating every [Instant] it contains. Nothing
+     * reports which strings in the tree came from timestamps, so dates are written behind a
+     * per-call UUID prefix and a second pass strips it, recording each one's key path.
      */
     public fun <T> encodeEnvelope(serializer: SerializationStrategy<T>, value: T): String {
         val marker = "\u0001superjson-date:${UUID.randomUUID()}:"
@@ -128,10 +117,9 @@ public object SuperJson {
         buildJsonObject { put("values", values) }
 
     private val ENCODER = Json {
-        // Omitted is not cleared: a key absent from the request is `undefined` to tRPC and Prisma
-        // skips the column, while an explicit null is rejected outright by most of the zod
-        // schemas. Fields that genuinely want a null send one as a JsonNull rather than as a
-        // Kotlin null.
+        // Omitted is not cleared: an absent key is `undefined` to tRPC and Prisma skips the
+        // column, while most zod schemas reject an explicit null. Fields that do want a null
+        // send a JsonNull rather than a Kotlin null.
         explicitNulls = false
         encodeDefaults = false
     }
@@ -219,12 +207,9 @@ private val ISO_8601_WITH_MILLISECONDS: DateTimeFormatter =
 /**
  * Decode-only, despite implementing both halves.
  *
- * **Do not name this on a model field.** A property declared
- * `@Serializable(with = InstantSerializer::class) val expenseDate: Instant` encodes to a correct
- * ISO-8601 string with *no* `meta` block at all, because the marking pass in
- * [SuperJson.encodeEnvelope] never sees it, the decoding is fine and the unit tests are green,
- * and the write is rejected only by a live server. Declare `@Contextual val expenseDate: Instant`
- * instead and both directions are supplied per call.
+ * **Do not name this on a model field.** `@Serializable(with = InstantSerializer::class)` encodes
+ * a correct ISO string with no `meta` block, because the marking pass never sees it: decoding is
+ * fine, the unit tests pass, and only a live server rejects the write. Use `@Contextual`.
  */
 internal object InstantSerializer : KSerializer<Instant> {
     override val descriptor: SerialDescriptor =

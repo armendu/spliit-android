@@ -233,12 +233,9 @@ public object SpliitEndpoints {
 
     // ---- Stats -----------------------------------------------------------------------------
     //
-    // Two procedure names exist in the wild: upstream deleted `groups.stats.get` when it added
-    // `groups.stats.overview`, and published images still predate the rename. `statsGet` is
-    // therefore not dead code, and asking only the new name is what shipped a wrong "this server
-    // has no totals" to everyone on spliit.app.
-    //
-    // Ask through the `TrpcClient.groupStats` extension below, which knows both names.
+    // Two names exist in the wild: upstream deleted `groups.stats.get` when it added
+    // `groups.stats.overview`, and published images predate the rename. `statsGet` is not dead
+    // code. Ask through the `TrpcClient.groupStats` extension, which knows both.
 
     @Serializable
     public data class GroupStatsInput(
@@ -381,13 +378,9 @@ public object SpliitEndpoints {
 /**
  * The group's totals, from whichever of the two stats procedures this instance answers.
  *
- * `groups.stats.overview` first. An older instance answers `NOT_FOUND` naming the missing route
- * ([TrpcServerError.isUnknownProcedure]), which is the signal to ask the old name. One that
- * answers neither has no stats, and the second `NOT_FOUND` propagates so a screen can say so
- * rather than retry forever.
- *
- * Which name an instance answers is not cached: a [TrpcClient] is per request, and the cache
- * would need invalidating on every server upgrade to save one 404.
+ * `groups.stats.overview` first; an older instance answers `NOT_FOUND` naming the missing route,
+ * which is the signal to ask the old name. An instance answering neither has no stats, and that
+ * second `NOT_FOUND` propagates so a screen can say so rather than retry forever.
  */
 public suspend fun TrpcClient.groupStats(
     groupId: String,

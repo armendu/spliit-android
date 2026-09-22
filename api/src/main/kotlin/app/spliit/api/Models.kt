@@ -99,15 +99,9 @@ public enum class SplitMode {
 }
 
 /**
- * How often an expense repeats.
- *
- * An unrecognised value decodes as [Unknown] rather than throwing: this is display-only, so not
- * understanding it costs one row some detail, where throwing fails the whole expense list.
- * `ModelsTest` covers both halves on a payload where one expense of three has an unknown rule.
- *
- * `RecurrenceRule? = null` would not cover this: nullability absorbs an absent *key*, not an
- * unrecognised *value*. The e2e image cannot send one (its zod enum is these four), so the case
- * is a self-hosted instance running ahead of us.
+ * How often an expense repeats. An unrecognised value decodes as [Unknown]: display-only, so not
+ * understanding it costs one row some detail where throwing fails the whole list. Nullability
+ * would not cover this, it absorbs an absent *key*, not an unrecognised *value*.
  */
 @Serializable(with = RecurrenceRuleSerializer::class)
 public sealed interface RecurrenceRule {
@@ -163,16 +157,9 @@ public data class ExpenseDocument(
 )
 
 /**
- * A `Prisma.Decimal` as it crosses superjson, a **string**, annotated
- * `[["custom","decimal.js"]]` rather than as a number.
- *
- * Decoding is lenient in case an instance sends a JSON number instead, which costs nothing here
- * and saves a screen there. [BigDecimal] rather than [Double] because a conversion rate typed as
- * 0.9241 should stay 0.9241 rather than become the nearest double, and because it is what the
- * server stores.
- *
- * Note equality is [BigDecimal]'s, so it is scale-sensitive: `0.9241` and `0.92410` are not
- * equal. Compare with [compareTo] when that matters.
+ * A `Prisma.Decimal` as it crosses superjson: a **string** annotated `[["custom","decimal.js"]]`.
+ * Decoding also accepts a JSON number, in case an instance sends one. [BigDecimal] so a rate
+ * typed as 0.9241 stays 0.9241; its equality is scale-sensitive, so compare with [compareTo].
  */
 @Serializable(with = LenientDecimalSerializer::class)
 public data class LenientDecimal(public val value: BigDecimal) : Comparable<LenientDecimal> {
@@ -267,11 +254,9 @@ public data class ExpenseListItem(
     public data class PaidFor(
         public val participant: Participant,
         /**
-         * **One field, two units, decided by a sibling.** For [SplitMode.EVENLY],
-         * [SplitMode.BY_SHARES] and [SplitMode.BY_PERCENTAGE] this is the share value ×100 -
-         * one share is `100`, 33.5% is `3350`, whatever the currency. For [SplitMode.BY_AMOUNT]
-         * it is a raw minor-unit amount, which does scale with the currency, and the entries sum
-         * to the expense's `amount`. Part 6 owns the arithmetic; this carries the value verbatim.
+         * **One field, two units, decided by the sibling `splitMode`.** Under EVENLY, BY_SHARES
+         * and BY_PERCENTAGE it is the share value ×100 whatever the currency; under BY_AMOUNT a
+         * raw minor-unit amount, which does scale. This carries it verbatim.
          */
         public val shares: Int,
     )
@@ -301,11 +286,9 @@ public data class ExpenseDetails(
     public val documents: List<ExpenseDocument> = emptyList(),
     public val recurrenceRule: RecurrenceRule? = null,
     /**
-     * What was actually paid, in [originalCurrency]'s **own** minor units, when the expense was
-     * in a currency the group is not denominated in. Null when it was in the group's currency.
-     *
-     * A converted expense therefore carries two amounts on two different scales, and formatting
-     * either with the other's currency is a bug that looks plausible.
+     * What was paid, in [originalCurrency]'s **own** minor units, when the expense was not in the
+     * group's currency. A converted expense therefore carries two amounts on two scales, and
+     * formatting either with the other's currency is a bug that looks plausible.
      */
     public val originalAmount: Int? = null,
     /** ISO-4217 of what was actually paid, and the field that says an expense was converted. */
@@ -326,12 +309,9 @@ public data class ExpenseDetails(
 }
 
 /**
- * One participant's standing, as `groups.balances.list` computes it.
- *
- * **Only [total] means anything.** The server derives [paid] and [paidFor] from the suggested
- * payments rather than from the expenses, so one of the two is always zero and the other is
- * `abs(total)`. Reading them as "what Ana spent" gives a number that is real, stable, and about
- * something else.
+ * One participant's standing. **Only [total] means anything**: the server derives [paid] and
+ * [paidFor] from the suggested payments rather than the expenses, so one is always zero and the
+ * other `abs(total)`. Reading them gives a number that is real, stable, and about something else.
  */
 @Serializable
 public data class Balance(
@@ -353,13 +333,8 @@ public data class Reimbursement(
 )
 
 /**
- * What a recorded activity was.
- *
- * Unknown values decode instead of throwing, which [SplitMode] deliberately does not: a split
- * mode this client cannot read is money it would divide wrongly, while an activity it cannot
- * read is one line of prose. Instances are self-hosted and may be ahead of this client, so a
- * server that grows a fifth kind should cost the log a row, not the whole tab. [RecurrenceRule]
- * makes the same trade for the same reason.
+ * What a recorded activity was. Unknown values decode rather than throw, unlike [SplitMode]: a
+ * mode this client misreads is money divided wrongly, an activity it misreads is a line of prose.
  */
 @Serializable(with = ActivityTypeSerializer::class)
 public sealed interface ActivityType {
@@ -425,11 +400,8 @@ public data class Activity(
      */
     @SerialName("data") public val title: String? = null,
     /**
-     * Whether the expense this refers to is still in the group.
-     *
-     * The server sends the whole expense alongside each row; all a log row does with it is decide
-     * whether it can be opened, and decoding a second copy of a model we already have would only
-     * be one more thing to keep in step with the schema.
+     * Whether the expense this refers to is still in the group. The server sends the whole
+     * expense, but all a log row needs from it is whether it can be opened.
      */
     @SerialName("expense") private val expenseReference: JsonObject? = null,
 ) {
