@@ -42,13 +42,10 @@ import app.spliit.android.ui.design.SectionDivider
 import app.spliit.android.ui.design.SectionHeader
 
 /**
- * The balances tab: the active participant's own standing leads, then every participant's
- * balance, then the suggested payments that would settle the group.
+ * The balances tab: your own standing, then everyone's, then the payments that would settle up.
  *
- * Both [GroupDetailUiState.group] (for currency and the participant roster) and
- * [GroupDetailUiState.balances] have to be in before any of this can be drawn, a participant
- * list without balances is a row of zeroes that reads as "everyone is settled up", which is
- * exactly the wrong thing to show while the real answer is still on the wire.
+ * Both the group and the balances have to be in before any of it draws: a participant list
+ * without balances is a row of zeroes reading as "everyone is settled up".
  */
 @Composable
 internal fun BalancesTab(

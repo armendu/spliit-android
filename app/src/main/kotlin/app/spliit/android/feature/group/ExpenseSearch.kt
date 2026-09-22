@@ -13,14 +13,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * The group screen's search field: the debounce, the request, and the stale-answer guard.
+ * The group screen's search field: the debounce, the request, and the stale-answer guard. Owns
+ * the `search` slice of [GroupDetailUiState] and nothing else.
  *
- * Split out of [GroupDetailViewModel] because it is self-contained and was the one part of that
- * class with its own background job. It owns the `search` slice of [GroupDetailUiState] and
- * nothing else.
- *
- * @param client Returns null until the group's instance has been resolved, in which case there
- *   is nowhere to send a search yet.
+ * @param client Null until the group's instance is resolved: nowhere to send a search yet.
  */
 internal class ExpenseSearch(
     private val groupId: String,

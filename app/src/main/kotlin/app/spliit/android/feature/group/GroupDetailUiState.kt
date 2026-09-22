@@ -169,12 +169,9 @@ fun bucketExpenses(expenses: List<ExpenseListItem>, clock: Clock = Clock.systemD
 /**
  * [item] placed in [expenses] by date, newest first.
  *
- * A row whose date did not change does not move at all. Dates are whole days, so rows share
- * them, and their order within a day is the server's by creation: inserting by date alone
- * shuffled an edited row to the end of its own day, which looks like the list reloading.
- *
- * Otherwise the old copy goes and the new one is inserted before the first older row. An undone
- * delete comes back under a new ID and lands the same way.
+ * A row whose date did not change does not move at all: dates are whole days, so rows share
+ * them, and inserting by date alone shuffled an edited row to the end of its own day, which
+ * looks like the list reloading. Otherwise the old copy goes and the new one takes its place.
  */
 fun placed(expenses: List<ExpenseListItem>, item: ExpenseListItem): List<ExpenseListItem> {
     val current = expenses.indexOfFirst { it.id == item.id }

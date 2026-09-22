@@ -28,14 +28,11 @@ import app.spliit.android.ui.design.Monogram
 import app.spliit.api.Participant
 
 /**
- * "Who are you in this group?", a bottom sheet, not a full screen: it is offered beside the
- * balance it unlocks rather than gating the way into a group somebody just tapped, and DESIGN.md
- * §4 makes bottom sheets the app's own way of asking something this short.
+ * "Who are you in this group?", offered beside the balance it unlocks rather than gating the way
+ * into a group somebody just tapped.
  *
- * `:core`'s [app.spliit.core.RecentGroup.participantId] is a plain nullable ID with no separate
- * "explicitly nobody" state, unlike the iOS app's own three-way answer, so "none of these" and
- * "never answered" are the same value here, and this sheet offers exactly the choices that value
- * can hold: a participant, or null.
+ * [app.spliit.core.RecentGroup.participantId] is a plain nullable ID, so "none of these" and
+ * "never answered" are one value here, and this offers exactly what it can hold.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

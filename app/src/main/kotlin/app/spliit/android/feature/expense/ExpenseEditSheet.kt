@@ -35,23 +35,15 @@ import app.spliit.android.ui.design.DiscardChangesDialog
 
 
 /**
- * Editing an expense, as a sheet over the group screen rather than a screen of its own.
+ * Editing an expense, as a sheet over the group screen rather than a screen of its own. It opens
+ * partially expanded on the title and amount, with save pinned above them.
  *
- * It opens partially expanded on the title and amount, the two fields nearly every edit touches,
- * with save pinned above them. Dragging up reveals the rest of [ExpenseFormBody].
+ * The point is what does not happen: the group screen stays composed, so its load effect does
+ * not re-run, the list keeps its scroll and paged-in rows, and no skeleton flashes.
  *
- * The point is what does not happen: the group screen stays composed underneath, so its
- * `LaunchedEffect(Unit) { load() }` does not re-run, the list keeps its scroll and paged-in rows,
- * and no skeleton flashes.
- *
- * It outlives the sheet slightly: after a delete the sheet goes but the undo is still on offer.
- * [onDone] signals the whole errand is over.
- *
- * @param snackbarHostState the *group screen's* host; a snackbar inside a closing sheet has
- *   nowhere to be.
- * @param onSaved a write landed. Also fires for an undone delete, which returns under a **new**
- *   ID (see [DeletedExpense]).
- * @param onDeleted the expense is gone from the server.
+ * @param snackbarHostState the *group screen's* host; a snackbar in a closing sheet has nowhere
+ *   to be.
+ * @param onSaved a write landed. Also fires for an undone delete, which returns under a new ID.
  * @param onDone the sheet and its undo window are both finished.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -139,10 +131,9 @@ fun ExpenseEditSheet(
             },
             sheetState = sheetState,
             shape = SheetShape,
-            // The sheet consumes the navigation-bar inset by default, which leaves the
-            // `navigationBarsPadding()` below with nothing to apply, so the last row of the form
-            // drew underneath the gesture bar. Insets are handed to the content instead, where
-            // one modifier can pad for the bar and the keyboard together.
+            // The sheet consumes the navigation-bar inset by default, leaving the padding below
+            // nothing to apply, so the last row drew under the gesture bar. Handed to the content
+            // instead, where one modifier pads for the bar and the keyboard together.
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.testTag(TestTags.EXPENSE_EDIT_SHEET),
         ) {

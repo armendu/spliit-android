@@ -80,15 +80,12 @@ import app.spliit.android.ui.design.SkeletonBlock
  *  `border-subtle` (M3's `outline`) hairline, Level 1, the one step up from the bare canvas. */
 
 /**
- * The home screen: the groups this phone remembers, in three sections, with participant counts
- * from the instance each lives on.
+ * The home screen: the groups this phone remembers, in three sections.
  *
  * The list is local, so it renders from the stored snapshot immediately and server detail fills
- * in. An unreachable server costs its own groups their detail, never the screen.
- *
- * Everything that can be done to a group lives in one menu per row, on long press or the
- * overflow button. A swipe was the alternative, but a menu names its actions instead of asking
- * anyone to learn a colour.
+ * in; an unreachable server costs its own groups their detail, never the screen. Everything that
+ * can be done to a group is in one menu per row, which names its actions rather than asking
+ * anyone to learn a swipe colour.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -110,10 +107,8 @@ fun GroupsListScreen(
     // between somebody and the participant they came to add.
     val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // Creating a group is a sheet over this screen rather than a destination, so the form's
-    // ViewModel lives as long as the dashboard does and has to be put back to a blank draft each
-    // time, including re-reading the *current* default instance, which Settings can have changed
-    // since the app launched. The same shape as addGroupViewModel.reset() beside it.
+    // The form's ViewModel lives as long as the dashboard, so it is put back to a blank draft
+    // each time, re-reading the current default instance, which Settings can have changed.
     val openCreateSheet = {
         createGroupViewModel.resetForCreate(AppSettingsHolder.defaultInstanceBaseUrl)
         isCreateSheetOpen = true
@@ -124,10 +119,9 @@ fun GroupsListScreen(
     // keep showing what it loaded before. See GroupsListViewModel.load's own note.
     LaunchedEffect(Unit) { viewModel.load() }
 
-    // The snackbar is shown for exactly as long as the removal is still undoable and not a moment
-    // longer: when the ViewModel's window closes it clears `pendingRemoval`, this effect is
-    // cancelled, and the snackbar goes with it. Racing a snackbar duration against that window
-    // would leave either an offer that no longer works or a window with nothing offering it.
+    // Shown for exactly as long as the removal is undoable: the ViewModel clearing
+    // `pendingRemoval` cancels this effect. A snackbar duration racing that window would leave
+    // either an offer that no longer works or a window with nothing offering it.
     LaunchedEffect(pendingRemoval) {
         val pending = pendingRemoval ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
@@ -143,16 +137,12 @@ fun GroupsListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                // The one screen that is the app itself rather than a group, an expense or a
-                // form, the wordmark sits where the title would, fixed-size so the bar (a fixed
-                // height) never clips it as text scales. "Spliit" is still what a screen reader
-                // hears, via the wordmark's own text.
+                // The wordmark sits where the title would, fixed-size so the bar never clips it
+                // as text scales. A screen reader still hears "Spliit", from the wordmark itself.
                 title = { SpliitWordmark() },
                 actions = {
-                    // Three entry points, each one tap, none of them the same instruction twice:
-                    // the FAB creates, this joins a group somebody sent, and the overflow holds
-                    // what is not a daily action. "Create group" deliberately does NOT appear in
-                    // a menu as well as on the FAB, the empty state already taught that lesson.
+                    // Three entry points, none of them the same instruction twice: the FAB
+                    // creates, this joins a group somebody sent, the overflow holds the rest.
                     IconButton(
                         onClick = {
                             addGroupViewModel.reset()
@@ -533,10 +523,8 @@ private fun GroupMetadataRow(group: GroupListItem) {
                 icon = R.drawable.ic_calendar,
                 text = createdDateText(createdAt),
                 testTag = TestTags.groupsListRowCreatedDate(group.groupId),
-                // The visible text is abbreviated ("14 Sep 2026") and leans on the calendar icon
-                // for "this is a date" context. The icon itself is contentDescription = null (see
-                // IconTextPair), so a screen reader has none of that context unless the text
-                // supplies it, hence a fuller, prefixed string here rather than the visible one.
+                // The visible text is abbreviated and leans on the calendar icon for context,
+                // and that icon has no contentDescription, so the spoken string carries it.
                 contentDescription = createdDateContentDescription(createdAt),
             )
         }

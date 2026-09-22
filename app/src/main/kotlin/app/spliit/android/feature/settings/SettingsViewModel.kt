@@ -34,14 +34,11 @@ data class SettingsUiState(
 )
 
 /**
- * Settings: the theme, the default instance, and the static About/Feedback/Version rows.
+ * Settings: the theme, the default instance, and the static rows.
  *
- * Seeds its starting values from [AppSettingsHolder] rather than loading [settingsStore] again.
- * This screen is reachable only once the app is already running, and `MainActivity` has always
- * already loaded the store into that holder by then (see its own doc), a second, asynchronous
- * load here would only add a frame where this screen's own radio selection is wrong before
- * snapping to the true one, which is the flash this part exists to avoid, just narrowed to one
- * screen instead of the whole app.
+ * Seeds from [AppSettingsHolder] rather than loading the store again. `MainActivity` has always
+ * loaded it by the time this screen is reachable, and a second asynchronous load would add a
+ * frame where the radio selection is wrong before snapping to the true one.
  */
 class SettingsViewModel(
     private val settingsStore: SettingsStore,
@@ -53,12 +50,9 @@ class SettingsViewModel(
     val versionName: String = BuildConfig.VERSION_NAME,
     val versionCode: Int = BuildConfig.VERSION_CODE,
     /**
-     * Applies a change app-wide, immediately, not only once it round-trips through
-     * [settingsStore]. The default writes [AppSettingsHolder], which `MainActivity` reads at
-     * composition: without this, switching the theme would only take effect on the *next*
-     * launch, not the moment someone taps it. Injected, the same shape as every ViewModel's own
-     * `clientFactory` parameter, so a test can assert this happened without a Compose-runtime
-     * singleton making the assertion for it.
+     * Applies a change app-wide immediately, rather than once it round-trips through the store:
+     * without it, switching the theme would take effect on the *next* launch. Injected so a test
+     * can assert it happened without touching a Compose-runtime singleton.
      */
     private val applySettings: (AppSettings) -> Unit = {
         AppSettingsHolder.themeMode = it.themeMode
@@ -95,11 +89,9 @@ class SettingsViewModel(
     }
 
     /**
-     * Validates and commits the typed address. [InstanceAddress.normalize] is the same check
-     * GroupFormScreen's own server field uses, so "what counts as a usable address" has one
-     * definition in this app. An invalid address is refused rather than silently kept as the
-     * previous value, a save action that quietly does nothing is indistinguishable from one that
-     * worked.
+     * Validates and commits the typed address, through the same [InstanceAddress.normalize] the
+     * group form uses. Refused rather than silently kept: a save that quietly does nothing is
+     * indistinguishable from one that worked.
      */
     internal suspend fun commitInstanceAddress() {
         val normalized = InstanceAddress.normalize(_state.value.instanceAddressText)

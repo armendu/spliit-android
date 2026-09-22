@@ -75,13 +75,9 @@ class FormValuesTest {
     // ---- constraint 1: the date annotation -----------------------------------------------
 
     /**
-     * The test that proves `expenseDate` is declared `@Contextual`.
-     *
-     * Kotlin binds serializers at compile time, so the per-call marker that produces
-     * `meta.values` reaches a field only through the per-call `SerializersModule`, and only
-     * `@Contextual` consults it. Naming `InstantSerializer` on the field instead compiles,
-     * decodes perfectly, keeps every other test green, and sends the date with no `meta` block at
-     * all. The server rebuilds real `Date` instances before its own validation runs.
+     * Proves `expenseDate` is declared `@Contextual`, which is the only thing that consults the
+     * per-call `SerializersModule` producing `meta.values`. Naming `InstantSerializer` on the
+     * field compiles, decodes, keeps every other test green, and sends no `meta` block at all.
      */
     @Test
     fun `expenseDate is annotated as a Date in the envelope`() {

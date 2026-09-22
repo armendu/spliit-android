@@ -17,21 +17,12 @@ import kotlinx.serialization.Serializable
 import java.time.Instant
 
 // A thin DataStore adapter for RecentGroupsSnapshot. Thin is load-bearing: every rule about what
-// the stored list *is* (the union merge, which row wins, when a tombstone expires) lives in
-// `:core` and is tested there on the JVM. This class turns a snapshot into bytes and back. An
-// `if` here that decides something rather than translating it belongs in `:core`.
+// the stored list *is* lives in `:core` and is tested there. An `if` here that decides something
+// rather than translating it belongs there instead.
 //
-// StoredJson via kotlinx.serialization, with `ignoreUnknownKeys = true` and every DTO field defaulted.
-// That pair is what lets the schema gain a field without breaking an install that already has
-// data: an older file decodes missing fields to defaults, and a newer file's extra fields are
-// dropped by an older APK rather than failing to parse. This is unrecoverable data, there is no
-// server copy, so surviving a version skew matters more than compactness. It is also readable
-// off the device by eye.
-//
-// The DTOs are this file's own types rather than `@Serializable` versions of `:core`'s, because
-// `:core` depends on nothing beyond the stdlib and should not gain a serialization dependency
-// for one storage format it never reads. The conversion functions below are the whole cost of
-// that boundary.
+// The DTOs are this file's own rather than `@Serializable` versions of `:core`'s, which depends
+// on nothing beyond the stdlib and should not gain a serialization dependency for a storage
+// format it never reads. The conversions below are the whole cost of that boundary.
 
 /** One process-wide DataStore, opened once per [Context]. */
 private val Context.recentGroupsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -54,27 +45,20 @@ public class DataStoreRecentGroupsStore(
     public constructor(context: Context) : this(context.recentGroupsDataStore)
 
     override suspend fun load(): RecentGroupsSnapshot {
-        // The read itself, not only the decode. DataStore documents `data` as throwing
-        // IOException, and this runs inside `viewModelScope.launch` at call sites with no
-        // exception handler, where a throw reaches the thread's default handler and takes the
-        // process with it. An unreadable file degrades to an empty list, exactly as a
-        // corrupt one already did below.
+        // The read itself, not only the decode: `data` throws IOException, and this runs inside
+        // `viewModelScope.launch` with no handler, where that would take the process with it.
         val json = try {
             dataStore.data.first()[SNAPSHOT_KEY]
         } catch (_: IOException) {
             return RecentGroupsSnapshot()
         } ?: return RecentGroupsSnapshot()
         return try {
-            // Decoding and converting are one attempt, not two: a row this build cannot make
-            // sense of, malformed StoredJson, or a `SplitMode` name written by a newer version this
-            // install has never heard of (see [StoredSplit]), must degrade the same way either
-            // failure happens to surface.
+            // Decoding and converting are one attempt: malformed JSON and a `SplitMode` name
+            // from a newer version have to degrade the same way.
             StoredJson.decodeFromString(StoredSnapshot.serializer(), json).toCore()
         } catch (_: Exception) {
-            // A blob this device itself wrote but can no longer parse, corrupted storage, or a
-            // downgrade past a format this build doesn't understand, is worse to crash the app
-            // over than to treat as empty. The list rebuilds as groups are opened again; a crash
-            // loop on launch would not.
+            // A blob this device wrote and can no longer parse is worse to crash over than to
+            // treat as empty: the list rebuilds as groups are opened, a crash loop does not.
             RecentGroupsSnapshot()
         }
     }
@@ -160,13 +144,9 @@ private data class StoredGroup(
 }
 
 /**
- * [DefaultSplit] by hand: `:core`'s [SplitMode] carries no `@Serializable` annotation (see the
- * note at the top of this file), so it is stored by its enum name and re-resolved with
- * [SplitMode.valueOf], which throws for a name this build has never heard of, a split written
- * by a newer version, read on an install that hasn't caught up. That throw is deliberately left
- * to propagate out of [toCore] rather than defaulted to some mode nobody chose: [load] treats the
- * whole blob as one attempt and degrades the entire snapshot to empty rather than guess at a
- * split it cannot actually represent.
+ * [DefaultSplit] by hand, since `:core`'s [SplitMode] is not `@Serializable`. Stored by enum name
+ * and re-resolved with [SplitMode.valueOf], whose throw for a name written by a newer version is
+ * deliberately left to propagate: [load] degrades the whole blob rather than guess at a split.
  */
 @Serializable
 private data class StoredSplit(

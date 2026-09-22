@@ -83,9 +83,8 @@ internal fun AmountEntry(
         Text(
             text = formatter.currencySymbol.ifBlank { draft.groupCurrencyCode.orEmpty() },
             style = MaterialTheme.typography.headlineMedium,
-            // `primary`, not grey (DESIGN.md §4): the symbol says which money this is and the
-            // figure says how much. In one grey the symbol reads as decoration and gets skipped,
-            // on the one screen where the currency is a real question.
+            // `primary`, not grey: the symbol says which money this is. In grey it reads as
+            // decoration and gets skipped, on the screen where the currency is a real question.
             //
             // The figure stays `on-surface`. An expense *row*'s amount takes `primary` and this
             // one does not: a tinted value being edited reads as a state, not a value.

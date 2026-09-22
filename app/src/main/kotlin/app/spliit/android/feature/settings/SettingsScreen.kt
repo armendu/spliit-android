@@ -50,14 +50,11 @@ import app.spliit.android.ui.design.FieldError
 
 
 /**
- * Settings: appearance, the default instance, and the static About/Feedback/Version rows that
- * mirror the iOS app's own SettingsView.
+ * Settings: appearance, the default instance, and the static About/Feedback/Version rows.
  *
- * **The theme picker is not on iOS**, and that is deliberate rather than a gap the port left open.
- * iOS's SettingsView carries a comment saying so directly: an app there follows the system by
- * convention, so there is nothing to pick. Android has no equivalent convention, and the person
- * who asked for this screen asked for the choice by name, "specify the theme", so offering one
- * here is a documented divergence from the source of truth, not an oversight to reconcile later.
+ * **The theme picker is not on iOS**, where an app follows the system by convention. Android has
+ * no equivalent convention and the choice was asked for by name, so this is a documented
+ * divergence rather than an oversight to reconcile later.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable

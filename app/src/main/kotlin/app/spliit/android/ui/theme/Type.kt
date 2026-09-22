@@ -10,17 +10,11 @@ import androidx.compose.ui.unit.sp
 import app.spliit.android.R
 
 /**
- * Inter, bundled as four static weights rather than the single variable `.ttf` upstream ships -
- * variable-font axis rendering (`FontVariation`) needs API 31, and this app's `minSdk` is 26.
- * Static per-weight files render identically on every supported OS version, at the cost of one
- * file per weight instead of one file total. Only the weights DESIGN.md's type table actually
- * uses are bundled: 400, 500, 600, 700, there is no 300 or 800 role to ask a fifth file for.
+ * Inter, bundled as four static weights rather than one variable `.ttf`: `FontVariation` needs
+ * API 31 and `minSdk` is 26. Only the weights the type table uses, 400/500/600/700.
  *
- * Not a downloadable font (Google Play Services' Fonts provider): DESIGN.md is explicit that a
- * ledger which reflows when a font arrives late is worse than one that never had it, and a
- * downloaded font is exactly a font that can arrive late, or not at all, on a device without
- * Play Services. Licensed under the SIL Open Font License 1.1, see
- * `app/src/main/assets/licenses/inter_OFL.txt`, bundled unmodified alongside it.
+ * Not a downloadable font: one that arrives late reflows the ledger, and on a device without
+ * Play Services it never arrives. SIL Open Font License 1.1, see `assets/licenses/inter_OFL.txt`.
  */
 internal val Inter = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal),
@@ -30,17 +24,11 @@ internal val Inter = FontFamily(
 )
 
 /**
- * DESIGN.md §2's type table, mapped onto M3's named styles rather than reached for by a table of
- * our own, every screen that writes `MaterialTheme.typography.bodyLarge` gets the brief's
- * `body-lg` for free, with no second vocabulary to keep in step with the first.
+ * DESIGN.md §2's type table on M3's named styles, so there is no second vocabulary to keep in
+ * step. Tracking is spelled in `.em` the way the brief spells it, so the two stay comparable.
  *
- * Sizes and line heights are `sp`; tracking is `.em`, spelled the same way DESIGN.md spells it
- * (`-0.02em`, not a hand-converted `sp` value) so the two stay trivially comparable. A handful of
- * M3 slots, `displayMedium`, `titleLarge`, `titleSmall`, `bodySmall`, `headlineSmall`, have no
- * row in DESIGN.md's table at all; each is interpolated from its neighbours rather than left at
- * M3's default Roboto metrics, which would silently reintroduce the one font this screen was
- * asked not to draw in. `headlineSmall` is `Money`'s own `LEAD` size (a suggested payment), see
- * Money.kt, which the brief's table doesn't name directly either.
+ * The M3 slots the table has no row for are interpolated from their neighbours rather than left
+ * at M3's Roboto defaults, which would reintroduce the one font this app does not draw in.
  */
 internal val SpliitTypography = Typography(
     displayLarge = TextStyle(

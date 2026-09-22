@@ -73,14 +73,11 @@ import app.spliit.android.ui.design.FieldError
 
 
 /**
- * Creating and editing an expense, who paid, how much, and how it divides.
+ * Creating and editing an expense: who paid, how much, and how it divides.
  *
- * **A modal task, not a destination.** It takes an ✕ and a confirming action rather than an up
- * arrow (Material's full-screen dialog), because what it is doing can be abandoned; the system
- * back gesture goes the same way the ✕ does, and asks first when there is something to lose.
- *
- * Every number on this screen comes from [ExpenseFormDraft] and every complaint from
- * `draft.problems(field)`. Nothing here parses an amount or divides one.
+ * **A modal task, not a destination**, so it takes an ✕ rather than an up arrow, and the back
+ * gesture goes the same way. Every number comes from [ExpenseFormDraft] and every complaint from
+ * `draft.problems(field)`; nothing here parses an amount or divides one.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,10 +122,8 @@ fun ExpenseFormScreen(
     val close = {
         if (state.isDirty) showDiscardDialog = true else viewModel.close()
     }
-    // Back is primarily a gesture on Android, so the confirmation has to hang off the gesture and
-    // not off the ✕ alone, a swipe that silently threw away a half-written expense would be the
-    // same bug with better manners. Disabled once there is nothing to lose, so the gesture then
-    // does the ordinary thing without a dialog in the way.
+    // Back is a gesture here, so the confirmation hangs off the gesture rather than the ✕ alone.
+    // Disabled once there is nothing to lose, so the gesture is then unobstructed.
     BackHandler(enabled = state.deleted == null) { close() }
 
     Scaffold(
@@ -197,12 +192,10 @@ fun ExpenseFormScreen(
 }
 
 /**
- * The form itself, every field, in order, with the amount and the title first.
+ * The form itself, every field in order, with the amount and title first.
  *
- * `internal` because two containers draw it: the full-screen create form above, and the edit
- * sheet in ExpenseEditSheet.kt. The order of the fields is load-bearing for the second one, the
- * sheet opens partially expanded, and what is at the top of this column is what a collapsed
- * sheet shows.
+ * Drawn by two containers, the full-screen form and the edit sheet. The field order is
+ * load-bearing for the second: the sheet opens collapsed, showing whatever is at the top.
  */
 @Composable
 internal fun ExpenseFormBody(
@@ -404,11 +397,8 @@ private fun DateRow(date: Instant, onClick: () -> Unit) {
 }
 
 /**
- * The date, picked in UTC on purpose.
- *
- * An expense date is a *day*, and the server stores it as midnight UTC, which is what
- * `groups.expenses.list` sends back. Reading the picker's millis in the phone's own zone would
- * move the day by one west of Greenwich on every round trip, silently.
+ * The date, picked in UTC on purpose: an expense date is a *day*, stored as midnight UTC.
+ * Reading the picker's millis in the phone's zone moves the day by one west of Greenwich.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

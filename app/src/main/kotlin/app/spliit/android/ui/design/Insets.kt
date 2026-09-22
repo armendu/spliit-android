@@ -29,12 +29,7 @@ fun fabAndNavigationBarPadding(): Dp =
 /**
  * A single centred thing on a scrolling screen: an empty state, an error panel, a spinner.
  *
- * One definition because there were five, and they had drifted into four different behaviours.
- * Two of them cleared the FAB but not the navigation bar, and two cleared neither, so the same
- * empty state sat under the FAB on one tab of a screen and under the gesture bar on another.
- * They are sibling tabs sharing one FAB and one navigation bar; nobody chose that.
- *
- * Scrollable rather than a plain `Box` so the content can still be reached at the largest font
+ * Scrollable rather than a plain `Box` so the content is still reachable at the largest font
  * sizes, where an error panel and its button are taller than the viewport.
  */
 @Composable

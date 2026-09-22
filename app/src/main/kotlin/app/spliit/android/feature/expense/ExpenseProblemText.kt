@@ -6,15 +6,11 @@ import app.spliit.core.SplitMode
 import java.math.BigDecimal
 
 /**
- * The sentences `:core`'s [ExpenseFormDraft.Problem]s are read as.
+ * The sentences `:core`'s [ExpenseFormDraft.Problem]s are read as: the rules live there, the
+ * wording here. **This is not a second validator** — nothing below decides whether something is
+ * wrong, it only spells out a problem the draft already produced.
  *
- * `:core` has no resources and no locale for prose, see [ExpenseFormDraft.Problem]'s own doc -
- * so the rules live there and the wording lives here. **This is not a second validator**: every
- * sentence below is reached only by being handed a problem the draft produced, and there is no
- * branch here that decides whether something is wrong.
- *
- * @param formatter the **group's**, so an unallocated remainder is drawn in the currency the
- *   expense is counted in.
+ * @param formatter the **group's**, so a remainder is drawn in the expense's own currency.
  */
 internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String = when (this) {
     ExpenseFormDraft.Problem.TitleTooShort -> "Give the expense a name of at least two letters."

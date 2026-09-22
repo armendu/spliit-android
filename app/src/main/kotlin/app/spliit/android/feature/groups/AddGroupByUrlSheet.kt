@@ -44,14 +44,9 @@ import app.spliit.android.ui.design.FieldError
 /**
  * Adds a group someone shared, by pasting its link.
  *
- * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device ever
- * learns about a group. The link says which server as well as which group, see [GroupLink] -
- * which is what lets somebody be handed a group on an instance this phone has never talked to.
- *
- * A modal sheet rather than a pushed screen, matching iOS. Pasting a link is a small, cancellable
- * errand that ends where it started; a push says "you are now somewhere else" and asks for a
- * navigation gesture to undo something that was never a journey. The dashboard stays visible
- * behind it, which is also where the added group appears.
+ * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device learns
+ * about a group. The link names the server as well as the group, which is what lets somebody be
+ * handed one on an instance this phone has never talked to.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

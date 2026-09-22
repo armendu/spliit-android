@@ -55,25 +55,14 @@ import app.spliit.android.ui.design.LoadFailure
 
 
 /**
- * Everything that has happened in this group, and who did it.
- *
- * The only view in the app that reads *history* rather than state, and so the only one that
- * shows lines about things which no longer exist. A deleted expense keeps its row, under the
- * title it had at the time, and simply has nowhere to lead, which is the whole reason to keep a
- * log.
+ * Everything that has happened in this group, and who did it. The only view that reads *history*
+ * rather than state, so the only one showing lines about things that no longer exist.
  *
  * **A row can be opened when the server sent an `expense` beside it, not when it has an
- * `expenseId`.** The ID survives the deletion; the expense object does not. Reading the ID would
- * offer an editor for something that is gone.
+ * `expenseId`**: the ID survives the deletion, the object does not.
  *
- * iOS pushes this as a screen from its information tab. Here it is a sheet over the group screen
- * for the same reason the expense editor is: a destination would drop the group screen, and its
- * ViewModel, which owns this log, its paging and its invalidation, is scoped to that screen's
- * nav entry.
- *
- * Who did what is the server's to know, and it only knows what a client told it. Every mutating
- * procedure takes an optional `participantId` and nothing requires one, so a change made by
- * someone who never said who they were reads "Someone" here, accurately.
+ * A change made by someone who never said who they were reads "Someone", accurately: every
+ * mutating procedure takes an optional `participantId` and none requires one.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -159,12 +148,8 @@ internal fun ActivityLogSheet(
 internal data class ActivitySection(val bucket: DateBucket, val activities: List<Activity>)
 
 /**
- * Buckets the log, dropping anything this version cannot describe.
- *
- * An activity of a kind this client does not know is dropped rather than drawn: there is no
- * honest sentence to put on the row, and a log missing a line it cannot describe still reads
- * correctly where a line saying "something happened" does not. [ActivityType] decodes unknown
- * values rather than throwing precisely so this is a dropped row and not a dead tab.
+ * Buckets the log, dropping anything this version cannot describe: there is no honest sentence
+ * for it, and a missing line still reads correctly where "something happened" does not.
  */
 internal fun bucketActivities(
     activities: List<Activity>,

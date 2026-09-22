@@ -31,21 +31,15 @@ data class AddGroupByUrlState(
 )
 
 /**
- * Adds a group someone shared, by pasting its URL.
- *
- * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device ever
- * learns about a group. The link says which server as well as which group, see [GroupLink] -
- * which is what lets somebody be handed a group on an instance this phone has never talked to.
+ * Adds a group someone shared, by pasting its URL. Spliit has no accounts, so a group URL *is*
+ * the invitation, and it names the server as well as the group.
  */
 class AddGroupByUrlViewModel(
     private val recentGroupsStore: RecentGroupsStore,
     /**
-     * A provider, not a plain `String`, this ViewModel is scoped to the dashboard's nav entry, so
-     * it is constructed once and lives for the whole app session. A value captured at that one
-     * moment would go stale the instant Settings changed the default instance without an app
-     * restart; reading it fresh on every [reset] and every [submit] is what keeps a long-lived
-     * ViewModel honest about a setting that can now change under it. Defaults to
-     * [AppSettingsHolder.defaultInstanceBaseUrl], the live value; tests pass a fixed lambda.
+     * A provider, not a plain `String`: this ViewModel lives for the whole session, so a value
+     * captured at construction goes stale the instant Settings changes the default. Read fresh
+     * on every [reset] and [submit].
      */
     private val defaultInstanceBaseUrl: () -> String = { AppSettingsHolder.defaultInstanceBaseUrl },
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
@@ -61,14 +55,9 @@ class AddGroupByUrlViewModel(
     }
 
     /**
-     * Empties the field, the error and the "added" flag.
-     *
-     * The sheet this drives is opened and dismissed repeatedly against one ViewModel, it is
-     * scoped to the dashboard's nav entry, not to the sheet, so without this, reopening it shows
-     * the last paste and the last error, and [AddGroupByUrlState.addedGroupId] would still be set
-     * from the previous success and close the sheet the moment it appeared. Re-reading
-     * [defaultInstanceBaseUrl] here as well as in [submit] is what makes a Settings change visible
-     * in the placeholder the next time this sheet opens, not only the next time the app launches.
+     * Empties the field, the error and the "added" flag. One ViewModel serves every open of the
+     * sheet, so without this a reopen shows the last paste and the last error, and a still-set
+     * `addedGroupId` closes the sheet the moment it appears.
      */
     fun reset() {
         _state.value = AddGroupByUrlState(defaultInstanceBaseUrl = defaultInstanceBaseUrl())

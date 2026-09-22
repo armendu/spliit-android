@@ -303,13 +303,9 @@ class GroupDetailViewModel(
 
     // ---- what the edit sheet writes back ------------------------------------------------------
     //
-    // The expense form used to be a destination: the NavHost dropped this screen while it was up,
-    // and `LaunchedEffect(Unit) { load() }` re-read the group, the whole first page of expenses
-    // and the balances on the way back. Editing is now a sheet drawn *over* this screen, which
-    // stays composed, so nothing re-runs on its own, and the three entry points below are what
-    // put the result back. None of them calls `groups.expenses.list`: the list keeps its scroll
-    // position, its paged-in rows and its skeleton-free state, and only what actually changed is
-    // read again.
+    // Editing is a sheet over this screen, so nothing re-runs on its own and the three entry
+    // points below put the result back. None of them calls `groups.expenses.list`: the list keeps
+    // its scroll position and its paged-in rows, and only what changed is read again.
 
     /**
      * One expense was written: put the row back where it belongs and recompute the balances.

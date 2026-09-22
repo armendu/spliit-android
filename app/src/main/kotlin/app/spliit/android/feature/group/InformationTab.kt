@@ -43,21 +43,14 @@ import app.spliit.android.ui.design.SectionDivider
 import app.spliit.android.ui.design.SectionHeader
 
 /**
- * What a group *is*, beside what it costs: the note it keeps for its participants, who those
- * participants are, the couple of facts that were otherwise only visible from inside the editor,
- * the way to the activity log, and the "who are you?" question.
+ * What a group *is*, beside what it costs: its note, its participants, the way to the activity
+ * log, and the "who are you?" question.
  *
- * The web app's version of this tab is the note and nothing else. That reads differently on a
- * phone, where a tab is one of four places a thumb can reach and most groups never fill the note
- * in, the tab would be empty for exactly the people who went looking. Naming the participants is
- * the cheapest thing that earns the slot, and this is the only screen in the app that lists them
- * outside the editor.
+ * The web app's version is the note and nothing else, which on a phone would leave the tab empty
+ * for exactly the people who went looking, since most groups never fill it in.
  *
  * The note has no editor of its own and should not grow one: it is a field on the group, and the
- * group form is where the group's fields are edited. The button here opens that form.
- *
- * Everything on this tab is the group, so unlike the expense and balance tabs there is no second
- * request to wait on.
+ * group form is where a group's fields are edited.
  */
 @Composable
 internal fun InformationTab(

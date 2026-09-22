@@ -33,18 +33,13 @@ import app.spliit.core.Currencies
 
 
 /**
- * Every ISO currency the platform knows, filtered as you type.
+ * Every ISO currency the platform knows, filtered as you type. Shared by the expense and group
+ * forms, which differ only in these two parameters.
  *
- * Shared by the expense form ("what was this paid in") and the group form ("what is this group
- * counted in"), which differ only in the two parameters below.
- *
- * @param promotedCode A code pinned above the list, with [promotedSuffix] on its name. The
- *   expense form promotes the group's currency, the group form the phone's own. Hidden once the
- *   search box has text, where a pinned row would be a duplicate hit.
- * @param onUseCustomSymbol An escape hatch above the list, when non-null. A Spliit group may be
- *   counted in a bare symbol with no ISO code (the web app's default is `$`), which this list
- *   cannot otherwise express. The expense form passes null: a symbol with no code has no minor
- *   units to convert with.
+ * @param promotedCode Pinned above the list, hidden once the search box has text, where it would
+ *   be a duplicate hit.
+ * @param onUseCustomSymbol An escape hatch for a group counted in a bare symbol with no ISO code,
+ *   which the web app's default `$` is. The expense form passes null: no code, no minor units.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

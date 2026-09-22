@@ -50,19 +50,12 @@ import app.spliit.android.ui.design.SectionDivider
 import app.spliit.android.ui.design.SectionHeader
 
 /**
- * What the group has spent, and how much of it is yours.
+ * What the group has spent, and how much of it is yours. The group's own total leads, then
+ * "You", then where the money went: here the personal figure answers the second half of a
+ * question the group has already answered.
  *
- * The order is iOS's `StatsView`, and it is deliberate: the group's own total first, then "You",
- * then where the money went. The balances tab next door leads with the personal figure because
- * that is the whole reason to open it; here the personal figure is the second half of a question
- * the group has already answered.
- *
- * **Reimbursements are excluded from every figure on this screen**, and the tab says so once
- * rather than per number. Settling up is not spending.
- *
- * **Every bar is measured against the group's own total**, which is what lets their lengths be
- * compared straight down the page. Two bars sharing a screen and not a scale is a way to mislead
- * with no marking on it.
+ * **Reimbursements are excluded from every figure**, said once rather than per number. **Every
+ * bar is measured against the group's total**, so their lengths compare straight down the page.
  */
 @Composable
 internal fun TotalsTab(
@@ -214,12 +207,10 @@ private fun TotalsContent(
 }
 
 /**
- * A caption, the amount under it, and, for the two figures that are a slice of the group's -
- * how big a slice.
+ * A caption, the amount under it, and how big a slice of the group's total it is.
  *
- * Unsigned, like the balance headline on the tab next door and for the same reason: the caption
- * already says which way it goes, and "Total group earnings −€40.00" says it twice while
- * contradicting itself. A total has no direction to tint either, so these carry no ledger colour.
+ * Unsigned: the caption already says which way it goes, and "Total group earnings −€40.00" says
+ * it twice while contradicting itself. A total has no direction, so no ledger colour either.
  */
 @Composable
 private fun Figure(
@@ -329,13 +320,9 @@ private fun IdentityRow(you: Participant?, onIdentify: () -> Unit) {
 }
 
 /**
- * One category, its spend, and how much of the group that is.
- *
- * Laid out like a balance row, glyph, name, amount, bar, because it is the same shape of
- * statement and the two tabs sit next to each other. The percentage is not written out the way
- * it is under the two figures above: those are one number each and the caption earns its place;
- * a dozen of them down a list is noise, and the bar is what the eye is comparing anyway. A
- * screen reader still gets it, as a description on the name.
+ * One category, its spend, and how much of the group that is. Laid out like a balance row,
+ * because it is the same shape of statement and the tabs sit next to each other. The percentage
+ * is not written out, a dozen down a list is noise, but a screen reader still gets it.
  */
 @Composable
 private fun CategoryRow(
@@ -380,11 +367,9 @@ private fun CategoryRow(
 }
 
 /**
- * A slice of the group's spending, drawn as a length.
- *
- * Measured with a [Layout] rather than `fillMaxWidth(fraction)` so a slice of zero still draws a
- * visible sliver of track instead of nothing, and so the filled capsule can never round to wider
- * than the track it sits in.
+ * A slice of the group's spending, drawn as a length. A [Layout] rather than
+ * `fillMaxWidth(fraction)` so a slice of zero still draws a sliver of track, and so the fill can
+ * never round wider than the track it sits in.
  */
 @Composable
 private fun ShareBar(fraction: Float) {
@@ -421,13 +406,9 @@ private fun ShareBar(fraction: Float) {
 }
 
 /**
- * How much of the group's spending a figure is, or null when the question has no answer: a group
- * that has spent nothing has no slices, and one that has taken in more than it spent has no
- * scale to measure against.
- *
- * Clamped, because neither end is impossible. A group whose expenses net out below what one
- * person paid would put a bar past its own track, and a category that came to a refund would put
- * one behind the start of it.
+ * How much of the group's spending a figure is, or null when there is no answer: a group that
+ * has spent nothing has no slices. Clamped, because neither end is impossible, a group netting
+ * out below what one person paid would put a bar past its own track.
  */
 private fun groupSlice(value: Long, groupTotal: Long): Float? {
     if (groupTotal <= 0L) return null
@@ -439,11 +420,9 @@ private fun percentText(fraction: Float): String = "${Math.round(fraction * 100)
 private val summaryDateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
 /**
- * "11 Aug 2025 – 14 Sept 2026", from the two date-only strings the summary carries.
- *
- * Parsed rather than printed verbatim: they arrive as ISO `YYYY-MM-DD` and a date shown to a
- * person belongs in their locale's order. Anything that does not parse is dropped rather than
- * guessed at, the range is a nicety, and a wrong date is worse than no date.
+ * "11 Aug 2025 – 14 Sept 2026", from the summary's two ISO date strings. Parsed rather than
+ * printed, since a date a person reads belongs in their locale's order; anything that does not
+ * parse is dropped, because the range is a nicety and a wrong date is worse than none.
  */
 private fun dateRangeText(firstDate: String?, lastDate: String?): String? {
     val first = firstDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null

@@ -51,15 +51,11 @@ import app.spliit.android.ui.design.SkeletonBlock
 
 
 /**
- * The group editor as a full screen, "Group settings", reached from the group's own overflow
- * menu. Every rule about what makes a group valid comes from [GroupFormDraft.problems]; this
- * screen only renders it.
+ * The group editor as a full screen, "Group settings". Every rule about what makes a group valid
+ * comes from [GroupFormDraft.problems]; this only renders it.
  *
- * **Creating a group does not come through here.** It is a bottom sheet, [CreateGroupSheet] -
- * over the dashboard, because creating one is short (a name and a participant or two) and a
- * full-screen form for that much is a trip rather than a task. Editing keeps the screen: by then
- * there are participants to add and remove, a note, a currency, and the errand is long enough to
- * deserve the room. Both draw the same [GroupFormBody].
+ * **Creating a group does not come through here**, it is [CreateGroupSheet] over the dashboard.
+ * Both draw the same [GroupFormBody].
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -135,11 +131,9 @@ internal fun GroupFormBody(
     modifier: Modifier = Modifier,
 ) {
     val draft = state.draft
-    // The picker is a sheet the form opens over itself rather than a route it navigates to.
-    // Navigating was what the full screen used to do, and it left the create *sheet* with no way
-    // to reach a currency at all, a sheet has no NavController to push onto, so the row there
-    // was wired to `{}` and silently did nothing. Owning it here is what makes one row behave
-    // the same in both presentations.
+    // A sheet the form opens over itself, not a route. Navigating left the create *sheet* with
+    // no way to reach a currency at all, since it has no NavController to push onto, so that row
+    // was wired to `{}` and silently did nothing.
     var showCurrencyPicker by rememberSaveable { mutableStateOf(false) }
     // Collapsed by default and remembered across a rotation but not across the sheet closing:
     // somebody who opened Advanced for one group has not said anything about the next.
@@ -205,17 +199,9 @@ internal fun GroupFormBody(
             )
         }
 
-        // Creating a group no longer asks for a server up front. The default is
-        // configurable in Settings, and picking one is the advanced half of a decision
-        // most people never make, somebody creating a group on spliit.app should never
-        // see this field. It is *hidden, not removed*: self-hosting is a first-class
-        // Spliit use case, the group's server is what a link resolves against, and there
-        // has to be a way to reach it without a detour through Settings.
-        //
-        // Only when creating. By the time you are editing a group the whole form is
-        // advanced, the address is a fact about the group rather than a choice, and a
-        // group cannot move servers anyway, so the ViewModel does not offer the field
-        // there at all.
+        // Hidden, not removed: somebody creating a group on spliit.app should never see this
+        // field, but self-hosting is a first-class use case and needs a way to it without a
+        // detour through Settings. Create only, since a group cannot move servers.
         if (state.mode == GroupFormMode.CREATE) {
             Spacer(Modifier.height(16.dp))
             Row(

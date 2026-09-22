@@ -8,12 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 
 /**
- * What a screen says when a load failed: the exclamation tile, a title naming what failed, the
- * server's own words if it gave any, and a Retry button when retrying is possible.
- *
- * There were nine copies of this, and the fallback sentence was written out nine times. A
- * screen that cannot retry (search results, which re-run on the next keystroke) passes
- * `onRetry = null`.
+ * What a screen says when a load failed: a title, the server's own words if it gave any, and a
+ * Retry button where retrying is possible. A screen that cannot retry passes `onRetry = null`.
  */
 @Composable
 fun LoadFailure(

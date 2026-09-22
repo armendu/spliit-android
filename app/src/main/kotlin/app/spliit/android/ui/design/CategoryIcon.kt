@@ -17,24 +17,14 @@ import app.spliit.android.ui.theme.SpliitTheme
 import androidx.compose.ui.unit.dp
 
 /**
- * A category's glyph in the rounded slot that will lead an expense row, Part 11's vocabulary,
- * built here because the design system is what this part exists to define.
+ * A category's glyph in the rounded slot that leads an expense row.
  *
- * **The glyph carries the hue; the tile does not.** DESIGN.md §5 gives each grouping its own
- * colour, and §3's rule that saturated colour belongs to the amount survives it intact: the tile
- * stays a neutral M3 fill (`surfaceVariant`) and nothing is filled with a block of colour, so
- * the amount is still the only solid saturated thing in a row while the row gains something to
- * scan by.
+ * **The glyph carries the hue; the tile does not.** The tile stays a neutral `surfaceVariant`, so
+ * the amount is still the only solid saturated thing in a row. The colour comes from the theme
+ * rather than a branch on the dark setting here, which is where a use site drifts.
  *
- * The colour comes from the theme, [SpliitTheme.colors], rather than from a branch on the
- * system dark setting here. Light and dark are not the same colour for a given hue (see
- * `Color.kt`), and a use site choosing between them is a use site that will drift.
- *
- * The glyphs are authored here rather than pulled from `material-icons-extended`: seven
- * groupings do not justify a dependency the house rule would have to make an exception for, and
- * a set drawn to one stroke weight reads as one family in a way a library's assorted metrics do
- * not. They are stroked, not filled, which is what lets `Icon` tint them at all, an emoji would
- * ignore the tint entirely, and a filled glyph would become the coloured block this avoids.
+ * Authored here rather than pulled from `material-icons-extended`: seven groupings do not justify
+ * a dependency, and they are stroked rather than filled, which is what lets `Icon` tint them.
  */
 @Composable
 fun CategoryIcon(
