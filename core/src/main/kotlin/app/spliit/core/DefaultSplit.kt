@@ -82,7 +82,7 @@ public data class DefaultSplit(
                 id = participant.id,
                 name = participant.name,
                 isIncluded = shares == null || share != null,
-                valueText = share?.let { hundredthsText(it, locale) } ?: "1",
+                valueText = share?.let { ExpenseFormDraft.hundredthsText(it, locale) } ?: "1",
             )
         }
 
@@ -114,17 +114,5 @@ public data class DefaultSplit(
             return DefaultSplit(splitMode = submission.splitMode, shares = shares)
         }
 
-        /**
-         * A ×100 share or percentage as a field shows it, whole numbers without a trailing
-         * `.00`. The same rule [ExpenseFormDraft] reads existing expenses' shares with, kept here
-         * rather than shared because that copy is `private`: this module's own `internal`
-         * [ExpenseFormDraft.minorUnitsText] is what the two actually share.
-         */
-        private fun hundredthsText(shares: Long, locale: Locale): String =
-            if (shares % 100L == 0L) {
-                (shares / 100L).toString()
-            } else {
-                ExpenseFormDraft.minorUnitsText(shares, null, locale)
-            }
     }
 }

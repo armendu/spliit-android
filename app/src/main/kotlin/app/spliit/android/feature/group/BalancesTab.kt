@@ -8,11 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,11 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.EmptyState
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySign
 import app.spliit.android.ui.design.MoneySize
@@ -47,6 +40,8 @@ import app.spliit.api.Reimbursement
 import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
 import kotlin.math.abs
+import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * The balances tab: the active participant's own standing leads, then every participant's
@@ -75,15 +70,12 @@ internal fun BalancesTab(
             val message = (groupState as? LoadState.Failed)?.message
                 ?: (balancesState as? LoadState.Failed)?.message
             CenteredScroll {
-                EmptyState(
-                    icon = "!",
+                LoadFailure(
                     title = "Couldn't load the balances",
-                    description = message ?: "Check your connection and try again.",
-                ) {
-                    Button(onClick = onRetry, modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON)) {
-                        Text("Retry")
-                    }
-                }
+                    message = message,
+                    retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                    onRetry = onRetry,
+                )
             }
         }
 
@@ -121,7 +113,7 @@ private fun BalancesContent(
         // The FAB clearance, plus the navigation-bar inset the app now draws behind, see
         // ExpensesTab for the reasoning; the two lists have to agree or one of them hides a row.
         contentPadding = PaddingValues(
-            bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = fabAndNavigationBarPadding(),
         ),
     ) {
         item(key = "you") {
@@ -351,20 +343,6 @@ private fun direction(balanceMinorUnits: Long): String = when {
     else -> "You're settled up"
 }
 
-@Composable
-private fun CenteredScroll(content: @Composable () -> Unit) {
-    Box(
-        // Same FAB clearance as the expense list, see ExpensesTab.
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 88.dp)
-            .navigationBarsPadding(),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
 
 @Composable
 private fun BalancesSkeleton() {

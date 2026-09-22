@@ -8,21 +8,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.CategoryIcon
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.Money
@@ -52,6 +47,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.abs
+import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * What the group has spent, and how much of it is yours.
@@ -99,19 +96,13 @@ internal fun TotalsTab(
             val message = (groupState as? LoadState.Failed)?.message
                 ?: (state.stats as? LoadState.Failed)?.message
             CenteredScroll {
-                EmptyState(
-                    icon = "!",
+                LoadFailure(
                     // The group can arrive and its totals still fail, so name whichever is missing.
                     title = if (groupFailed) "Couldn't load this group" else "Couldn't load the totals",
-                    description = message ?: "Check your connection and try again.",
-                ) {
-                    Button(
-                        onClick = if (groupFailed) onRetry else onRetryStats,
-                        modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON),
-                    ) {
-                        Text("Retry")
-                    }
-                }
+                    message = message,
+                    retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                    onRetry = if (groupFailed) onRetry else onRetryStats,
+                )
             }
         }
 
@@ -137,7 +128,7 @@ private fun TotalsContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(
-            bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = fabAndNavigationBarPadding(),
         ),
     ) {
         item(key = "group_header") {
@@ -497,18 +488,6 @@ private fun SectionDivider() {
     )
 }
 
-@Composable
-private fun CenteredScroll(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 88.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
 
 @Composable
 private fun TotalsSkeleton() {

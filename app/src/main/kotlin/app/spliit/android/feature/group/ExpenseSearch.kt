@@ -2,8 +2,7 @@ package app.spliit.android.feature.group
 
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
-import app.spliit.api.TrpcClientError
-import app.spliit.api.TrpcServerError
+import app.spliit.api.TrpcException
 import app.spliit.core.LoadState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -98,9 +97,7 @@ internal class ExpenseSearch(
             // The next keystroke is already searching. Rethrown so this job dies as a cancelled
             // one; reporting it would flash "Couldn't search" between characters.
             throw e
-        } catch (e: TrpcServerError) {
-            if (!isStale(query)) onFailure(e.message)
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!isStale(query)) onFailure(e.message)
         }
     }

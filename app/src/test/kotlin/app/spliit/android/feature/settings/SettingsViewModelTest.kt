@@ -3,6 +3,7 @@ package app.spliit.android.feature.settings
 import app.spliit.core.AppSettings
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
+import app.spliit.android.feature.groups.FakeRecentGroupsStore
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.SettingsStore
 import app.spliit.core.ThemeMode
@@ -23,13 +24,6 @@ private class FakeSettingsStore(private var settings: AppSettings = AppSettings(
     }
 }
 
-private class FakeRecentGroupsStore(private var snapshot: RecentGroupsSnapshot = RecentGroupsSnapshot()) :
-    RecentGroupsStore {
-    override suspend fun load(): RecentGroupsSnapshot = snapshot
-    override suspend fun save(snapshot: RecentGroupsSnapshot) {
-        this.snapshot = snapshot
-    }
-}
 
 class SettingsViewModelTest {
 

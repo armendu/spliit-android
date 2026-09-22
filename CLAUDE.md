@@ -185,8 +185,17 @@ was stored as.
 Two JDK traps sit under that, both verified rather than assumed. **`DecimalFormat.setCurrency`
 does not change the fraction digits**, it is documented not to, so setting USD on a `ja-JP`
 formatter keeps Japan's zero digits and draws `$12` for 1234 minor units. Set the digits
-explicitly afterwards. And **uppercase currency codes with `Locale.ROOT`**: under a Turkish
-default locale `"iqd".uppercase()` is `İQD`, which is not a currency any more.
+explicitly afterwards. **Kotlin's no-arg `uppercase()`/`lowercase()` are already locale-invariant**, and the note that
+used to sit here said the opposite. Measured on the stdlib this project builds against, under a
+Turkish default locale: `"iqd".uppercase()` is `IQD` and `"SPLIIT.APP".lowercase()` is
+`spliit.app`, while the *explicit* overloads give `İQD` and `splııt.app`. So a bare `.lowercase()`
+on a host or a currency code is safe, and the `Locale.ROOT` in `MoneyFormatter.isoCurrency` is
+belt-and-braces rather than load-bearing.
+
+The trap is the other way round. Text a **person reads** wants the reader's locale, explicitly:
+the four places that upper-case a heading pass `Locale.ROOT` today, which is invisible in English
+and wrong once this app is translated. Identifiers and codes take ROOT (which you get for free);
+display text takes `Locale.getDefault()`.
 
 **`paidFor[].shares` changes meaning with the split mode.** It is the share value ×100 for
 `EVENLY`, `BY_SHARES` and `BY_PERCENTAGE`, whatever the currency, and a raw minor-unit amount

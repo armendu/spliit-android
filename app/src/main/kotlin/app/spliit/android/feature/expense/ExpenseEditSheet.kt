@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,11 +35,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.EmptyState
 import kotlinx.coroutines.launch
+import app.spliit.android.ui.design.SheetShape
+import app.spliit.android.ui.design.LoadFailure
 
-/** DESIGN.md §3: bottom sheets take 24dp top corners. */
-private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 
 /**
  * Editing an expense, as a sheet over the group screen rather than a screen of its own.
@@ -174,18 +172,12 @@ fun ExpenseEditSheet(
                         modifier = Modifier.weight(1f).padding(16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        EmptyState(
-                            icon = "!",
+                        LoadFailure(
                             title = "Couldn't load the expense",
-                            description = state.loadError ?: "Check your connection and try again.",
-                        ) {
-                            Button(
-                                onClick = viewModel::retry,
-                                modifier = Modifier.testTag(TestTags.EXPENSE_FORM_RETRY_BUTTON),
-                            ) {
-                                Text("Retry")
-                            }
-                        }
+                            message = state.loadError,
+                            retryTestTag = TestTags.EXPENSE_FORM_RETRY_BUTTON,
+                            onRetry = viewModel::retry,
+                        )
                     }
 
                     else -> ExpenseFormBody(

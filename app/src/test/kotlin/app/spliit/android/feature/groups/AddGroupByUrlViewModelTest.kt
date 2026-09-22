@@ -163,4 +163,26 @@ class AddGroupByUrlViewModelTest {
         assertNull(viewModel.state.value.addedGroupId)
         assertEquals(instance, viewModel.state.value.defaultInstanceBaseUrl)
     }
+
+    @Test
+    fun `a group that could not be stored is reported rather than silently dropped`() = runBlocking {
+        // Cheaper than the create path, the user still has the link they pasted, but saying
+        // "added" for a row that did not store sends them to a list without it.
+        val store = FakeRecentGroupsStore(failSaves = true)
+        server.enqueue(
+            MockResponse.Builder().code(200).body(
+                okBody("""{"group":{"id":"g1","name":"Lisbon","information":null,"currency":"\u20ac",
+                    "currencyCode":"EUR","createdAt":"2025-01-01T00:00:00.000Z","participants":[]}}"""),
+            ).build(),
+        )
+        val viewModel = AddGroupByUrlViewModel(recentGroupsStore = store)
+        viewModel.setUrlText("${server.url("/")}groups/g1")
+
+        val added = viewModel.submit()
+
+        assertFalse(added)
+        assertNull(viewModel.state.value.addedGroupId)
+        assertNotNull(viewModel.state.value.problem)
+    }
+
 }

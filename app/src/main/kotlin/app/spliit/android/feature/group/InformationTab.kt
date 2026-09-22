@@ -3,27 +3,20 @@ package app.spliit.android.feature.group
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,12 +33,15 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.R
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.EmptyState
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.Monogram
 import app.spliit.core.LoadState
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.feature.groups.InstanceAddress
 
 /**
  * What a group *is*, beside what it costs: the note it keeps for its participants, who those
@@ -77,15 +73,12 @@ internal fun InformationTab(
         is LoadState.Loading -> InformationSkeleton()
 
         is LoadState.Failed -> CenteredScroll {
-            EmptyState(
-                icon = "!",
+            LoadFailure(
                 title = "Couldn't load this group",
-                description = groupState.message ?: "Check your connection and try again.",
-            ) {
-                Button(onClick = onRetry, modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON)) {
-                    Text("Retry")
-                }
-            }
+                message = groupState.message,
+                retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                onRetry = onRetry,
+            )
         }
 
         is LoadState.Loaded -> InformationContent(
@@ -114,7 +107,7 @@ private fun InformationContent(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         contentPadding = PaddingValues(
-            bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = fabAndNavigationBarPadding(),
         ),
     ) {
         item(key = "note_header") {
@@ -195,7 +188,7 @@ private fun InformationContent(
             // and the one the share link is built from.
             DetailRow(
                 label = "Server",
-                value = serverDisplayName(group.instanceBaseUrl),
+                value = InstanceAddress.displayName(group.instanceBaseUrl),
                 testTag = TestTags.INFORMATION_SERVER,
             )
             SectionDivider()
@@ -295,11 +288,6 @@ private fun NavigationRow(icon: Int, title: String, onClick: () -> Unit, testTag
 
 private val createdFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
-/** The host, which is what distinguishes one instance from another, a full base URL in a
- *  right-aligned detail row is mostly scheme and slashes. */
-private fun serverDisplayName(instanceBaseUrl: String): String =
-    runCatching { java.net.URI(instanceBaseUrl).host }.getOrNull()?.takeIf { it.isNotBlank() }
-        ?: instanceBaseUrl
 
 @Composable
 private fun SectionHeader(title: String) {
@@ -330,18 +318,6 @@ private fun SectionDivider() {
     )
 }
 
-@Composable
-private fun CenteredScroll(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 88.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
 
 @Composable
 private fun InformationSkeleton() {

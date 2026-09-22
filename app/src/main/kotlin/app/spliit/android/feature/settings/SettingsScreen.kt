@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -46,12 +45,10 @@ import androidx.core.net.toUri
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.core.ThemeMode
+import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.CardShape
 
-/** DESIGN.md §3: cards are 16dp radius, the same shape GroupsListScreen's rows use. */
-private val CardShape = RoundedCornerShape(16.dp)
 
-/** DESIGN.md §3: text fields are 12dp, distinct from a card's 16dp, same as GroupFormScreen. */
-private val FieldShape = RoundedCornerShape(12.dp)
 
 /**
  * Settings: appearance, the default instance, and the static About/Feedback/Version rows that

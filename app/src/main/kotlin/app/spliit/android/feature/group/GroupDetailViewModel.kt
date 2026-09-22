@@ -6,6 +6,7 @@ import app.spliit.api.ExpenseListItem
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcClientError
+import app.spliit.api.TrpcException
 import app.spliit.api.TrpcServerError
 import app.spliit.api.groupStats
 import app.spliit.core.MoneyFormatter
@@ -59,7 +60,7 @@ class GroupDetailViewModel(
         pageSize = PAGE_SIZE,
         state = _state,
         scope = viewModelScope,
-        client = { resolvedInstanceBaseUrl?.let(::client) },
+        client = { resolvedInstanceBaseUrl?.let(clientFactory) },
     )
 
     /** See [app.spliit.android.feature.groups.GroupsListViewModel.load] for why this exists
@@ -188,22 +189,11 @@ class GroupDetailViewModel(
             recentGroupsStore.save(updated)
             val actorId = updated.actorId(groupId, group.participants.map { CoreParticipant(it.id, it.name) })
 
-            val info = GroupInfo(
-                id = group.id,
-                name = group.name,
-                information = group.information,
-                currencySymbol = group.currency,
-                currencyCode = group.currencyCode,
-                createdAt = group.createdAt,
-                participants = group.participants,
-                instanceBaseUrl = instanceBaseUrl,
-            )
+            val info = groupInfoOf(group, instanceBaseUrl)
             _state.update { it.copy(group = LoadState.Loaded(info), activeParticipantId = actorId) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(group = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(group = LoadState.Failed(e.message)) }
         }
     }
@@ -217,21 +207,10 @@ class GroupDetailViewModel(
             client.call(SpliitEndpoints.groupsGet(groupId)).group ?: return
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            return
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             return
         }
-        val info = GroupInfo(
-            id = group.id,
-            name = group.name,
-            information = group.information,
-            currencySymbol = group.currency,
-            currencyCode = group.currencyCode,
-            createdAt = group.createdAt,
-            participants = group.participants,
-            instanceBaseUrl = instanceBaseUrl,
-        )
+        val info = groupInfoOf(group, instanceBaseUrl)
         _state.update { it.copy(group = LoadState.Loaded(info)) }
     }
 
@@ -243,9 +222,7 @@ class GroupDetailViewModel(
             _state.update { it.copy(expenses = LoadState.Loaded(page)) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            if (!keepOnFailure) _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!keepOnFailure) _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
         }
     }
@@ -301,9 +278,7 @@ class GroupDetailViewModel(
             _state.update { it.copy(balances = LoadState.Loaded(BalancesInfo(totals, response.reimbursements))) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            if (!keepOnFailure) _state.update { it.copy(balances = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!keepOnFailure) _state.update { it.copy(balances = LoadState.Failed(e.message)) }
         }
     }
@@ -330,6 +305,7 @@ class GroupDetailViewModel(
     /** The work behind [expenseSaved], public, like [refresh], so tests drive it without a
      *  Main-dispatcher rule. */
     suspend fun applySavedExpense(expenseId: String) {
+        refreshLimiter.reset()
         val baseUrl = resolvedInstanceBaseUrl ?: return
         val client = clientFactory(baseUrl)
         coroutineScope {
@@ -349,6 +325,7 @@ class GroupDetailViewModel(
 
     /** The work behind [expenseDeleted], public for the same reason as [applySavedExpense]. */
     suspend fun applyDeletedExpense(expenseId: String) {
+        refreshLimiter.reset()
         _state.update { state ->
             val page = (state.expenses as? LoadState.Loaded)?.value ?: return@update state
             state.copy(
@@ -377,7 +354,8 @@ class GroupDetailViewModel(
     /** The work behind [reloadAfterExpenseChange], public for the same reason as
      *  [applySavedExpense]. */
     suspend fun applyExpenseChange() {
-        // Never rate-limited, and clears the window: what is on screen is known to be stale.
+        // Never rate-limited, and clears the window, like every other write-follow-up: a pull
+        // straight after writing is asking about the change, not repeating a gesture.
         refreshLimiter.reset()
         val baseUrl = resolvedInstanceBaseUrl ?: return
         val client = clientFactory(baseUrl)
@@ -410,6 +388,7 @@ class GroupDetailViewModel(
      * takes their column out.
      */
     fun groupEdited() {
+        refreshLimiter.reset()
         viewModelScope.launch {
             val baseUrl = resolvedInstanceBaseUrl ?: return@launch
             val client = clientFactory(baseUrl)
@@ -624,9 +603,7 @@ class GroupDetailViewModel(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Failed(e.message)) }
         }
     }
@@ -643,7 +620,7 @@ class GroupDetailViewModel(
 
         _state.update { it.copy(isLoadingMoreActivities = true) }
         try {
-            val response = client(baseUrl).call(
+            val response = clientFactory(baseUrl).call(
                 SpliitEndpoints.activitiesList(groupId, cursor = current.nextCursor, limit = PAGE_SIZE),
             )
             // The log grows at the *top*, so a page fetched after something new was recorded
@@ -661,9 +638,7 @@ class GroupDetailViewModel(
         } catch (e: CancellationException) {
             _state.update { it.copy(isLoadingMoreActivities = false) }
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isLoadingMoreActivities = false) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isLoadingMoreActivities = false) }
         }
     }
@@ -682,5 +657,4 @@ class GroupDetailViewModel(
 
     suspend fun runSearch(query: String): Unit = searcher.run(query)
 
-    private fun client(baseUrl: String): TrpcClient = clientFactory(baseUrl)
 }

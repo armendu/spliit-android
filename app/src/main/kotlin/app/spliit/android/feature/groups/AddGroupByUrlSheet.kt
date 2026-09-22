@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -36,12 +35,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import app.spliit.android.ui.TestTags
+import app.spliit.android.ui.design.SheetShape
+import app.spliit.android.ui.design.FieldShape
 
-/** DESIGN.md §3: text fields are 12dp radius, distinct from a card's 16dp. */
-private val FieldShape = RoundedCornerShape(12.dp)
 
-/** DESIGN.md §3: bottom sheets take 24dp top corners. */
-private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 
 /**
  * Adds a group someone shared, by pasting its link.

@@ -15,11 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -55,13 +53,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.CurrencyPickerSheet
-import app.spliit.android.ui.design.EmptyState
 import app.spliit.core.Currencies
 import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.MoneyFormatter
@@ -70,8 +66,9 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.LoadFailure
 
-internal val FieldShape = RoundedCornerShape(12.dp)
 
 /**
  * Creating and editing an expense, who paid, how much, and how it divides.
@@ -166,18 +163,12 @@ fun ExpenseFormScreen(
                 modifier = Modifier.padding(contentPadding).fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                EmptyState(
-                    icon = "!",
+                LoadFailure(
                     title = "Couldn't load the expense",
-                    description = state.loadError ?: "Check your connection and try again.",
-                ) {
-                    Button(
-                        onClick = viewModel::retry,
-                        modifier = Modifier.testTag(TestTags.EXPENSE_FORM_RETRY_BUTTON),
-                    ) {
-                        Text("Retry")
-                    }
-                }
+                    message = state.loadError,
+                    retryTestTag = TestTags.EXPENSE_FORM_RETRY_BUTTON,
+                    onRetry = viewModel::retry,
+                )
             }
 
             else -> ExpenseFormBody(

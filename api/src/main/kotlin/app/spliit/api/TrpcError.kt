@@ -1,6 +1,16 @@
 package app.spliit.api
 
 /**
+ * Anything a call can fail with.
+ *
+ * The two subclasses answer different questions, and most callers want both: [TrpcServerError]
+ * is the server saying no, [TrpcClientError] is never having got an answer. Before this existed
+ * they shared only `Exception`, so every call site named both in separate `catch` clauses, and
+ * nothing told anyone who named only one. Catch this when the handling is the same.
+ */
+public sealed class TrpcException(message: String) : Exception(message)
+
+/**
  * An error the Spliit server itself reported, as opposed to a transport failure.
  *
  * Every field but [message] is optional because tRPC's own error shape makes them so: a handler
@@ -13,7 +23,7 @@ public class TrpcServerError(
     public val httpStatus: Int?,
     /** The procedure that failed, e.g. `groups.getDetails`. */
     public val path: String?,
-) : Exception(message) {
+) : TrpcException(message) {
 
     /**
      * True when the instance has never heard of this procedure, e.g. an older deployment without
@@ -36,7 +46,7 @@ public class TrpcServerError(
  * A failure that happened before the server could answer, or while turning its answer into
  * bytes, as opposed to [TrpcServerError], which is the server answering with a problem.
  */
-public sealed class TrpcClientError(message: String) : Exception(message) {
+public sealed class TrpcClientError(message: String) : TrpcException(message) {
 
     /** The base URL a group (or a user typing a self-hosted address) supplied isn't a URL at all. */
     public class InvalidBaseUrl(public val url: String) :

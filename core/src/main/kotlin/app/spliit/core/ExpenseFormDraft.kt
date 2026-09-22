@@ -758,7 +758,7 @@ public data class ExpenseFormDraft(
         }
 
         /** A ×100 share or percentage as a field shows it: whole numbers without a `.00`. */
-        private fun hundredthsText(shares: Long, locale: Locale): String =
+        internal fun hundredthsText(shares: Long, locale: Locale): String =
             if (shares % 100L == 0L) (shares / 100L).toString() else minorUnitsText(shares, null, locale)
 
         /** A stored `shares` value back in the field it came from, see the table up top. */

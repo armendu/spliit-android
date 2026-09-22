@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -51,9 +50,9 @@ import java.time.Clock
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import app.spliit.android.ui.design.SheetShape
+import app.spliit.android.ui.design.LoadFailure
 
-/** DESIGN.md §3: bottom sheets take 24dp top corners. */
-private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 
 /**
  * Everything that has happened in this group, and who did it.
@@ -114,18 +113,12 @@ internal fun ActivityLogSheet(
                     modifier = Modifier.weight(1f).padding(16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    EmptyState(
-                        icon = "!",
+                    LoadFailure(
                         title = "Couldn't load the activity",
-                        description = activities.message ?: "Check your connection and try again.",
-                    ) {
-                        Button(
-                            onClick = onRetry,
-                            modifier = Modifier.testTag(TestTags.ACTIVITY_LOG_RETRY_BUTTON),
-                        ) {
-                            Text("Retry")
-                        }
-                    }
+                        message = activities.message,
+                        retryTestTag = TestTags.ACTIVITY_LOG_RETRY_BUTTON,
+                        onRetry = onRetry,
+                    )
                 }
 
                 is LoadState.Loaded -> {
