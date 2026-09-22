@@ -29,6 +29,7 @@ import java.util.Locale
 import app.spliit.api.ExpenseCategory as ApiCategory
 import app.spliit.api.SplitMode as ApiSplitMode
 import app.spliit.core.Participant as CoreParticipant
+import app.spliit.android.feature.group.groupInfoOf
 
 /**
  * What this screen was opened to do. [Settle] is a create, not a wire mode: a debt is settled by
@@ -207,16 +208,7 @@ class ExpenseFormViewModel(
                 }
                 return
             }
-            val group = GroupInfo(
-                id = loadedGroup.id,
-                name = loadedGroup.name,
-                information = loadedGroup.information,
-                currencySymbol = loadedGroup.currency,
-                currencyCode = loadedGroup.currencyCode,
-                createdAt = loadedGroup.createdAt,
-                participants = loadedGroup.participants,
-                instanceBaseUrl = instanceBaseUrl,
-            )
+            val group = groupInfoOf(loadedGroup, instanceBaseUrl)
             val draft = buildDraft(group, expense, row.defaultSplit, row.participantId)
             initialDraft = draft
             documents = expense?.documents.orEmpty()

@@ -37,6 +37,23 @@ data class GroupInfo(
 
 /** One page of the expense list, as `groups.expenses.list` answers it, carried whole rather
  *  than unpacked, since [loadMoreExpenses] needs [nextCursor] and [hasMore] verbatim. */
+/**
+ * A [GroupInfo] from what `groups.get` answered, plus the one thing it cannot know: which server
+ * answered it. Transcribing these eight fields by hand existed in three places, in two feature
+ * packages, so adding a field meant remembering all three.
+ */
+fun groupInfoOf(group: app.spliit.api.Group, instanceBaseUrl: String): GroupInfo = GroupInfo(
+    id = group.id,
+    name = group.name,
+    information = group.information,
+    currencySymbol = group.currency,
+    currencyCode = group.currencyCode,
+    createdAt = group.createdAt,
+    participants = group.participants,
+    instanceBaseUrl = instanceBaseUrl,
+)
+
+
 data class ExpensesPage(
     val expenses: List<ExpenseListItem>,
     val hasMore: Boolean,

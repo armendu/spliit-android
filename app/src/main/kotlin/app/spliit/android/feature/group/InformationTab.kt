@@ -41,6 +41,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.feature.groups.InstanceAddress
 
 /**
  * What a group *is*, beside what it costs: the note it keeps for its participants, who those
@@ -187,7 +188,7 @@ private fun InformationContent(
             // and the one the share link is built from.
             DetailRow(
                 label = "Server",
-                value = serverDisplayName(group.instanceBaseUrl),
+                value = InstanceAddress.displayName(group.instanceBaseUrl),
                 testTag = TestTags.INFORMATION_SERVER,
             )
             SectionDivider()
@@ -287,11 +288,6 @@ private fun NavigationRow(icon: Int, title: String, onClick: () -> Unit, testTag
 
 private val createdFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
-/** The host, which is what distinguishes one instance from another, a full base URL in a
- *  right-aligned detail row is mostly scheme and slashes. */
-private fun serverDisplayName(instanceBaseUrl: String): String =
-    runCatching { java.net.URI(instanceBaseUrl).host }.getOrNull()?.takeIf { it.isNotBlank() }
-        ?: instanceBaseUrl
 
 @Composable
 private fun SectionHeader(title: String) {
