@@ -26,12 +26,11 @@ import kotlinx.coroutines.launch
 import app.spliit.core.Participant as CoreParticipant
 
 /**
- * One group's detail screen: the expenses tab and the balances tab, loaded together.
+ * One group's detail screen.
  *
- * Unlike [app.spliit.android.feature.groups.GroupsListViewModel], this class is not handed the
- * instance a group lives on, the nav route is just `groups/{groupId}`, so [refresh] resolves it
- * itself from the stored [RecentGroup] row for [groupId]. A group with no such row (reached by a
- * route this app does not currently produce) fails every section rather than guessing a server.
+ * The nav route is just `groups/{groupId}`, so [refresh] resolves the instance itself from the
+ * stored [RecentGroup] row. A group with no row fails every section rather than guessing a
+ * server.
  */
 class GroupDetailViewModel(
     private val groupId: String,
@@ -45,12 +44,7 @@ class GroupDetailViewModel(
     private companion object {
         const val PAGE_SIZE = 20
 
-        /**
-         * How long a pause in typing counts as "done typing".
-         *
-         * Every keystroke cancels the job before it, so this delay is only ever survived by the
-         * last one, which is what makes it a debounce rather than a lag. See [search].
-         */
+        /** How long a pause in typing counts as "done typing". */
     }
 
     private val _state = MutableStateFlow(GroupDetailUiState())
@@ -75,42 +69,27 @@ class GroupDetailViewModel(
     }
 
     /**
-     * Loads the group, but only if it is not already here.
+     * Loads the group, but only if it is not already here. The screen's `LaunchedEffect(Unit)`
+     * re-runs on every return to it, and this ViewModel outlives all of that.
      *
-     * The screen's `LaunchedEffect(Unit)` runs again every time this composable is freshly
-     * composed, coming back from the expense form, from the group editor, from anywhere this
-     * screen was left rather than popped. The ViewModel is scoped to the nav entry and survives
-     * all of that, so re-entering a loaded group used to re-read the group, the whole first page
-     * of expenses and the balances for nothing. iOS guards the same call with
-     * `guard group == nil else { return }`; this is that guard.
-     *
-     * Whoever wants fresh numbers asks for them: pull-to-refresh calls [pullToRefresh], a failure
-     * offers [retry], and a write calls [reloadAfterExpenseChange]. Nothing is served from an
-     * HTTP cache, see [TrpcClient]'s own no-store note; a cached GET would quietly serve stale
-     * balances.
+     * Fresh numbers are asked for explicitly: [pullToRefresh], [retry], or
+     * [reloadAfterExpenseChange]. Nothing is served from an HTTP cache.
      */
     fun loadIfNeeded() {
         if (_state.value.group is LoadState.Loaded) return
         load()
     }
 
-    /** Also limited: an error puts a button on screen, and a button beside an error message is
-     *  the other thing people tap repeatedly. */
+    /** Also rate-limited: a button beside an error is the other thing people tap repeatedly. */
     fun retry() {
         if (!refreshLimiter.allow()) return
         load()
     }
 
     /**
-     * Everything on this screen again, without the skeletons, the pull-to-refresh gesture.
-     *
-     * Deliberately not [refresh], which resets the three sections to [LoadState.Loading] and so
-     * replaces the numbers a user is looking at with a skeleton for the length of a round trip.
-     * A refresh that blanks the screen is indistinguishable from a reload, and the spinner
-     * already says work is happening.
-     *
-     * The lazy sections are refreshed only if they have been asked for once, see
-     * [refreshStatsIfRequested] and [refreshActivitiesIfLoaded].
+     * Everything again without the skeletons. Not [refresh], which would blank the numbers a
+     * user is looking at for the length of a round trip. Lazy sections refresh only if they
+     * have been opened.
      */
     fun pullToRefresh() {
         viewModelScope.launch { refreshInPlace() }
@@ -119,14 +98,9 @@ class GroupDetailViewModel(
     /** The work behind [pullToRefresh], public, like [refresh], so tests drive it without a
      *  Main-dispatcher rule. */
     suspend fun refreshInPlace() {
-        // The rate limit lives on the work rather than on [pullToRefresh], for two reasons. It
-        // covers every caller instead of the one launcher, and it is reachable from a test:
-        // `viewModelScope` dispatches on Main, which the JVM suites deliberately do not install
-        //, a check inside the launcher is a check nothing can assert on.
-        //
-        // `isRefreshing` is cleared on the way out because PullToRefreshBox keeps its indicator
-        // up until the callback returns; dropping the work without this leaves a spinner
-        // turning over nothing.
+        // The limit is on the work, not the launcher: `viewModelScope` dispatches on Main,
+        // which the JVM suites do not install, so a check in the launcher is untestable.
+        // `isRefreshing` must still clear, or PullToRefreshBox spins over nothing.
         if (!refreshLimiter.allow()) {
             _state.update { it.copy(isRefreshing = false) }
             return
@@ -206,10 +180,8 @@ class GroupDetailViewModel(
                 return
             }
 
-            // Opening a group stamps lastOpenedAt (so it sorts to the top of the list) and keeps
-            // whatever this phone already knew, its remembered participant, its default split -
-            // rather than the fresh row from the server clobbering either. See
-            // RecentGroupsSnapshot.opening's own doc.
+            // Opening stamps lastOpenedAt and keeps what this phone already knew (remembered
+            // participant, default split) rather than letting the server row clobber it.
             val updated = snapshot.opening(
                 RecentGroup(groupId = group.id, instanceBaseUrl = instanceBaseUrl, groupName = group.name),
             )
@@ -237,13 +209,8 @@ class GroupDetailViewModel(
     }
 
     /**
-     * Re-reads the group without touching the stored row or the active participant.
-     *
-     * [loadGroup] is the *opening* of a group: it stamps `lastOpenedAt` and re-resolves who this
-     * phone is. A refresh is neither, the group is already open and the answer to "who are
-     * you?" has not moved, so this reads the one thing that can have changed on the server and
-     * leaves the rest alone. A failure keeps what is on screen: the name in the title bar being
-     * a moment old beats it being replaced by an error panel.
+     * Re-reads the group without touching the stored row or the active participant, unlike
+     * [loadGroup], which is the *opening* of one. A failure keeps what is on screen.
      */
     private suspend fun reloadGroupInPlace(client: TrpcClient, instanceBaseUrl: String) {
         val group = try {
@@ -287,9 +254,7 @@ class GroupDetailViewModel(
         viewModelScope.launch { loadNextExpensesPage() }
     }
 
-    /** The offset-cursor page after whatever is already loaded, `groups.expenses.list`'s own
-     *  `cursor`/`limit`/`nextCursor`/`hasMore`, not a key-based cursor. Public, like [refresh],
-     *  so tests can drive it without a Main-dispatcher rule. */
+    /** The next offset-cursor page. Public so tests can drive it without a Main dispatcher. */
     suspend fun loadNextExpensesPage() {
         val current = (_state.value.expenses as? LoadState.Loaded)?.value ?: return
         if (!current.hasMore || _state.value.isLoadingMoreExpenses) return
@@ -314,8 +279,7 @@ class GroupDetailViewModel(
             _state.update { it.copy(isLoadingMoreExpenses = false) }
             throw e
         } catch (e: TrpcServerError) {
-            // A paging failure shouldn't replace what is already on screen, the row simply stops
-            // trying until a full retry.
+            // A paging failure leaves what is on screen; the row stops trying until a retry.
             _state.update { it.copy(isLoadingMoreExpenses = false) }
         } catch (e: TrpcClientError) {
             _state.update { it.copy(isLoadingMoreExpenses = false) }
@@ -355,13 +319,9 @@ class GroupDetailViewModel(
     // read again.
 
     /**
-     * One expense has been written; put it back into the list where it belongs, and recompute
-     * the balances.
-     *
-     * The balances genuinely have to be asked for again, an amount, a payer or a split that
-     * changed moves what everybody owes, and that sum is the server's to make, not ours. The
-     * *row*, on the other hand, is one expense, and `groups.expenses.update` answers with an ID
-     * and nothing else, so the row's new contents come from a single `groups.expenses.get`.
+     * One expense was written: put the row back where it belongs and recompute the balances.
+     * The balances are the server's sum to make; the row comes from one `groups.expenses.get`,
+     * since the update answers with an ID and nothing else.
      */
     fun expenseSaved(expenseId: String) {
         viewModelScope.launch { applySavedExpense(expenseId) }
@@ -382,12 +342,7 @@ class GroupDetailViewModel(
         }
     }
 
-    /**
-     * The expense is gone from the server; take the row out and recompute the balances.
-     *
-     * No read at all for the row, a delete that succeeded leaves nothing to fetch, and the list
-     * already knows which row it was.
-     */
+    /** The expense is gone: drop the row and recompute the balances. Nothing to fetch. */
     fun expenseDeleted(expenseId: String) {
         viewModelScope.launch { applyDeletedExpense(expenseId) }
     }
@@ -411,13 +366,9 @@ class GroupDetailViewModel(
     }
 
     /**
-     * An expense was written from somewhere this screen does not own the result of, the
-     * full-screen create form, or a settle-up, so everything an expense can move is read again.
-     *
-     * iOS's `reloadAfterExpenseChange`, with the same list and the same two deliberate omissions:
-     * **not** the group and **not** the categories. An expense cannot rename a group, change its
-     * currency, add a participant or invent a category, so re-reading either would be two
-     * requests that can only ever answer what we already have.
+     * An expense was written somewhere this screen does not own the result of, so everything an
+     * expense can move is read again. Not the group and not the categories: an expense cannot
+     * change either.
      */
     fun reloadAfterExpenseChange() {
         viewModelScope.launch { applyExpenseChange() }
@@ -426,9 +377,7 @@ class GroupDetailViewModel(
     /** The work behind [reloadAfterExpenseChange], public for the same reason as
      *  [applySavedExpense]. */
     suspend fun applyExpenseChange() {
-        // Never rate-limited, and it clears the window as well: something was just written, so
-        // what is on screen is known to be stale, and a pull immediately afterwards is asking
-        // about the change rather than repeating a gesture.
+        // Never rate-limited, and clears the window: what is on screen is known to be stale.
         refreshLimiter.reset()
         val baseUrl = resolvedInstanceBaseUrl ?: return
         val client = clientFactory(baseUrl)
@@ -442,12 +391,8 @@ class GroupDetailViewModel(
         }
     }
 
-    /**
-     * The three things an expense change also moves, each only if somebody is looking at it: the
-     * open search (whose results are a view of the same expenses and would otherwise still show
-     * the old title), the totals, and the activity log, which has just gained the line
-     * describing the change.
-     */
+    /** The three things an expense change also moves, each only if it is being looked at: the
+     *  open search, the totals, and the activity log. */
     private suspend fun reloadDerivedAfterExpenseChange(client: TrpcClient) {
         coroutineScope {
             val search = async { searcher.reload(client) }
@@ -460,12 +405,9 @@ class GroupDetailViewModel(
     }
 
     /**
-     * The group itself was edited, its name, its note, its participants, so read it again.
-     *
-     * Its own entry point rather than a flag on [reloadAfterExpenseChange], because the two
-     * invalidate opposite things: an expense cannot change the group, and a group edit does not
-     * move a single amount. The balances do come along, since removing a participant takes their
-     * column out of them.
+     * The group was edited, so read it again. Separate from [reloadAfterExpenseChange] because
+     * the two invalidate opposite things. Balances come along, since removing a participant
+     * takes their column out.
      */
     fun groupEdited() {
         viewModelScope.launch {
@@ -482,21 +424,15 @@ class GroupDetailViewModel(
         }
     }
 
-    /**
-     * Reads one expense and places it in the loaded page.
-     *
-     * `ExpenseDetails` names its payees by ID where a list row nests a whole participant, so the
-     * names come from the group that is already loaded rather than from a second read, the one
-     * thing this function is here to avoid.
-     */
+    /** Reads one expense into the loaded page. Payee names come from the group already in
+     *  memory, since the detail payload names them by ID only. */
     private suspend fun reloadExpenseRow(client: TrpcClient, expenseId: String) {
         val expense = try {
             client.call(SpliitEndpoints.expensesGet(groupId, expenseId)).expense
         } catch (e: CancellationException) {
             throw e
         } catch (e: TrpcServerError) {
-            // The write itself went through, this is only the row failing to catch up, and a
-            // stale row is better than an error panel over a list that is otherwise correct.
+            // The write went through; only the row failed to catch up.
             return
         } catch (e: TrpcClientError) {
             return
@@ -514,12 +450,10 @@ class GroupDetailViewModel(
             recurrenceRule = expense.recurrenceRule,
             category = expense.category,
             paidBy = expense.paidBy,
-            // In the order the detail payload gives them, not the group's. The row prints these
-            // names, "Paid by Ana for Bruno and Chidi", and re-sorting them here would make an
-            // updated row read differently from the same row after a reload: an update rewrites
-            // the payee rows server-side, so the order that comes back afterwards is the order
-            // the list endpoint will report from then on. Verified against a live instance,
-            // because the guess went the other way first.
+            // The detail payload's order, not the group's. An update rewrites the payee rows
+            // server-side, so this is the order the list endpoint reports from then on, and
+            // re-sorting here would make an updated row read differently from a reloaded one.
+            // Verified against a live instance.
             paidFor = expense.paidFor.mapNotNull { paidFor ->
                 byId[paidFor.participantId]?.let { ExpenseListItem.PaidFor(it, paidFor.shares) }
             },
@@ -532,12 +466,9 @@ class GroupDetailViewModel(
     }
 
     /**
-     * Records who this phone is in this group, or clears that answer with a null
-     * [participantId], the active-user picker's whole job.
-     *
-     * This matters beyond the "You" summary: [participantId] is what every future
-     * `groups.expenses.*` write from this screen will carry, and it is the only thing the
-     * activity log can name anybody with (CLAUDE.md).
+     * Records who this phone is in this group, or clears it with a null [participantId]. Beyond
+     * the "You" summary, this is what every future write carries, and the only thing the
+     * activity log can name anybody with.
      */
     fun selectActiveParticipant(participantId: String?) {
         viewModelScope.launch {
@@ -555,8 +486,7 @@ class GroupDetailViewModel(
             val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
             _state.update { it.copy(activeParticipantId = actorId) }
 
-            // Two of the totals are this participant's, so answering the question changes the
-            // answer, but only for a tab somebody has actually opened.
+            // Two of the totals are this participant's, so the answer changes with them.
             val baseUrl = resolvedInstanceBaseUrl ?: return@launch
             if (statsRequested) loadStats(clientFactory(baseUrl), actorId)
         }
@@ -564,13 +494,11 @@ class GroupDetailViewModel(
 
     // ---- the totals tab ----------------------------------------------------------------------
     //
-    // Lazy, and deliberately so: this is another request on a screen that already makes three,
-    // and no other tab needs it. iOS words the rule as "three tabs' worth of editing should not
-    // pay for an answer nobody has asked to see", so nothing here runs until the tab is opened,
-    // and `statsRequested` is what every later invalidation checks.
+    // Lazy: another request on a screen that already makes three, and no other tab needs it.
+    // Nothing runs until the tab is opened, and `statsRequested` is what invalidations check.
 
-    /** Whether the totals tab has ever been opened. Separate from [statsParticipantId], which has
-     *  null as a real answer, the group's total with nobody's share beside it. */
+    /** Whether the totals tab has ever been opened. Separate from [statsParticipantId], where
+     *  null is a real answer. */
     private var statsRequested = false
     private var statsParticipantId: String? = null
 

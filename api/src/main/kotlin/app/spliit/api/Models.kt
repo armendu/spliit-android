@@ -16,14 +16,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import java.math.BigDecimal
 import java.time.Instant
 
-// Money crosses the wire as an integer count of **minor units**, and minor units are not always
-// hundredths: `amount == 1234` is 12.34 in a two-decimal currency and ¥1,234 in a group counted
-// in yen. That holds for expense amounts, balances and reimbursements alike. Nothing in this
-// file scales, rounds or divides, it carries the server's integers through untouched, and
-// Part 5's MoneyFormatter is the only place that knows what a currency counts in.
+// Money crosses the wire as integer minor units, which are not always hundredths: `1234` is
+// 12.34 in a two-decimal currency and ¥1,234 in yen. Nothing here scales, rounds or divides;
+// MoneyFormatter is the only place that knows what a currency counts in.
 //
-// Every timestamp here is `@Contextual val x: Instant`. That is not a style choice: see
-// InstantSerializer's own doc, and ExpenseFormValues, where getting it wrong is silent.
+// Every timestamp is `@Contextual val x: Instant`, not a style choice: see InstantSerializer.
 
 /** A category as the picker lists it. `id` 0 is "General", which the server treats as the default. */
 @Serializable
@@ -47,23 +44,17 @@ public data class Group(
     public val information: String? = null,
     /** A free-text symbol such as "$" or "CHF", not an ISO code. See [currencyCode]. */
     public val currency: String,
-    /**
-     * ISO-4217, when the group has one. Older groups carry only a symbol, and a group that has
-     * had its code cleared carries an empty string rather than a null, that is what the web app
-     * writes. Both mean "we do not know what this counts in", which Part 5 reads as hundredths.
-     */
+    /** ISO-4217, when the group has one. A cleared code is `""`, not null, which is what the
+     *  web app writes. Both mean "unknown", read as hundredths. */
     public val currencyCode: String? = null,
     @Contextual public val createdAt: Instant,
     public val participants: List<Participant>,
 )
 
 /**
- * A group as `groups.list` returns it: no participants, only how many.
- *
- * The count arrives inside Prisma's `_count` aggregate, there is no `participantCount` field on
- * the wire, so the aggregate is what the model decodes and [participantCount] is how the rest of
- * the app reads it. A model declaring a plain field decodes nothing, throws nothing, and every
- * group in the list claims to be empty.
+ * A group as `groups.list` returns it: no participants, only how many. The count arrives inside
+ * Prisma's `_count` aggregate, so a model declaring a plain `participantCount` decodes nothing,
+ * throws nothing, and reports every group as empty.
  */
 @Serializable
 public data class GroupSummary(
@@ -88,23 +79,16 @@ public data class GroupSummary(
     public data class Counts(public val participants: Int)
 }
 
-// Three enumerations arrive from the server and they do *not* treat an unrecognised value the
-// same way, on purpose. Instances are self-hosted and may run ahead of this client, so the
-// question is never "can this happen" but "what does it cost when it does":
+// Three enumerations, three different answers to an unrecognised value, because instances are
+// self-hosted and may run ahead of this client:
 //
-//   SplitMode       throws   , money. A mode we misread divides an expense wrongly and pays the
-//                               wrong person a plausible-looking amount.
-//   RecurrenceRule  degrades , display only in cycle 1. Nothing computes from it.
-//   ActivityType    degrades , one line of prose in the log.
-//
-// Failing loudly is right exactly where being wrong is expensive, and wrong everywhere else.
+//   SplitMode       throws    money. A misread mode pays the wrong person a plausible amount.
+//   RecurrenceRule  degrades  display only. Nothing computes from it.
+//   ActivityType    degrades  one line of prose in the log.
 
 /**
- * How an expense divides between the people it was paid for.
- *
- * Deliberately fails to decode a value it does not know, unlike [RecurrenceRule] and
- * [ActivityType]: a split mode this client cannot read is money it would divide wrongly, and a
- * wrong number on a balances screen is worse than a screen saying it could not load.
+ * How an expense divides between the people it was paid for. Fails to decode an unknown value,
+ * unlike [RecurrenceRule] and [ActivityType]: a wrong balance is worse than no balance.
  */
 @Serializable
 public enum class SplitMode {
@@ -117,22 +101,13 @@ public enum class SplitMode {
 /**
  * How often an expense repeats.
  *
- * An unrecognised value decodes as [Unknown] rather than throwing, because the alternative is out
- * of all proportion: this is display-only metadata in cycle 1, nothing computes from it, so not
- * understanding a value costs one row a little of its detail, while throwing fails the decode of
- * **the entire expense list**, including every expense that has nothing to do with recurrence.
- * `ModelsTest` demonstrates both halves of that on a payload where one expense of three carries
- * an unknown rule.
+ * An unrecognised value decodes as [Unknown] rather than throwing: this is display-only, so not
+ * understanding it costs one row some detail, where throwing fails the whole expense list.
+ * `ModelsTest` covers both halves on a payload where one expense of three has an unknown rule.
  *
- * Nullability does not cover this. `RecurrenceRule? = null` absorbs an *absent* key, not an
- * unrecognised *value*.
- *
- * Where such a payload comes from is worth being precise about, because our own e2e image cannot
- * produce one: its zod enum is exactly these four values and it answers 400 to anything else
- * (checked, `YEARLY` and `FORTNIGHTLY` are both rejected). So this is not a case any server we
- * can currently point at will send. It is the self-hosted instance running *ahead* of us, which
- * is the ordinary case rather than the exotic one given upstream ships recurring expenses as a
- * beta feature, the same reasoning [ActivityType] already exists for.
+ * `RecurrenceRule? = null` would not cover this: nullability absorbs an absent *key*, not an
+ * unrecognised *value*. The e2e image cannot send one (its zod enum is these four), so the case
+ * is a self-hosted instance running ahead of us.
  */
 @Serializable(with = RecurrenceRuleSerializer::class)
 public sealed interface RecurrenceRule {
@@ -162,9 +137,8 @@ internal object RecurrenceRuleSerializer : KSerializer<RecurrenceRule> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("app.spliit.api.RecurrenceRule", PrimitiveKind.STRING)
 
-    // Encoding matters here in a way it does not for ActivityType: this type is on the write side
-    // too, and an expense edited on a screen that could not name its rule must be saved with the
-    // rule it already had rather than silently reset to NONE.
+    // On the write side too, unlike ActivityType: an expense edited on a screen that cannot
+    // name its rule must keep the rule it had rather than resetting to NONE.
     override fun serialize(encoder: Encoder, value: RecurrenceRule) {
         encoder.encodeString(
             when (value) {
