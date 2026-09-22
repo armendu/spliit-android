@@ -3,7 +3,7 @@ name: CI
 # Master and pull requests only.
 #
 # `push:` with no filter meant every branch and every tag, so work in progress burned a full
-# build on each commit and a tag ran CI twice — once here and once inside the release workflow,
+# build on each commit and a tag ran CI twice, once here and once inside the release workflow,
 # which runs the same suites itself. Day-to-day work happens on `development`, and what matters
 # about a commit there is whether it survives the pull request into master, which the
 # `pull_request` trigger below still covers.
@@ -40,24 +40,24 @@ jobs:
 
       # The Android SDK, provisioned explicitly rather than trusted to the runner image.
       #
-      # This project compiles against `android-37.1` — the platform with a MINOR version, which
+      # This project compiles against `android-37.1`, the platform with a MINOR version, which
       # is what `compileSdk = 37` + `compileSdkMinor = 1` in app/build.gradle.kts resolves to.
       # Two things make that more delicate than a normal SDK install:
       #
       #  1. The platform is weeks old and is not on the runner image. It has to be installed.
       #
       #  2. Minor-versioned packages need cmdline-tools >= 20.0 to be parsed correctly. The
-      #     ubuntu-24.04 image ships 12.0, which does not merely fail — it mis-parses the
+      #     ubuntu-24.04 image ships 12.0, which does not merely fail, it mis-parses the
       #     version and carries on, which is the silent-wrong-answer failure this repo keeps a
       #     list of. Hence pinning the tools version below rather than taking the default; the
       #     action's default is 20.0 today, and this pin is what stops that drifting under us.
       - uses: android-actions/setup-android@v4
         with:
-          cmdline-tools-version: 14742923 # 20.0 — the first release that parses Major.Minor
+          cmdline-tools-version: 14742923 # 20.0, the first release that parses Major.Minor
           packages: 'platform-tools platforms;android-37.1 build-tools;37.0.0'
           accept-android-sdk-licenses: 'true'
 
-      # The installer exits 0 even when it resolved nothing — "Package not found" is printed to
+      # The installer exits 0 even when it resolved nothing, "Package not found" is printed to
       # stdout and the shell sees success. Verified locally against the current CLI. So assert
       # the platform is actually on disk; without this, a missing platform surfaces much later
       # as a confusing AGP error about compileSdk instead of as a failed setup step.
@@ -79,7 +79,7 @@ jobs:
 
       # Every build's APK, downloadable from the run's own page for as long as GitHub keeps
       # it. This is the "latest build" answer for anyone who wants to try a change before it is
-      # tagged — a tagged release (see release.yml) is the durable one.
+      # tagged, a tagged release (see release.yml) is the durable one.
       #
       # The *debug* APK, deliberately: it is what `make build` already produced a step ago, so
       # this costs nothing, and a debug build is what somebody testing an unreleased change
@@ -107,7 +107,7 @@ jobs:
 
   # Why this job exists, and why it is separate.
   #
-  # The `build` job runs against a pinned server image, which is what makes it reproducible —
+  # The `build` job runs against a pinned server image, which is what makes it reproducible -
   # and is exactly why it cannot catch the failure this project has already been bitten by
   # once: upstream renaming a tRPC procedure. `groups.stats.get` became `groups.stats.overview`,
   # every pinned test stayed green, and the app shipped a polite, wrong "this server has no
@@ -119,7 +119,7 @@ jobs:
   # `make test-live` carries ApiContractDriftTest, which is the part that answers *what*
   # changed rather than merely that something did: it compares the shape of every live response
   # against the recorded fixture and names each field that appeared, vanished or changed type.
-  # Read the failure message itself — it is written to be the whole report.
+  # Read the failure message itself, it is written to be the whole report.
   upstream-drift:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest

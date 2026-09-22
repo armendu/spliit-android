@@ -74,7 +74,7 @@ import java.time.format.FormatStyle
 internal val FieldShape = RoundedCornerShape(12.dp)
 
 /**
- * Creating and editing an expense — who paid, how much, and how it divides.
+ * Creating and editing an expense, who paid, how much, and how it divides.
  *
  * **A modal task, not a destination.** It takes an ✕ and a confirming action rather than an up
  * arrow (Material's full-screen dialog), because what it is doing can be abandoned; the system
@@ -110,7 +110,7 @@ fun ExpenseFormScreen(
             duration = SnackbarDuration.Long,
         )
         when (result) {
-            // The server has no undelete, so this writes the expense back — under a new ID.
+            // The server has no undelete, so this writes the expense back, under a new ID.
             SnackbarResult.ActionPerformed -> viewModel.undoDelete()
             SnackbarResult.Dismissed -> viewModel.dismissDeleted()
         }
@@ -127,7 +127,7 @@ fun ExpenseFormScreen(
         if (state.isDirty) showDiscardDialog = true else viewModel.close()
     }
     // Back is primarily a gesture on Android, so the confirmation has to hang off the gesture and
-    // not off the ✕ alone — a swipe that silently threw away a half-written expense would be the
+    // not off the ✕ alone, a swipe that silently threw away a half-written expense would be the
     // same bug with better manners. Disabled once there is nothing to lose, so the gesture then
     // does the ordinary thing without a dialog in the way.
     BackHandler(enabled = state.deleted == null) { close() }
@@ -214,10 +214,10 @@ fun ExpenseFormScreen(
 }
 
 /**
- * The form itself — every field, in order, with the amount and the title first.
+ * The form itself, every field, in order, with the amount and the title first.
  *
  * `internal` because two containers draw it: the full-screen create form above, and the edit
- * sheet in ExpenseEditSheet.kt. The order of the fields is load-bearing for the second one — the
+ * sheet in ExpenseEditSheet.kt. The order of the fields is load-bearing for the second one, the
  * sheet opens partially expanded, and what is at the top of this column is what a collapsed
  * sheet shows.
  */
@@ -304,7 +304,7 @@ internal fun ExpenseFormBody(
 
         // Only where a conversion is possible at all: it needs an ISO code on both sides, and a
         // group carrying only a free-text symbol has nothing to convert *to*. A row that could
-        // never do anything is worse than no row — the same call the iOS form makes.
+        // never do anything is worse than no row, the same call the iOS form makes.
         if (Currencies.named(group.currencyCode.orEmpty()) != null) {
             CurrencySection(
                 state = state,
@@ -350,7 +350,7 @@ internal fun ExpenseFormBody(
             FilledTonalButton(
                 onClick = viewModel::delete,
                 enabled = !state.isSaving && state.deleted == null,
-                // The tonal error pair, not a solid `error` fill — see Color.kt for both
+                // The tonal error pair, not a solid `error` fill, see Color.kt for both
                 // measurements. A filled red bar is how an app shouts; this is an action that
                 // belongs to the form, offered at the end of it.
                 colors = ButtonDefaults.filledTonalButtonColors(
@@ -382,7 +382,7 @@ internal fun ExpenseFormBody(
             title = "Paid in",
             selectedCode = draft.originalCurrencyCode,
             promotedCode = group.currencyCode,
-            promotedSuffix = " — the group's own",
+            promotedSuffix = ", the group's own",
             onSelect = {
                 viewModel.setCurrency(it)
                 showCurrencyPicker = false
@@ -423,7 +423,7 @@ private fun DateRow(date: Instant, onClick: () -> Unit) {
 /**
  * The date, picked in UTC on purpose.
  *
- * An expense date is a *day*, and the server stores it as midnight UTC — which is what
+ * An expense date is a *day*, and the server stores it as midnight UTC, which is what
  * `groups.expenses.list` sends back. Reading the picker's millis in the phone's own zone would
  * move the day by one west of Greenwich on every round trip, silently.
  */

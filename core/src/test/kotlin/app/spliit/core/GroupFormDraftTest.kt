@@ -12,7 +12,7 @@ private val AMERICAN = Locale.of("en", "US")
 private val FRENCH = Locale.of("fr", "FR")
 private val TURKISH = Locale.of("tr", "TR")
 
-/** A draft with a name and three participants — the state a screen reaches once typed into. */
+/** A draft with a name and three participants, the state a screen reaches once typed into. */
 private fun draft(locale: Locale = AMERICAN): GroupFormDraft =
     GroupFormDraft.creating(locale = locale)
         .copy(name = "Lisbon Trip")
@@ -52,7 +52,7 @@ class GroupFormDraftTest {
 
     /**
      * Pinning the case/whitespace decision: uniqueness is checked trimmed and case-folded, so
-     * "Ana" and "ana " collide even though neither is a byte-for-byte repeat of the other — the
+     * "Ana" and "ana " collide even though neither is a byte-for-byte repeat of the other, the
      * real mistake a person actually makes when they add someone twice.
      */
     @Test
@@ -74,10 +74,10 @@ class GroupFormDraftTest {
      * The pair that actually distinguishes [Locale.ROOT] folding from the reader's own locale.
      * An ASCII pair like "Ana"/"ana " collides identically under either choice and proves
      * nothing about which one is in use; "İsmail" (dotted capital I) and "ismail" collide only
-     * under Turkish folding, and *not* under ROOT — verified against the JDK directly, not
+     * under Turkish folding, and *not* under ROOT, verified against the JDK directly, not
      * assumed. Running this under a Turkish [Locale] and still seeing no collision is what pins
      * the fold as locale-invariant rather than reading the device's own language, which is the
-     * actual reason ROOT was chosen — see the note at the top of [GroupFormDraft].
+     * actual reason ROOT was chosen, see the note at the top of [GroupFormDraft].
      */
     @Test
     fun `a Turkish dotted-I name does not collide with its ASCII form, even under a Turkish locale`() {
@@ -179,8 +179,8 @@ class GroupFormDraftTest {
     }
 
     /**
-     * Removing the last participant is allowed by [withParticipantRemoved] itself — it is a
-     * refusal about expense history, not about the group staying non-empty — but the resulting
+     * Removing the last participant is allowed by [withParticipantRemoved] itself, it is a
+     * refusal about expense history, not about the group staying non-empty, but the resulting
      * draft is correctly invalid via [Problem.NoParticipants].
      */
     @Test
@@ -208,8 +208,8 @@ class GroupFormDraftTest {
     // ---- currency ------------------------------------------------------------------------
 
     /**
-     * `GroupFormValues.currencyCode` is a non-null `String` in :api — there is no null to send
-     * even by mistake — but the value has to actually be `""`, not, say, left as whatever the
+     * `GroupFormValues.currencyCode` is a non-null `String` in :api, there is no null to send
+     * even by mistake, but the value has to actually be `""`, not, say, left as whatever the
      * symbol-only state's Kotlin `null` would stringify to.
      */
     @Test
@@ -273,7 +273,7 @@ class GroupFormDraftTest {
         )
     }
 
-    /** A newly typed participant has no server ID — this is how the server is told to create one. */
+    /** A newly typed participant has no server ID, this is how the server is told to create one. */
     @Test
     fun `a new participant is submitted with a null id`() {
         val submission = draft().submission()
@@ -304,7 +304,7 @@ class GroupFormDraftTest {
 
     /**
      * A French reader's collation puts an accented name in its alphabetic place rather than
-     * after every plain-ASCII one — the difference `String.compareTo`, which compares Unicode
+     * after every plain-ASCII one, the difference `String.compareTo`, which compares Unicode
      * code points, cannot see.
      */
     @Test
@@ -317,7 +317,7 @@ class GroupFormDraftTest {
 
         val collatedOrder = frenchDraft.sortedParticipants.map { it.name }
 
-        // What a French reader expects: Amir, Émile, Zoé — an accented initial sorted where it
+        // What a French reader expects: Amir, Émile, Zoé, an accented initial sorted where it
         // sounds, not stranded after every plain-ASCII name the way code-point order puts it.
         assertEquals(listOf("Amir", "Émile", "Zoé"), collatedOrder)
     }

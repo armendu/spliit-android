@@ -20,25 +20,17 @@ import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 
 /**
- * The app's floating action button — one definition, so a third one cannot drift into a
- * different green.
+ * The app's floating action button, defined once so a third one cannot drift into a different
+ * green.
  *
- * **Colour.** DESIGN.md §1 names `primary` on `on-primary` for the FAB, and M3's own default is
- * neither: `FloatingActionButton` falls back to `primaryContainer`/`onPrimaryContainer`, a
- * baseline tone this theme never tunes (only `primary` is seeded from the accent — see
- * `Color.kt`). The dashboard passed the pair explicitly and the group screen did not, so the two
- * FABs were visibly different greens for the same kind of action. Both now come through here and
- * there is one place left to get it wrong.
+ * `primary` on `onPrimary`, per DESIGN.md §1. M3's default is `primaryContainer`, a tone this
+ * theme never tunes, so the two FABs were visibly different greens until both came through here.
  *
- * **No label.** Circular and icon-only, not M3's extended pill: both of this app's FABs say
- * "add the obvious thing to the list you are looking at", and on the one screen where that was
- * ambiguous the top-app-bar menu is what disambiguates. Dropping the label costs two things that
- * are put back deliberately rather than optionally — [contentDescription], which is all a screen
- * reader now has, and a long-press tooltip carrying the same words for a sighted first-time
- * user. Neither is a nicety once the words are off the screen.
+ * Circular and icon-only, not M3's extended pill: both FABs mean "add the obvious thing to this
+ * list". Dropping the label costs the screen reader its only text, so [contentDescription] and a
+ * long-press tooltip carrying the same words are required, not optional.
  *
- * @param contentDescription what the button does, as a sentence a screen reader can read out and
- *   the tooltip can show: "Add expense", not "plus".
+ * @param contentDescription what the button does, as a sentence: "Add expense", not "plus".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,7 +52,7 @@ fun SpliitFab(
             onClick = onClick,
             // Circular, per DESIGN.md §4. M3's own default is a 16dp rounded square, which next
             // to this app's 16dp cards reads as one more card rather than as the screen's single
-            // action — verified on the emulator before this line was added.
+            // action, verified on the emulator before this line was added.
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,

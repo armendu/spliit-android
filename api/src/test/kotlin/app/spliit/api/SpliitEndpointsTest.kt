@@ -87,7 +87,7 @@ class SpliitEndpointsTest {
     // ============================================================================================
     // One test per procedure: the path it hits and the shape of what it actually sends.
     // Reading procedures also decode the recorded fixture, proving the response wrapper agrees
-    // with the server — not just with our own idea of the shape.
+    // with the server, not just with our own idea of the shape.
     // ============================================================================================
 
     // ---- Groups --------------------------------------------------------------------------
@@ -102,7 +102,7 @@ class SpliitEndpointsTest {
         assertEquals("GET", recorded.method)
         assertEquals("groups.list", path(recorded))
         // Distinct from a no-input procedure: an explicit `input` parameter is always present,
-        // even though every other query here also sends one — the contrast is with categories.list.
+        // even though every other query here also sends one, the contrast is with categories.list.
         assertEquals(listOf("g1", "g2"), sentInput(recorded).getValue("groupIds").jsonArray.map { it.jsonPrimitive.content })
 
         assertEquals(3, response.groups.size)
@@ -111,8 +111,8 @@ class SpliitEndpointsTest {
 
     @Test
     fun `groups get decodes a null group when no group has that id`() = runBlocking {
-        // No recorded fixture covers a deleted group — the seeded instance has nothing to delete
-        // to produce one — so this is the one deliberately hand-written response in this suite.
+        // No recorded fixture covers a deleted group, the seeded instance has nothing to delete
+        // to produce one, so this is the one deliberately hand-written response in this suite.
         enqueue("""{"group":null}""")
 
         val response = client.call(SpliitEndpoints.groupsGet("does-not-exist"))
@@ -180,7 +180,7 @@ class SpliitEndpointsTest {
     /**
      * The trap this whole procedure exists to warn about: omitting `participantId` still
      * succeeds and still writes, so nothing short of reading the actual request body would
-     * catch a caller — or a refactor — that silently stopped naming the actor. `encodeDefaults
+     * catch a caller, or a refactor, that silently stopped naming the actor. `encodeDefaults
      * = false` means a Kotlin `null` here is an *absent* key, never a JSON `null`.
      */
     @Test
@@ -328,7 +328,7 @@ class SpliitEndpointsTest {
 
         val recorded = server.takeRequest()
         assertEquals("categories.list", path(recorded))
-        // Not merely an empty `input=` — the parameter itself must be absent, which is what tells
+        // Not merely an empty `input=`, the parameter itself must be absent, which is what tells
         // NoInput apart from an encoded null further up the stack.
         assertNull(recorded.url.queryParameter("input"))
         assertNull(recorded.url.query)
@@ -336,7 +336,7 @@ class SpliitEndpointsTest {
     }
 
     // ============================================================================================
-    // groups.stats — the fallback, and the field the rest of this file is not about.
+    // groups.stats, the fallback, and the field the rest of this file is not about.
     // ============================================================================================
 
     @Test
@@ -359,8 +359,8 @@ class SpliitEndpointsTest {
 
     @Test
     fun `groupStats falls back from overview to get on an unknown procedure and returns the value`() = runBlocking {
-        // The overview name 404s the way an instance that has never heard of it would — recorded
-        // ground truth for what that answer looks like — and the second call succeeds, recorded
+        // The overview name 404s the way an instance that has never heard of it would, recorded
+        // ground truth for what that answer looks like, and the second call succeeds, recorded
         // from an instance that does understand it (the shape is identical either name).
         server.enqueue(
             MockResponse.Builder().code(404).body(Fixture.text("error.unknown-procedure")).build(),
@@ -393,7 +393,7 @@ class SpliitEndpointsTest {
 
     @Test
     fun `groupStats does not fall back on an ordinary NOT_FOUND`() {
-        // "Group not found." is NOT_FOUND too, but it is not a missing *route* — falling back here
+        // "Group not found." is NOT_FOUND too, but it is not a missing *route*, falling back here
         // would silently ask a second, unrelated procedure instead of surfacing the real problem.
         server.enqueue(MockResponse.Builder().code(404).body(Fixture.text("error.not-found")).build())
 
@@ -427,8 +427,8 @@ class SpliitEndpointsTest {
 
     /**
      * An instance older than the web app's *Shares* change sums floating-point thirds and rounds
-     * to two decimals, sending `1416.67`. No recorded fixture carries this — every server we can
-     * point at has the change — so this is deliberately hand-written to pin the one field that
+     * to two decimals, sending `1416.67`. No recorded fixture carries this, every server we can
+     * point at has the change, so this is deliberately hand-written to pin the one field that
      * must never become an `Int`. Typing it that way decodes every other test in this file green
      * and throws only here, against a real server, for a subset of self-hosted users.
      */
@@ -453,7 +453,7 @@ class SpliitEndpointsTest {
         assertEquals(15920, summary.averageExpense)
         assertEquals("Apartment", summary.largestExpense?.title)
         assertEquals(48000, summary.largestExpense?.amount)
-        // Date-only strings, not superjson `Date`s — the envelope annotates neither.
+        // Date-only strings, not superjson `Date`s, the envelope annotates neither.
         assertEquals("2025-08-11", summary.firstDate)
         assertEquals("2026-09-14", summary.lastDate)
 

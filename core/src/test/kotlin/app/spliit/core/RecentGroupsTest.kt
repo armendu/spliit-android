@@ -112,7 +112,7 @@ class RecentGroupsTest {
         snapshot = snapshot.opening(group("g2"), now = T0.plusSeconds(10))
 
         // g1 was opened before g2, so g2 leads. Setting g1's participant much later must not
-        // move it ahead of g2 — only opening does that.
+        // move it ahead of g2, only opening does that.
         snapshot = snapshot.settingParticipantId("g1", "p1", now = T0.plusSeconds(100))
 
         assertEquals(listOf("g2", "g1"), snapshot.orderedGroups.map { it.groupId })
@@ -346,7 +346,7 @@ class RecentGroupsTest {
     @Test
     fun `an older tombstone does not win against a row edited after it`() {
         // The other device deleted g1 at T0, but then (from a third device, or undone locally)
-        // g1 was opened again at T0+10 — an edit after the tombstone is evidence the deletion
+        // g1 was opened again at T0+10, an edit after the tombstone is evidence the deletion
         // was undone, so the row must survive.
         val mine = RecentGroupsSnapshot(tombstones = mapOf("g1" to T0))
         val theirs = RecentGroupsSnapshot(

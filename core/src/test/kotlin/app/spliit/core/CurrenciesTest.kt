@@ -104,7 +104,7 @@ class CurrenciesTest {
     /**
      * The picker is a list a person reads, so it is ordered the way their language orders words.
      * `String.compareTo` orders by code point: every accented initial sorts after every plain
-     * letter, and every lower-case word after every upper-case one — so a French reader finds
+     * letter, and every lower-case word after every upper-case one, so a French reader finds
      * "Épicerie" below "Vêtements" and one capitalised name stranded at the top of the list.
      */
     @Test
@@ -136,8 +136,8 @@ class CurrenciesTest {
     }
 
     /**
-     * A form holding the picker rebuilds its list on every recomposition — on every keystroke in
-     * the field above it — and walking the ISO table costs milliseconds each time.
+     * A form holding the picker rebuilds its list on every recomposition, on every keystroke in
+     * the field above it, and walking the ISO table costs milliseconds each time.
      */
     @Test
     fun `the list is built once per locale`() {

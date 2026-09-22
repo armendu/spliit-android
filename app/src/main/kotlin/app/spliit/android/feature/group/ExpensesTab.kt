@@ -57,8 +57,8 @@ import java.time.format.FormatStyle
  * The expenses tab: everything `groups.expenses.list` has answered so far, under date-bucket
  * headers, with a sentinel row at the bottom that pages in the next batch.
  *
- * Driven off two independent [LoadState]s — the group (for its currency) and the expenses
- * themselves — because they answer at different times: see [GroupDetailViewModel.refresh].
+ * Driven off two independent [LoadState]s, the group (for its currency) and the expenses
+ * themselves, because they answer at different times: see [GroupDetailViewModel.refresh].
  */
 @Composable
 internal fun ExpensesTab(
@@ -129,7 +129,7 @@ private fun ExpensesList(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         // The extended FAB floats over the bottom of this list, so the last row needs room to
-        // scroll clear of it — 16dp margin + 56dp FAB + 16dp breathing space. Without it the
+        // scroll clear of it, 16dp margin + 56dp FAB + 16dp breathing space. Without it the
         // final expense of a group is permanently half-covered, which is exactly the row someone
         // scrolled down to read.
         //
@@ -157,7 +157,7 @@ private fun ExpensesList(
         }
         if (hasMore) {
             item(key = "load_more") {
-                // Entering composition is the trigger — the same shape as the iOS list's own
+                // Entering composition is the trigger, the same shape as the iOS list's own
                 // `.task` on its trailing row, ported to Compose's LaunchedEffect.
                 LaunchedEffect(Unit) { onLoadMore() }
                 Box(
@@ -183,7 +183,7 @@ internal fun ExpenseRow(
     Row(
         // The whole row is the target, not the title within it: a 56dp row that only responds
         // where the text happens to end is a row most taps miss. Note the tags beneath this one
-        // are now inside a merging clickable — TestTags' own note 2 — so Part 14's finders need
+        // are now inside a merging clickable, TestTags' own note 2, so Part 14's finders need
         // `useUnmergedTree = true` to reach them.
         modifier = Modifier
             .fillMaxWidth()
@@ -207,7 +207,7 @@ internal fun ExpenseRow(
             )
             Spacer(Modifier.height(2.dp))
             // Two facts, two lines. Run together as "Paid by Ana for Ana, Bruno and Chloé" the
-            // *second* one truncates first at row width — and that is the half somebody is
+            // *second* one truncates first at row width, and that is the half somebody is
             // checking. The payer takes the smaller label style and the split takes body, so the
             // extra line reads as a subordinate detail rather than adding a third equal-weight
             // line to every row in the list.
@@ -243,7 +243,7 @@ internal fun ExpenseRow(
         }
 
         Column(horizontalAlignment = Alignment.End) {
-            // `primary`, not the surrounding text colour — DESIGN.md §4. An expense amount still
+            // `primary`, not the surrounding text colour, DESIGN.md §4. An expense amount still
             // carries no *direction*, and never takes the ledger axis; the brand green is a
             // different token doing a different job, which is "this is the number you came to
             // read". See MoneySign.EXPENSE for what that trade costs.
@@ -265,7 +265,7 @@ internal fun ExpenseRow(
 }
 
 /**
- * "Bruno and Chidi" — who an expense was paid *for*, or null when the server named nobody.
+ * "Bruno and Chidi", who an expense was paid *for*, or null when the server named nobody.
  *
  * Just the list. The "Paid by …" half is its own line now (see [ExpenseRow]), and the full
  * breakdown is one tap away on the expense form.
@@ -279,7 +279,7 @@ internal fun paidForDescription(expense: ExpenseListItem): String? {
     }
 }
 
-/** The two lines as the one sentence they used to be, for a screen reader — which would
+/** The two lines as the one sentence they used to be, for a screen reader, which would
  *  otherwise hear "Paid by Ana" and "For Bruno and Chidi" as unrelated fragments. */
 internal fun accessibleSplitDescription(expense: ExpenseListItem): String {
     val forWhom = paidForDescription(expense)
@@ -294,7 +294,7 @@ private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate
 
 private fun captionText(expense: ExpenseListItem): String {
     val date = expense.expenseDate.atZone(ZoneId.systemDefault()).toLocalDate().format(dateFormatter)
-    // The web app's paperclip, without an icon font to draw it with — a count says the same
+    // The web app's paperclip, without an icon font to draw it with, a count says the same
     // thing a glyph would, and needs no tint of its own to render correctly.
     return if (expense.documentCount > 0) "$date · ${expense.documentCount} attached" else date
 }

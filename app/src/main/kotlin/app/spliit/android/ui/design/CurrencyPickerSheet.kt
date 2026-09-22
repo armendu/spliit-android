@@ -37,22 +37,16 @@ private val FieldShape = RoundedCornerShape(12.dp)
 /**
  * Every ISO currency the platform knows, filtered as you type.
  *
- * Shared by the expense form and the group form, which want the same list for different reasons
- * — "what was this paid in" and "what is this group counted in" — and differ only in the two
- * parameters below. It lived in the expense form until the group form's own currency row turned
- * out to lead to a Part 13 placeholder, and a second copy of a 155-row picker is not a thing
- * this app should have.
+ * Shared by the expense form ("what was this paid in") and the group form ("what is this group
+ * counted in"), which differ only in the two parameters below.
  *
- * @param promotedCode A code to pin above the list, with [promotedSuffix] appended to its name.
- *   The expense form promotes the group's currency because coming back to it is the common case;
- *   the group form promotes the phone's own, which is the likeliest answer for a new group.
- *   Only shown while the search box is empty — once you are searching, a pinned row is a
- *   duplicate hit.
- * @param onUseCustomSymbol When non-null, an escape hatch above the list. Spliit groups may be
- *   counted in a bare symbol with no ISO code behind it (the web app's own default is `$`), and
- *   that is a real state this list cannot otherwise express. The expense form passes null: an
- *   expense's original currency is converted arithmetically and a symbol with no code has no
- *   minor units to convert with.
+ * @param promotedCode A code pinned above the list, with [promotedSuffix] on its name. The
+ *   expense form promotes the group's currency, the group form the phone's own. Hidden once the
+ *   search box has text, where a pinned row would be a duplicate hit.
+ * @param onUseCustomSymbol An escape hatch above the list, when non-null. A Spliit group may be
+ *   counted in a bare symbol with no ISO code (the web app's default is `$`), which this list
+ *   cannot otherwise express. The expense form passes null: a symbol with no code has no minor
+ *   units to convert with.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -68,7 +68,7 @@ class RefreshLimiterTest {
 
     @Test
     fun `a clock that jumps backwards does not lock the limiter out`() {
-        // The wall clock can go backwards — a timezone-independent NTP correction, or the user
+        // The wall clock can go backwards, a timezone-independent NTP correction, or the user
         // changing the time. Treating that as "negative elapsed time" would refuse every refresh
         // until the clock caught up again, which for a large correction is indefinitely.
         val clock = FakeClock(10_000)

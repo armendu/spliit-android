@@ -45,7 +45,7 @@ class DefaultSplitTest {
     // ---- what gets remembered -----------------------------------------------------------
 
     /**
-     * `BY_AMOUNT`'s shares are one receipt's own amounts — the €12.40 somebody owed on
+     * `BY_AMOUNT`'s shares are one receipt's own amounts, the €12.40 somebody owed on
      * Tuesday's dinner means nothing about Wednesday's. Only the mode survives.
      */
     @Test
@@ -67,7 +67,7 @@ class DefaultSplitTest {
     }
 
     /**
-     * An even split naming everyone remembers the *group*, not the three names — so someone who
+     * An even split naming everyone remembers the *group*, not the three names, so someone who
      * joins later is still swept in. Nothing else in the split can do this: 50/30/20 breaks the
      * moment a fourth name is added to it.
      */
@@ -137,7 +137,7 @@ class DefaultSplitTest {
 
     /**
      * Under `BY_SHARES` and `BY_PERCENTAGE` the numbers mean something specific to the people
-     * named — nobody joins a 50/30/20 split without breaking it — so these always keep their
+     * named, nobody joins a 50/30/20 split without breaking it, so these always keep their
      * names, even when today's split happens to cover the whole group.
      */
     @Test
@@ -177,7 +177,7 @@ class DefaultSplitTest {
 
     /**
      * Same rule as [BY_SHARES][SplitMode.BY_SHARES] above, run through [SplitMode.BY_PERCENTAGE]
-     * too. The two share the same [DefaultSplit.apply] code path, so this is low-risk — but the
+     * too. The two share the same [DefaultSplit.apply] code path, so this is low-risk, but the
      * rule it is checking is the fragile one in this file, and symmetry costs one test.
      */
     @Test
@@ -218,7 +218,7 @@ class DefaultSplitTest {
         assertNull(effective.shares)
     }
 
-    /** Someone joining is not someone leaving — the remembered split still stands. */
+    /** Someone joining is not someone leaving, the remembered split still stands. */
     @Test
     fun `a new participant leaves a remembered split standing`() {
         val split = DefaultSplit(splitMode = SplitMode.EVENLY, shares = mapOf("p1" to 100L, "p2" to 100L))
@@ -233,7 +233,7 @@ class DefaultSplitTest {
     }
 
     /**
-     * Every participant the split named has left — the group was rebuilt from scratch, or the
+     * Every participant the split named has left, the group was rebuilt from scratch, or the
      * split arrived from a group this draft has never seen. Degrading to the plain default is
      * what keeps this a place a new expense can always start from, rather than a crash.
      */
@@ -279,7 +279,7 @@ class DefaultSplitTest {
         assertTrue(seeded.all { it.isIncluded })
     }
 
-    /** Fractions of a share survive the ×100 scale — a remembered 1.5 comes back as "1.5". */
+    /** Fractions of a share survive the ×100 scale, a remembered 1.5 comes back as "1.5". */
     @Test
     fun `applying a remembered fractional share round-trips its text`() {
         val split = DefaultSplit(splitMode = SplitMode.BY_SHARES, shares = mapOf("p1" to 150L, "p2" to 100L))

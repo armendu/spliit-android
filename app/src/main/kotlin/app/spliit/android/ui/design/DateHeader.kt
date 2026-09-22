@@ -16,7 +16,7 @@ import app.spliit.core.DateBucket
  * What to draw for each [DateBucket].
  *
  * Plain Kotlin rather than a string resource, so this mapping is testable on the JVM with no
- * device and no `Context` — the same reasoning `:core` follows throughout. French (deferred per
+ * device and no `Context`, the same reasoning `:core` follows throughout. French (deferred per
  * the spec's §9) becomes a resource lookup layered on top of this map when it arrives, not a
  * rewrite of it.
  */
@@ -35,7 +35,7 @@ object DateBucketText {
 }
 
 /**
- * The heading above a run of expenses — "This week", "Last month", "Older" — for `:core`'s
+ * The heading above a run of expenses, "This week", "Last month", "Older", for `:core`'s
  * [DateBucket].
  *
  * Drawn upper-case and letter-spaced as a *typographic* treatment only, mirroring the iOS

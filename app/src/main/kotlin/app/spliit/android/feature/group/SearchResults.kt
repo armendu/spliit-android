@@ -29,7 +29,7 @@ import app.spliit.core.MoneyFormatter
  * What the search field is currently answering, in place of the expense list.
  *
  * The results are their own list rather than a filter over the loaded pages: the server does the
- * matching — `groups.expenses.list` takes a case-insensitive `filter` on the title — so a search
+ * matching, `groups.expenses.list` takes a case-insensitive `filter` on the title, so a search
  * covers the whole group, not only what has been paged in. They sit in the same date buckets the
  * expense list uses, so a result appears under the heading it would have had in the list it came
  * from.

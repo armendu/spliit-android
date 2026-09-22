@@ -52,11 +52,11 @@ import app.spliit.core.GroupFormDraft
 private val FieldShape = RoundedCornerShape(12.dp)
 
 /**
- * The group editor as a full screen — "Group settings", reached from the group's own overflow
+ * The group editor as a full screen, "Group settings", reached from the group's own overflow
  * menu. Every rule about what makes a group valid comes from [GroupFormDraft.problems]; this
  * screen only renders it.
  *
- * **Creating a group does not come through here.** It is a bottom sheet — [CreateGroupSheet] —
+ * **Creating a group does not come through here.** It is a bottom sheet, [CreateGroupSheet] -
  * over the dashboard, because creating one is short (a name and a participant or two) and a
  * full-screen form for that much is a trip rather than a task. Editing keeps the screen: by then
  * there are participants to add and remove, a note, a currency, and the errand is long enough to
@@ -115,7 +115,7 @@ fun GroupFormScreen(
             )
         }
 
-        // Informational, not a decision to make — never a protected-focus dialog. A refused
+        // Informational, not a decision to make, never a protected-focus dialog. A refused
         // removal says why, near the list it happened in, and clears itself on the next tap.
         BlockedParticipantNotice(
             message = state.blockedParticipantMessage,
@@ -126,7 +126,7 @@ fun GroupFormScreen(
 }
 
 /**
- * The fields themselves, without any chrome — so the full screen and [CreateGroupSheet] draw the
+ * The fields themselves, without any chrome, so the full screen and [CreateGroupSheet] draw the
  * same form rather than two forms that have to be kept in step.
  */
 @Composable
@@ -138,7 +138,7 @@ internal fun GroupFormBody(
     val draft = state.draft
     // The picker is a sheet the form opens over itself rather than a route it navigates to.
     // Navigating was what the full screen used to do, and it left the create *sheet* with no way
-    // to reach a currency at all — a sheet has no NavController to push onto — so the row there
+    // to reach a currency at all, a sheet has no NavController to push onto, so the row there
     // was wired to `{}` and silently did nothing. Owning it here is what makes one row behave
     // the same in both presentations.
     var showCurrencyPicker by rememberSaveable { mutableStateOf(false) }
@@ -211,14 +211,14 @@ internal fun GroupFormBody(
 
                 // Creating a group no longer asks for a server up front. The default is
                 // configurable in Settings, and picking one is the advanced half of a decision
-                // most people never make — somebody creating a group on spliit.app should never
+                // most people never make, somebody creating a group on spliit.app should never
                 // see this field. It is *hidden, not removed*: self-hosting is a first-class
                 // Spliit use case, the group's server is what a link resolves against, and there
                 // has to be a way to reach it without a detour through Settings.
                 //
                 // Only when creating. By the time you are editing a group the whole form is
                 // advanced, the address is a fact about the group rather than a choice, and a
-                // group cannot move servers anyway — so the ViewModel does not offer the field
+                // group cannot move servers anyway, so the ViewModel does not offer the field
                 // there at all.
                 if (state.mode == GroupFormMode.CREATE) {
                     Spacer(Modifier.height(16.dp))
@@ -237,7 +237,7 @@ internal fun GroupFormBody(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier
                                 .size(18.dp)
-                                // The same glyph in both states, turned — one drawable, and the
+                                // The same glyph in both states, turned, one drawable, and the
                                 // rotation animates where a swap between two would pop.
                                 .rotate(advancedChevronRotation),
                         )
@@ -267,7 +267,7 @@ internal fun GroupFormBody(
                                 )
                             }
                             Text(
-                                text = "Where this group is created — your default from Settings " +
+                                text = "Where this group is created, your default from Settings " +
                                     "unless you change it. A group stays on the server it was made on.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -348,10 +348,10 @@ internal fun GroupFormBody(
             selectedCode = draft.currencyCode,
             // The phone's own currency, which is the likeliest answer for a group somebody is
             // creating on it. `Currency.getInstance` throws for a locale with no country behind
-            // it, which a stripped-down emulator image really does have — hence the catch rather
+            // it, which a stripped-down emulator image really does have, hence the catch rather
             // than a check on the locale.
             promotedCode = runCatching { Currency.getInstance(draft.locale).currencyCode }.getOrNull(),
-            promotedSuffix = " — this phone's own",
+            promotedSuffix = ", this phone's own",
             onSelect = {
                 viewModel.setCurrency(it)
                 showCurrencyPicker = false
@@ -370,7 +370,7 @@ internal fun GroupFormBody(
 /**
  * Why a participant could not be removed, said near the list it happened in.
  *
- * Informational, not a decision to make — never a protected-focus dialog. It clears itself on
+ * Informational, not a decision to make, never a protected-focus dialog. It clears itself on
  * the next tap. [GroupFormDraft.withParticipantRemoved] returns null rather than quietly doing
  * nothing precisely so there is something to say here.
  */
@@ -406,7 +406,7 @@ private fun FieldError(message: String, testTag: String?) {
     )
 }
 
-/** More space above a heading than below it — a heading belongs to what follows it. */
+/** More space above a heading than below it, a heading belongs to what follows it. */
 @Composable
 private fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
     Spacer(Modifier.height(topSpace))
@@ -420,7 +420,7 @@ private fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
     Spacer(Modifier.height(8.dp))
 }
 
-/** What the currency row shows on the right — the currency and the symbol it puts beside every
+/** What the currency row shows on the right, the currency and the symbol it puts beside every
  *  amount, or just the symbol when that is all the group has. */
 private fun currencySummary(draft: GroupFormDraft): String {
     val code = draft.currencyCode

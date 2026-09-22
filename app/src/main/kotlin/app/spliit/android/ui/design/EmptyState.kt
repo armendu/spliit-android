@@ -24,12 +24,12 @@ import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.theme.SpliitTheme
 
 /**
- * The screen with nothing on it — the shape `ContentUnavailableView` gives iOS for free: an icon
+ * The screen with nothing on it, the shape `ContentUnavailableView` gives iOS for free: an icon
  * tile, a title and an optional line of description. DESIGN.md §2's icon tile is the only visual
  * rule Part 9 was asked to give this: `BrandAccentSoft` behind an accent-tinted glyph, both M3
  * everywhere else.
  *
- * @param icon A short, tintable glyph — see [CategoryIcon]'s note on why this app draws text
+ * @param icon A short, tintable glyph, see [CategoryIcon]'s note on why this app draws text
  *   rather than a pictogram or an emoji: an emoji's colour ignores the `tint` parameter Compose
  *   would otherwise apply, which is exactly what would need to change colour between light and
  *   dark or to prove the accent is being applied at all.
@@ -59,13 +59,13 @@ fun EmptyState(
             contentAlignment = Alignment.Center,
         ) {
             if (art != null) {
-                // The mark stands on its own and brings its own colour, so it takes no tile —
+                // The mark stands on its own and brings its own colour, so it takes no tile -
                 // a tinted tile behind a logo reads as two brand marks arguing.
                 art()
             } else if (iconRes != null || !icon.isNullOrBlank()) {
                 // The tile is drawn only when there is something to put in it. It used to be
-                // drawn unconditionally, and a call site passing `icon = ""` — which two of them
-                // did — produced a 64dp block of `brandAccentSoft` with nothing inside: a
+                // drawn unconditionally, and a call site passing `icon = ""`, which two of them
+                // did, produced a 64dp block of `brandAccentSoft` with nothing inside: a
                 // rounded green smudge above the title, on the "No expenses yet" screen most
                 // new users see first. An empty tile is worse than no tile, and this is the
                 // shape of fix that cannot regress, since the empty case no longer has a

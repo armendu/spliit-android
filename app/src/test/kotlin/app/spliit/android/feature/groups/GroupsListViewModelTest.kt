@@ -3,6 +3,8 @@ package app.spliit.android.feature.groups
 import app.spliit.core.LoadState
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
+import app.spliit.core.RefreshLimiter
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -82,7 +84,7 @@ class GroupsListViewModelTest {
                 ),
             ),
         )
-        // The server only answers for g1 — deleted-group is silently absent, exactly as a real
+        // The server only answers for g1, deleted-group is silently absent, exactly as a real
         // groups.list response omits an id it no longer recognises.
         server.enqueue(
             MockResponse.Builder().code(200)
@@ -279,7 +281,7 @@ class GroupsListViewModelTest {
         )
     }
 
-    /** A port nothing is listening on — a real network failure, the same shape TrpcClientTest
+    /** A port nothing is listening on, a real network failure, the same shape TrpcClientTest
      *  pins for TrpcClientError.Network. */
     private fun deadInstance(): String {
         val deadServer = MockWebServer()
@@ -288,4 +290,55 @@ class GroupsListViewModelTest {
         deadServer.close()
         return url
     }
+
+    // ---- rate limiting ----------------------------------------------------------------------
+
+    /** A clock the test moves by hand, so none of this waits for real time to pass. */
+    private class FakeClock(var millis: Long = 0) {
+        operator fun invoke(): Long = millis
+    }
+
+    @Test
+    fun `retry is rate-limited, load is not`() = runBlocking {
+        // This screen has no pull gesture, so the button beside a failure is the only thing a
+        // user can repeat, and it is the most expensive thing in the app when they do: one
+        // request per stored group. `load` runs once per composition and is left alone.
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(
+            RecentGroupsSnapshot(groups = listOf(group("g1", instance, Instant.parse("2025-01-01T00:00:00Z")))),
+        )
+        server.dispatcher = object : mockwebserver3.Dispatcher() {
+            override fun dispatch(request: mockwebserver3.RecordedRequest) =
+                MockResponse.Builder().code(200)
+                    .body(okBody("""{"groups":[${summaryJson("g1", "Lisbon", 3)}]}"""))
+                    .build()
+        }
+        val clock = FakeClock()
+        val viewModel = GroupsListViewModel(
+            recentGroupsStore = store,
+            refreshLimiter = RefreshLimiter(5.seconds, clock::invoke),
+        )
+
+        viewModel.refresh()
+        val afterLoad = server.requestCount
+
+        viewModel.retryNow()
+        val afterFirstRetry = server.requestCount
+        assertTrue(afterFirstRetry > afterLoad, "the first retry should have fetched")
+
+        clock.millis = 1_000
+        viewModel.retryNow()
+        assertEquals(afterFirstRetry, server.requestCount, "a retry inside the window fetches nothing")
+
+        clock.millis = 10_000
+        viewModel.retryNow()
+        assertTrue(server.requestCount > afterFirstRetry, "a retry after the window should fetch")
+
+        // `load` is the composition path and must never be dropped, however recently the button
+        // was tapped.
+        val beforeLoad = server.requestCount
+        viewModel.refresh()
+        assertTrue(server.requestCount > beforeLoad, "load must not be rate-limited")
+    }
+
 }

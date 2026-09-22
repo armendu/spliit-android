@@ -62,14 +62,14 @@ import app.spliit.core.MoneyFormatter
  * Where this screen's tabs live.
  *
  * Material reserves `NavigationBar` for **top-level** destinations, and these four are views
- * within one destination — which is why they started at the top, as a `TabRow`. The question came
+ * within one destination, which is why they started at the top, as a `TabRow`. The question came
  * up twice anyway, so both layouts are built and this constant is the whole switch between them:
  * flip it, rebuild, and look at the two rather than argue about them.
  *
  * **The FAB conflict is resolved by removing the FAB, not by docking it.** M3 dropped the
  * docked-FAB pattern, and a floating FAB stacked over a navigation bar either covers the bar's
  * last item or floats above it with nothing holding it there. So in the bottom-bar layout "Add
- * expense" becomes a top-app-bar action, shown only on the Expenses tab — which is also what iOS
+ * expense" becomes a top-app-bar action, shown only on the Expenses tab, which is also what iOS
  * does, and it keeps the action in the same place the search and overflow actions already are.
  */
 internal object GroupDetailLayout {
@@ -80,7 +80,7 @@ internal object GroupDetailLayout {
 /**
  * The tabs this group screen has.
  *
- * An enum with its own label, icon and tag, iterated over by whichever bar is drawing them — so
+ * An enum with its own label, icon and tag, iterated over by whichever bar is drawing them, so
  * the two layouts cannot fall out of step about what the tabs are or what order they come in.
  * Totals sits beside Balances rather than beside Information because it answers the same question
  * from the other end: that tab says where the group will settle, this one what it has spent.
@@ -99,23 +99,20 @@ private enum class GroupDetailTab(
 /**
  * A single group: its expenses, its balances, its totals and what it is.
  *
- * Four ways lead to the expense form from here: the add action creates one, an expense row opens
- * that expense, a suggested payment opens a settle-up prefilled from it, and an activity row
- * opens the expense it describes — when there still is one.
+ * Four routes lead to the expense form: the add action creates one, a row opens that expense, a
+ * suggested payment opens a prefilled settle-up, and an activity row opens the expense it
+ * describes if there still is one.
  *
- * **Editing is a sheet; creating and settling up are still destinations.** An edit is usually one
- * field on an expense the user is already looking at, so it happens over the list — see
- * [ExpenseEditSheet] — and the list is not read again when it closes. A create has no row to
- * preserve and starts from an empty form, so it keeps the full-screen route.
+ * Editing is a sheet; creating and settling up are destinations. An edit is usually one field on
+ * an expense already on screen, so it happens over the list and the list is not re-read when it
+ * closes. A create has no row to preserve.
  *
- * **Re-entering a loaded group costs nothing.** The effect below calls [GroupDetailViewModel
- * .loadIfNeeded], not `load()`: this composable is freshly composed every time the screen is
- * returned to, and the ViewModel outlives all of it. Whatever *did* change is asked for
- * specifically — by the edit sheet, by [onExpensesChanged]'s caller, or by the user pulling to
- * refresh.
+ * Re-entering a loaded group costs nothing: the effect below calls `loadIfNeeded`, not `load`.
+ * Whatever did change is asked for specifically, by the edit sheet, by [onExpensesChanged]'s
+ * caller, or by a pull to refresh.
  *
- * @param search whether the top bar is currently a search field. Hoisted rather than kept here so
- *   the back handler and the tab bar can both see it.
+ * @param search whether the top bar is currently a search field. Hoisted so the back handler and
+ *   the tab bar can both see it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,7 +129,7 @@ fun GroupDetailScreen(
     var showActiveUserPicker by rememberSaveable { mutableStateOf(false) }
     var showActivityLog by rememberSaveable { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
-    // Which expense is being edited, if any — the sheet is state on this screen rather than a
+    // Which expense is being edited, if any, the sheet is state on this screen rather than a
     // destination of its own, which is what keeps this screen composed underneath it and its
     // expense list unread. Deliberately not `rememberSaveable`: a sheet restored across process
     // death would come back over a group screen that had reloaded anyway.
@@ -205,7 +202,7 @@ fun GroupDetailScreen(
             // Only once the group is in: an expense cannot be written without its participants
             // and its currency, and a FAB that opens a form with nothing in it is worse than one
             // that arrives a moment later. Suppressed entirely in the bottom-bar layout, where
-            // the same action lives in the top bar — see GroupDetailLayout.
+            // the same action lives in the top bar, see GroupDetailLayout.
             if (!GroupDetailLayout.USE_BOTTOM_BAR && groupInfo != null && !state.search.isActive) {
                 SpliitFab(
                     icon = R.drawable.ic_plus,
@@ -220,7 +217,7 @@ fun GroupDetailScreen(
         // the navigation-bar inset (plus the bottom bar, where there is one); consuming it for
         // the lists would stop them short of the bar instead of letting them scroll under it, so
         // each tab adds that inset to its own content padding. The bottom bar itself is the
-        // exception — it is opaque, so its height has to be reserved rather than scrolled under.
+        // exception, it is opaque, so its height has to be reserved rather than scrolled under.
         val bottomInset = if (GroupDetailLayout.USE_BOTTOM_BAR && !state.search.isActive) {
             contentPadding.calculateBottomPadding()
         } else {
@@ -236,7 +233,7 @@ fun GroupDetailScreen(
             }
 
             // Explicit, because nothing on this screen refreshes itself any more and nothing is
-            // served from an HTTP cache — a cached GET would quietly serve stale balances. This
+            // served from an HTTP cache, a cached GET would quietly serve stale balances. This
             // is how somebody who wants fresh numbers asks for them.
             PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
@@ -298,14 +295,14 @@ fun GroupDetailScreen(
         }
     }
 
-    // Composed for as long as the edit is in flight — which outlasts the sheet itself, because
+    // Composed for as long as the edit is in flight, which outlasts the sheet itself, because
     // the undo offered after a delete belongs to the same ViewModel.
     editingExpenseId?.let { expenseId ->
         ExpenseEditSheet(
             expenseId = expenseId,
             viewModel = editViewModelFor(expenseId),
             snackbarHostState = snackbarHostState,
-            // One row read and the balances recomputed — never `groups.expenses.list`. The
+            // One row read and the balances recomputed, never `groups.expenses.list`. The
             // balances have to be asked for again because the amount may have moved; the list
             // does not, because only one row of it did. See GroupDetailViewModel.expenseSaved.
             onSaved = viewModel::expenseSaved,
@@ -341,7 +338,7 @@ fun GroupDetailScreen(
 }
 
 /**
- * The web app's own share link — `{instance}/groups/{id}` — which is what makes it open for
+ * The web app's own share link, `{instance}/groups/{id}`, which is what makes it open for
  * anyone regardless of platform.
  *
  * [instanceBaseUrl] is stored with a trailing slash in some rows and without in others, so the
@@ -355,7 +352,7 @@ internal fun groupShareLink(instanceBaseUrl: String, groupId: String): String =
  * The top bar, in its two states.
  *
  * Search is an **app-bar action that expands into a field**, not a fifth tab. iOS's search tab is
- * an iOS idiom — the search role puts a magnifying glass in its own capsule beside the tab bar —
+ * an iOS idiom, the search role puts a magnifying glass in its own capsule beside the tab bar -
  * and Android's equivalent has always been the bar. A fifth tab here would also squeeze four
  * labels for the destination people open least.
  */
@@ -418,7 +415,7 @@ private fun GroupTopBar(
                     Icon(painterResource(R.drawable.ic_close), contentDescription = "Close search")
                 }
             } else {
-                // A destination navigated *into*, so an up arrow — not the ✕ a modal task takes,
+                // A destination navigated *into*, so an up arrow, not the ✕ a modal task takes,
                 // and not a text button: Android's leading navigation slot is an icon, and the
                 // drawable is autoMirrored so it points the other way in a right-to-left layout.
                 IconButton(onClick = onBack, modifier = Modifier.testTag(TestTags.GROUP_DETAIL_BACK_BUTTON)) {
@@ -446,7 +443,7 @@ private fun GroupTopBar(
             }
 
             // One overflow for the two things that act on the *group* rather than on what is in
-            // it, which is what keeps "Add expense" out of it — same split as iOS's toolbar.
+            // it, which is what keeps "Add expense" out of it, same split as iOS's toolbar.
             IconButton(
                 onClick = onOverflowOpen,
                 modifier = Modifier.testTag(TestTags.GROUP_DETAIL_MENU_BUTTON),
@@ -492,7 +489,7 @@ private fun GroupTopBar(
  *
  * `PrimaryScrollableTabRow` rather than the fixed variant now that there are four: the fixed
  * row divides the width equally and clipped "Information" to "Informatio" at the *default* font
- * size on a Pixel 8 — seen on the emulator, not predicted — and DESIGN.md §2 is explicit that
+ * size on a Pixel 8, seen on the emulator, not predicted, and DESIGN.md §2 is explicit that
  * anything which would clip must wrap or scroll rather than truncate.
  *
  * Colours are the theme's. DESIGN.md names no override for tabs, and passing one here is how two
@@ -515,7 +512,7 @@ private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab)
 }
 
 /**
- * The same four tabs at the bottom — the layout [GroupDetailLayout] exists to let somebody
+ * The same four tabs at the bottom, the layout [GroupDetailLayout] exists to let somebody
  * compare.
  *
  * Icons are not optional here the way they are in a `TabRow`: a `NavigationBar` item is drawn
@@ -523,7 +520,7 @@ private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab)
  *
  * **Transparent, not `surfaceContainer`.** M3's default container is a tone lighter than this
  * app's background, which drew the bar as a pale band with the system navigation area below it
- * in a third shade — three horizontal stripes at the bottom of a screen whose whole point is the
+ * in a third shade, three horizontal stripes at the bottom of a screen whose whole point is the
  * list above them. Transparent lets the one background run from the last expense row to the
  * bottom of the display, which is also what the status bar already does at the other end (see
  * MainActivity's note on why both system bars are transparent).

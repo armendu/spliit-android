@@ -16,7 +16,7 @@ kotlin {
 
     // Every public declaration in these modules is about to become someone else's API: :app
     // consumes both, and Parts 1-8 grow the real surface. Explicit API mode makes each `public`
-    // a decision rather than a default, and requires a declared return type on it — far cheaper
+    // a decision rather than a default, and requires a declared return type on it, far cheaper
     // to adopt now, while the surface is empty, than to retrofit over a finished module.
     explicitApi()
 }
@@ -30,13 +30,13 @@ tasks.test {
     useJUnitPlatform()
 
     // Already the Gradle 9 default; pinned so a future change to that default cannot quietly
-    // take the check away. It covers the misconfiguration case — test classes present but the
+    // take the check away. It covers the misconfiguration case, test classes present but the
     // engine discovers nothing in them, e.g. the wrong JUnit version or a missing annotation.
     failOnNoDiscoveredTests = true
 }
 
 // What `failOnNoDiscoveredTests` cannot see: with no test sources at all the task is NO-SOURCE
-// and never runs, so an empty suite is BUILD SUCCESSFUL — the same green as a suite that passed.
+// and never runs, so an empty suite is BUILD SUCCESSFUL, the same green as a suite that passed.
 // Verified, not assumed: deleting this module's only test file leaves the build passing without
 // the check below. The first wiring test was written to guard exactly this and could not, since
 // a platform that discovers nothing does not discover the guard either.
@@ -48,7 +48,7 @@ val verifyTestsRan by tasks.registering {
         val reports = resultsDir.get().asFile
             .listFiles { file -> file.name.startsWith("TEST-") && file.extension == "xml" }
             .orEmpty()
-        check(reports.isNotEmpty()) { "$label ran no tests at all — the suite is empty." }
+        check(reports.isNotEmpty()) { "$label ran no tests at all, the suite is empty." }
     }
 }
 

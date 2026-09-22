@@ -19,7 +19,7 @@ import java.time.Instant
 // Money crosses the wire as an integer count of **minor units**, and minor units are not always
 // hundredths: `amount == 1234` is 12.34 in a two-decimal currency and ¥1,234 in a group counted
 // in yen. That holds for expense amounts, balances and reimbursements alike. Nothing in this
-// file scales, rounds or divides — it carries the server's integers through untouched, and
+// file scales, rounds or divides, it carries the server's integers through untouched, and
 // Part 5's MoneyFormatter is the only place that knows what a currency counts in.
 //
 // Every timestamp here is `@Contextual val x: Instant`. That is not a style choice: see
@@ -45,11 +45,11 @@ public data class Group(
     public val id: String,
     public val name: String,
     public val information: String? = null,
-    /** A free-text symbol such as "$" or "CHF" — not an ISO code. See [currencyCode]. */
+    /** A free-text symbol such as "$" or "CHF", not an ISO code. See [currencyCode]. */
     public val currency: String,
     /**
      * ISO-4217, when the group has one. Older groups carry only a symbol, and a group that has
-     * had its code cleared carries an empty string rather than a null — that is what the web app
+     * had its code cleared carries an empty string rather than a null, that is what the web app
      * writes. Both mean "we do not know what this counts in", which Part 5 reads as hundredths.
      */
     public val currencyCode: String? = null,
@@ -60,8 +60,8 @@ public data class Group(
 /**
  * A group as `groups.list` returns it: no participants, only how many.
  *
- * The count arrives inside Prisma's `_count` aggregate — there is no `participantCount` field on
- * the wire — so the aggregate is what the model decodes and [participantCount] is how the rest of
+ * The count arrives inside Prisma's `_count` aggregate, there is no `participantCount` field on
+ * the wire, so the aggregate is what the model decodes and [participantCount] is how the rest of
  * the app reads it. A model declaring a plain field decodes nothing, throws nothing, and every
  * group in the list claims to be empty.
  */
@@ -92,10 +92,10 @@ public data class GroupSummary(
 // same way, on purpose. Instances are self-hosted and may run ahead of this client, so the
 // question is never "can this happen" but "what does it cost when it does":
 //
-//   SplitMode       throws    — money. A mode we misread divides an expense wrongly and pays the
+//   SplitMode       throws   , money. A mode we misread divides an expense wrongly and pays the
 //                               wrong person a plausible-looking amount.
-//   RecurrenceRule  degrades  — display only in cycle 1. Nothing computes from it.
-//   ActivityType    degrades  — one line of prose in the log.
+//   RecurrenceRule  degrades , display only in cycle 1. Nothing computes from it.
+//   ActivityType    degrades , one line of prose in the log.
 //
 // Failing loudly is right exactly where being wrong is expensive, and wrong everywhere else.
 
@@ -118,7 +118,7 @@ public enum class SplitMode {
  * How often an expense repeats.
  *
  * An unrecognised value decodes as [Unknown] rather than throwing, because the alternative is out
- * of all proportion: this is display-only metadata in cycle 1 — nothing computes from it — so not
+ * of all proportion: this is display-only metadata in cycle 1, nothing computes from it, so not
  * understanding a value costs one row a little of its detail, while throwing fails the decode of
  * **the entire expense list**, including every expense that has nothing to do with recurrence.
  * `ModelsTest` demonstrates both halves of that on a payload where one expense of three carries
@@ -129,10 +129,10 @@ public enum class SplitMode {
  *
  * Where such a payload comes from is worth being precise about, because our own e2e image cannot
  * produce one: its zod enum is exactly these four values and it answers 400 to anything else
- * (checked — `YEARLY` and `FORTNIGHTLY` are both rejected). So this is not a case any server we
+ * (checked, `YEARLY` and `FORTNIGHTLY` are both rejected). So this is not a case any server we
  * can currently point at will send. It is the self-hosted instance running *ahead* of us, which
  * is the ordinary case rather than the exotic one given upstream ships recurring expenses as a
- * beta feature — the same reasoning [ActivityType] already exists for.
+ * beta feature, the same reasoning [ActivityType] already exists for.
  */
 @Serializable(with = RecurrenceRuleSerializer::class)
 public sealed interface RecurrenceRule {
@@ -189,7 +189,7 @@ public data class ExpenseDocument(
 )
 
 /**
- * A `Prisma.Decimal` as it crosses superjson — a **string**, annotated
+ * A `Prisma.Decimal` as it crosses superjson, a **string**, annotated
  * `[["custom","decimal.js"]]` rather than as a number.
  *
  * Decoding is lenient in case an instance sends a JSON number instead, which costs nothing here
@@ -232,7 +232,7 @@ internal object LenientDecimalSerializer : KSerializer<LenientDecimal> {
 }
 
 /**
- * An expense as it appears in a group's list. Carries only what a row needs — use
+ * An expense as it appears in a group's list. Carries only what a row needs, use
  * [ExpenseDetails] to edit one.
  */
 @Serializable
@@ -255,7 +255,7 @@ public data class ExpenseListItem(
     public val documentCount: Int get() = counts.documents
 
     /**
-     * For a row rebuilt on this side rather than decoded — the edit sheet writes over the group
+     * For a row rebuilt on this side rather than decoded, the edit sheet writes over the group
      * screen, so one changed expense is put back into the loaded list instead of the whole list
      * being read again. Mirrors [GroupSummary]'s own secondary constructor, and exists for the
      * same reason: `_count` is Prisma's aggregate, not something a caller should have to name.
@@ -294,8 +294,8 @@ public data class ExpenseListItem(
         public val participant: Participant,
         /**
          * **One field, two units, decided by a sibling.** For [SplitMode.EVENLY],
-         * [SplitMode.BY_SHARES] and [SplitMode.BY_PERCENTAGE] this is the share value ×100 —
-         * one share is `100`, 33.5% is `3350` — whatever the currency. For [SplitMode.BY_AMOUNT]
+         * [SplitMode.BY_SHARES] and [SplitMode.BY_PERCENTAGE] this is the share value ×100 -
+         * one share is `100`, 33.5% is `3350`, whatever the currency. For [SplitMode.BY_AMOUNT]
          * it is a raw minor-unit amount, which does scale with the currency, and the entries sum
          * to the expense's `amount`. Part 6 owns the arithmetic; this carries the value verbatim.
          */
@@ -312,7 +312,7 @@ public data class ExpenseDetails(
     public val id: String,
     public val groupId: String,
     public val title: String,
-    /** Minor units, in the **group's** currency — see [originalAmount] for the other scale. */
+    /** Minor units, in the **group's** currency, see [originalAmount] for the other scale. */
     public val amount: Int,
     public val categoryId: Int,
     public val category: ExpenseCategory? = null,
@@ -346,7 +346,7 @@ public data class ExpenseDetails(
     @Serializable
     public data class PaidFor(
         public val participantId: String,
-        /** Share value ×100, or minor units under [SplitMode.BY_AMOUNT] — see [ExpenseListItem.PaidFor.shares]. */
+        /** Share value ×100, or minor units under [SplitMode.BY_AMOUNT], see [ExpenseListItem.PaidFor.shares]. */
         public val shares: Int,
     )
 }
@@ -438,7 +438,7 @@ public data class Activity(
     @Contextual public val time: Instant,
     public val activityType: ActivityType,
     /**
-     * Who did it — but only when the client that did it said so. The four mutating procedures
+     * Who did it, but only when the client that did it said so. The four mutating procedures
      * take an optional `participantId` and none of them requires it, so this is null for
      * anything written before someone identified themselves. Nothing backfills it.
      */

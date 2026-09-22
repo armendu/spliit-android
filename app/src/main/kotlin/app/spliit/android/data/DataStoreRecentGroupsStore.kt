@@ -16,38 +16,22 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
-// A thin DataStore adapter for RecentGroupsSnapshot. "Thin" is load-bearing here, not a figure of
-// speech: every rule that decides what the stored list actually *is* — the union merge, which row
-// wins a conflict, when a tombstone expires, who a stale participant resolves to — lives in
-// `:core`'s RecentGroupsSnapshot and is exercised by RecentGroupsTest on the JVM in milliseconds.
-// This class's entire job is turning that snapshot into bytes and back. If a future change adds
-// an `if` to this file that decides something rather than merely translating it, that logic has
-// drifted out of the place it can actually be tested — put it back in `:core` instead.
+// A thin DataStore adapter for RecentGroupsSnapshot. Thin is load-bearing: every rule about what
+// the stored list *is* (the union merge, which row wins, when a tombstone expires) lives in
+// `:core` and is tested there on the JVM. This class turns a snapshot into bytes and back. An
+// `if` here that decides something rather than translating it belongs in `:core`.
 //
-// ── Why JSON, and why through a hand-written DTO rather than :core's own types ────────────────
+// JSON via kotlinx.serialization, with `ignoreUnknownKeys = true` and every DTO field defaulted.
+// That pair is what lets the schema gain a field without breaking an install that already has
+// data: an older file decodes missing fields to defaults, and a newer file's extra fields are
+// dropped by an older APK rather than failing to parse. This is unrecoverable data, there is no
+// server copy, so surviving a version skew matters more than compactness. It is also readable
+// off the device by eye.
 //
-// This is on-device data nobody can recover if it is written wrong: there is no account and no
-// server-side copy (see RecentGroups.kt), so a snapshot this store fails to read back is a list
-// of groups gone for the person holding the phone. Two decisions follow from that:
-//
-//  1. JSON, via kotlinx.serialization, decoded with `ignoreUnknownKeys = true` and every field on
-//     [StoredSnapshot]/[StoredGroup] defaulted. That combination is what lets the schema *gain* a
-//     field in a later part without breaking an install that already has data on disk: an old
-//     field an older APK never wrote decodes to its default, and a newer field a future APK adds
-//     is silently dropped by an install that hasn't been updated yet, rather than either side
-//     refusing to parse the other's file. A binary format (a Preferences `ByteArray`, a hand
-//     rolled struct) can do the same in principle, but only by re-deriving this same forward/
-//     backward-compatible framing by hand — JSON with these two settings gets it for free and is
-//     also something a person can read off the device if something ever needs debugging by eye.
-//
-//  2. [StoredSnapshot]/[StoredGroup] are this file's own types, not `@Serializable` versions of
-//     `:core`'s [RecentGroupsSnapshot]/[RecentGroup]. `:core` depends on nothing beyond the Kotlin
-//     stdlib (see core/build.gradle.kts) precisely so it stays a JVM library with no reason to
-//     drag in an Android or serialization dependency; annotating its classes for kotlinx.
-//     serialization would puncture that on behalf of one storage format `:core` itself never
-//     reads or writes. The conversion functions on the DTOs below are the entire cost of keeping
-//     that boundary, and they are the only place this file's few lines of "logic" live — copying
-//     values across a field, never deciding anything about them.
+// The DTOs are this file's own types rather than `@Serializable` versions of `:core`'s, because
+// `:core` depends on nothing beyond the stdlib and should not gain a serialization dependency
+// for one storage format it never reads. The conversion functions below are the whole cost of
+// that boundary.
 
 /** One process-wide DataStore, opened once per [Context]. */
 private val Context.recentGroupsDataStore: DataStore<Preferences> by preferencesDataStore(
@@ -78,13 +62,13 @@ public class DataStoreRecentGroupsStore(
         val json = dataStore.data.first()[SNAPSHOT_KEY] ?: return RecentGroupsSnapshot()
         return try {
             // Decoding and converting are one attempt, not two: a row this build cannot make
-            // sense of — malformed JSON, or a `SplitMode` name written by a newer version this
-            // install has never heard of (see [StoredSplit]) — must degrade the same way either
+            // sense of, malformed JSON, or a `SplitMode` name written by a newer version this
+            // install has never heard of (see [StoredSplit]), must degrade the same way either
             // failure happens to surface.
             JSON.decodeFromString(StoredSnapshot.serializer(), json).toCore()
         } catch (_: Exception) {
-            // A blob this device itself wrote but can no longer parse — corrupted storage, or a
-            // downgrade past a format this build doesn't understand — is worse to crash the app
+            // A blob this device itself wrote but can no longer parse, corrupted storage, or a
+            // downgrade past a format this build doesn't understand, is worse to crash the app
             // over than to treat as empty. The list rebuilds as groups are opened again; a crash
             // loop on launch would not.
             RecentGroupsSnapshot()
@@ -124,14 +108,14 @@ private data class StoredGroup(
     val instanceBaseUrl: String,
     val groupName: String,
     /** Both default to false, so a list written before Part 12 added them reads back unchanged
-     *  rather than failing to decode — see the note on `ignoreUnknownKeys` above. */
+     *  rather than failing to decode, see the note on `ignoreUnknownKeys` above. */
     val isStarred: Boolean = false,
     val isArchived: Boolean = false,
     val participantId: String? = null,
     val defaultSplit: StoredSplit? = null,
-    /** ISO-8601, or null — see [RecentGroup.lastOpenedAt]. */
+    /** ISO-8601, or null, see [RecentGroup.lastOpenedAt]. */
     val lastOpenedAt: String? = null,
-    /** ISO-8601, or null — see [RecentGroup.updatedAt]. */
+    /** ISO-8601, or null, see [RecentGroup.updatedAt]. */
     val updatedAt: String? = null,
 ) {
     fun toCore(): RecentGroup = RecentGroup(
@@ -164,7 +148,7 @@ private data class StoredGroup(
 /**
  * [DefaultSplit] by hand: `:core`'s [SplitMode] carries no `@Serializable` annotation (see the
  * note at the top of this file), so it is stored by its enum name and re-resolved with
- * [SplitMode.valueOf], which throws for a name this build has never heard of — a split written
+ * [SplitMode.valueOf], which throws for a name this build has never heard of, a split written
  * by a newer version, read on an install that hasn't caught up. That throw is deliberately left
  * to propagate out of [toCore] rather than defaulted to some mode nobody chose: [load] treats the
  * whole blob as one attempt and degrades the entire snapshot to empty rather than guess at a

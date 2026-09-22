@@ -24,12 +24,12 @@ import kotlinx.coroutines.launch
 enum class GroupFormMode { CREATE, EDIT }
 
 /**
- * The group form's whole state — the draft itself, plus what only this screen cares about
+ * The group form's whole state, the draft itself, plus what only this screen cares about
  * (whether it is still loading, whether a save is in flight, and what went wrong).
  *
  * @param instanceAddressText What the (create-only) server field shows, exactly as typed.
  * @param resolvedInstanceBaseUrl [instanceAddressText] normalised into a base URL, or null while
- *   it doesn't name a usable one — the save button's guard, not merely its footnote.
+ *   it doesn't name a usable one, the save button's guard, not merely its footnote.
  */
 data class GroupFormUiState(
     val mode: GroupFormMode,
@@ -41,22 +41,22 @@ data class GroupFormUiState(
     val hasAttemptedSave: Boolean = false,
     val isSaving: Boolean = false,
     val saveError: String? = null,
-    /** Set when [GroupFormDraft.withParticipantRemoved] refused a removal — who, and why. */
+    /** Set when [GroupFormDraft.withParticipantRemoved] refused a removal, who, and why. */
     val blockedParticipantMessage: String? = null,
-    /** Set once the save has actually gone through — the screen's cue to leave. */
+    /** Set once the save has actually gone through, the screen's cue to leave. */
     val savedGroupId: String? = null,
 ) {
-    /** Whether the server address is usable — always true once editing, since a group cannot
+    /** Whether the server address is usable, always true once editing, since a group cannot
      *  move servers and there is nothing here left to type. */
     val instanceIsValid: Boolean get() = mode == GroupFormMode.EDIT || resolvedInstanceBaseUrl != null
 }
 
 /**
- * The group editor, shared by "Create group" and "Group settings" — see [GroupFormMode].
+ * The group editor, shared by "Create group" and "Group settings", see [GroupFormMode].
  *
  * Every rule about what makes a group valid lives in [GroupFormDraft]; this class never
  * reimplements one. It only carries the draft, drives the two network calls around it, and
- * resolves the one thing `:core` cannot know on its own — which participant is making the change,
+ * resolves the one thing `:core` cannot know on its own, which participant is making the change,
  * for the activity log (see [submit]'s EDIT branch).
  */
 class GroupFormViewModel(
@@ -86,7 +86,7 @@ class GroupFormViewModel(
     )
     val state: StateFlow<GroupFormUiState> = _state.asStateFlow()
 
-    /** Who was in the group when it loaded — kept only to resolve [submit]'s actor, since the
+    /** Who was in the group when it loaded, kept only to resolve [submit]'s actor, since the
      *  draft's own participant list is what is being edited. */
     private var knownParticipants: List<Participant> = emptyList()
 
@@ -98,7 +98,7 @@ class GroupFormViewModel(
      * Back to a blank group, on [instanceBaseUrl].
      *
      * Creating a group is a sheet over the dashboard rather than a destination, so this instance
-     * lives as long as that screen does and is handed back for every create — where a
+     * lives as long as that screen does and is handed back for every create, where a
      * navigated-to form got a fresh one each time. Without this, a second create would open
      * holding the first one's participants, its typed name and, worst of all, its `savedGroupId`,
      * which closes the sheet the instant it appears.
@@ -123,7 +123,7 @@ class GroupFormViewModel(
         val id = checkNotNull(groupId) { "refreshForEdit requires EDIT mode" }
         _state.update { it.copy(isLoading = true, loadError = null) }
         // Which server the group is on is a fact about *the group*, resolved from its stored row
-        // — never the app's current default, which a self-hosted group is not on and which
+        //, never the app's current default, which a self-hosted group is not on and which
         // Settings can have changed since the group was added. The constructor's value is only a
         // fallback for a group with no row, which this app's routes cannot currently produce.
         val instanceBaseUrl = try {
@@ -167,7 +167,7 @@ class GroupFormViewModel(
 
     fun setCustomSymbol(symbol: String) = updateDraft { it.copy(currency = symbol) }
 
-    /** Picking a real currency, which sets the symbol with it — see
+    /** Picking a real currency, which sets the symbol with it, see
      *  [GroupFormDraft.withCurrency]. A code the platform does not know leaves the draft alone
      *  rather than clearing the currency it already had. */
     fun setCurrency(code: String) = updateDraft { draft ->
@@ -175,7 +175,7 @@ class GroupFormViewModel(
     }
 
     /** Dropping the ISO code and keeping the symbol as free text. A Spliit group is allowed to
-     *  be counted in a bare "$" with nothing behind it — the web app's own default — so this is
+     *  be counted in a bare "$" with nothing behind it, the web app's own default, so this is
      *  a state to reach deliberately, not a failure to pick properly. */
     fun useCustomSymbol() = updateDraft { it.withCustomSymbol() }
 
@@ -183,8 +183,8 @@ class GroupFormViewModel(
 
     fun renameParticipant(id: String, name: String) = updateDraft { it.withParticipantRenamed(id, name) }
 
-    /** Removes the participant, or — per [GroupFormDraft.withParticipantRemoved]'s nullable
-     *  return — explains why it would not: never a silent no-op. */
+    /** Removes the participant, or, per [GroupFormDraft.withParticipantRemoved]'s nullable
+     *  return, explains why it would not: never a silent no-op. */
     fun removeParticipant(id: String) {
         val draft = _state.value.draft
         val updated = draft.withParticipantRemoved(id)
@@ -203,7 +203,7 @@ class GroupFormViewModel(
 
     fun dismissBlockedParticipantMessage() = _state.update { it.copy(blockedParticipantMessage = null) }
 
-    /** CREATE only — the server this group will be made on. */
+    /** CREATE only, the server this group will be made on. */
     fun setInstanceAddressText(text: String) {
         _state.update {
             it.copy(instanceAddressText = text, resolvedInstanceBaseUrl = InstanceAddress.normalize(text))
@@ -220,7 +220,7 @@ class GroupFormViewModel(
         viewModelScope.launch { submit() }
     }
 
-    /** The actual work, as a plain suspend function — see [GroupsListViewModel.refresh] for why
+    /** The actual work, as a plain suspend function, see [GroupsListViewModel.refresh] for why
      *  tests call this directly rather than [save]. */
     suspend fun submit(): Boolean {
         _state.update { it.copy(hasAttemptedSave = true, saveError = null) }
@@ -242,7 +242,7 @@ class GroupFormViewModel(
             when (current.mode) {
                 GroupFormMode.CREATE -> {
                     val response = client.call(SpliitEndpoints.groupsCreate(values))
-                    // The only way :core exposes to add a row — see RecentGroupsSnapshot.opening.
+                    // The only way :core exposes to add a row, see RecentGroupsSnapshot.opening.
                     // Freshly created is freshly relevant, so it belongs at the top of the list.
                     val snapshot = recentGroupsStore.load()
                     recentGroupsStore.save(
@@ -260,7 +260,7 @@ class GroupFormViewModel(
                 GroupFormMode.EDIT -> {
                     val id = checkNotNull(groupId)
                     // groups.update's participantId is the only thing the activity log can name
-                    // anybody with — resolved here, not omitted, per CLAUDE.md.
+                    // anybody with, resolved here, not omitted, per CLAUDE.md.
                     val recentSnapshot = recentGroupsStore.load()
                     val actorId = recentSnapshot.actorId(id, knownParticipants.map { CoreParticipant(it.id, it.name) })
                     client.call(SpliitEndpoints.groupsUpdate(id, values, actorId))

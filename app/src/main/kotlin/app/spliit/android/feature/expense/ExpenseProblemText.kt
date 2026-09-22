@@ -8,7 +8,7 @@ import java.math.BigDecimal
 /**
  * The sentences `:core`'s [ExpenseFormDraft.Problem]s are read as.
  *
- * `:core` has no resources and no locale for prose — see [ExpenseFormDraft.Problem]'s own doc —
+ * `:core` has no resources and no locale for prose, see [ExpenseFormDraft.Problem]'s own doc -
  * so the rules live there and the wording lives here. **This is not a second validator**: every
  * sentence below is reached only by being handed a problem the draft produced, and there is no
  * branch here that decides whether something is wrong.
@@ -49,7 +49,7 @@ internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String
 }
 
 /**
- * What is left to allocate, as a running total rather than as a refusal — drawn under the split
+ * What is left to allocate, as a running total rather than as a refusal, drawn under the split
  * before a save has been attempted, which is what turns a rejected save into a live tally.
  *
  * Null for the two modes that cannot be short: an even split and a share split always add up to
@@ -97,7 +97,7 @@ internal fun SplitMode.unitLabel(currencySymbol: String): String = when (this) {
 }
 
 /**
- * Hundredths of a percent as a percentage — the unit the protocol counts percentages in, and
+ * Hundredths of a percent as a percentage, the unit the protocol counts percentages in, and
  * **never** the currency's, which is why this divides by a literal 100 where money never may.
  * `stripTrailingZeros` so a whole 30% does not read as "30.00%".
  */

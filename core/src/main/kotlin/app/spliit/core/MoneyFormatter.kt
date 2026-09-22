@@ -12,26 +12,22 @@ import java.util.Currency as IsoCurrency
 /**
  * Formats the integer minor units the API deals in.
  *
- * **Minor units are not always hundredths.** `amount == 1234` is 12.34 in a two-decimal
- * currency, ¥1,234 in a group counted in yen, and 1.234 in a Gulf dinar. Of the currencies this
- * app's picker offers, sixteen have no minor unit at all and seven have three — so `/ 100`
- * anywhere in the money path is a number that is wrong by a factor of a hundred or a thousand,
- * on a screen that looks entirely plausible. Ask the currency: [minorUnitDigits].
+ * Minor units are not always hundredths. `1234` is 12.34 in a two-decimal currency, ¥1,234 in
+ * yen, and 1.234 in a Gulf dinar. Sixteen of the currencies offered have no minor unit and seven
+ * have three, so `/ 100` anywhere here is a number wrong by 100x or 1000x on a screen that looks
+ * entirely plausible. Ask [minorUnitDigits].
  *
- * A group's `currency` is free text — "$", "CHF", "kr" — and only newer groups also carry an ISO
- * code. The code decides the precision; the symbol decides what is drawn; and the reader's
- * locale decides grouping, decimal separator and symbol placement. The web app formatted
- * everything as euros in en-US and swapped the sign, which put every user on American
- * conventions; here a French reader gets `1 234,56 €` and an American `$1,234.56` for the same
- * stored integer.
+ * A group's `currency` is free text ("$", "CHF", "kr"); only newer groups carry an ISO code. The
+ * code decides precision, the symbol decides what is drawn, and the reader's locale decides
+ * grouping and placement, so a French reader gets `1 234,56 €` and an American `$1,234.56` for
+ * the same stored integer.
  *
- * Minor units are [Long] rather than [Int], although the wire carries them as `Int`: a sum of
- * amounts, or an amount multiplied by a share count, overflows 32 bits in a currency with small
- * units long before the figure is unreasonable, and an overflow here is a wrong number rather
- * than an error.
+ * Minor units are [Long] though the wire carries [Int]: a sum overflows 32 bits in a small-unit
+ * currency well before the figure is unreasonable, and an overflow is a wrong number, not an
+ * error.
  */
 public class MoneyFormatter(
-    /** What amounts are drawn with — the group's free-text `currency`. */
+    /** What amounts are drawn with, the group's free-text `currency`. */
     public val currencySymbol: String = "",
     /** ISO 4217, when the group has one. Null for a group that predates the field. */
     public val currencyCode: String? = null,
@@ -54,7 +50,7 @@ public class MoneyFormatter(
     public fun format(minorUnits: Long): String =
         synchronized(currencyFormat) { currencyFormat.format(asDecimal(minorUnits)) }
 
-    /** The amount without its symbol or grouping — for input fields and axis labels. */
+    /** The amount without its symbol or grouping, for input fields and axis labels. */
     public fun formatPlain(minorUnits: Long): String =
         synchronized(plainFormat) { plainFormat.format(asDecimal(minorUnits)) }
 
@@ -64,7 +60,7 @@ public class MoneyFormatter(
      * `totalParticipantShare` is the one amount in the API that is not an integer: instances
      * older than the web app's *Shares* change sum floating-point thirds and round to two
      * decimals, sending `1416.67`. The rounding belongs here, on the way to the display, rather
-     * than on the way in — decoding it as an integer throws on the totals screen against real
+     * than on the way in, decoding it as an integer throws on the totals screen against real
      * servers, and rounding it at the boundary hands every later calculation a value the server
      * never sent.
      */
@@ -85,11 +81,11 @@ public class MoneyFormatter(
 
         val symbol = when {
             currencySymbol.isNotBlank() -> currencySymbol
-            // No symbol stored, but the JDK knows the code — let it supply its own, which is
+            // No symbol stored, but the JDK knows the code, let it supply its own, which is
             // localised: a French reader gets "$US" for the dollar where an American gets "$".
             currency != null -> null
             // Neither a symbol nor a code the JDK knows. Showing the reader's own currency
-            // symbol — which is what the untouched locale formatter would draw — would be a
+            // symbol, which is what the untouched locale formatter would draw, would be a
             // plausible-looking lie, so the stored text is shown instead.
             else -> currencyCode?.trim()?.takeIf { it.isNotEmpty() }
         }
@@ -100,7 +96,7 @@ public class MoneyFormatter(
         }
 
         // Set last, and never left to the formatter: `DecimalFormat.setCurrency` is documented
-        // not to touch the fraction digits, so these are still the *reader's* locale's — zero in
+        // not to touch the fraction digits, so these are still the *reader's* locale's, zero in
         // ja-JP, which would draw a dollar amount as "$12". Precision belongs to the currency.
         format.minimumFractionDigits = minorUnitDigits
         format.maximumFractionDigits = minorUnitDigits
@@ -123,14 +119,14 @@ public class MoneyFormatter(
          *
          * Two, for two independent reasons. A group carrying only a symbol and no ISO code was
          * stored as hundredths by the web app, so that is what its integers mean. And a code
-         * nothing can resolve — junk on a self-hosted instance, or a pseudo-currency the JDK
-         * declines to give a precision — is more likely to be counted like the overwhelming
+         * nothing can resolve, junk on a self-hosted instance, or a pseudo-currency the JDK
+         * declines to give a precision, is more likely to be counted like the overwhelming
          * majority than like the yen.
          */
         public const val DEFAULT_MINOR_UNIT_DIGITS: Int = 2
 
         /**
-         * The number of decimal places an ISO 4217 code is counted in — 2 for most, 0 for the
+         * The number of decimal places an ISO 4217 code is counted in, 2 for most, 0 for the
          * yen, 3 for the Gulf dinars.
          *
          * Never throws. The group's currency is free text on a self-hosted instance, and
@@ -139,7 +135,7 @@ public class MoneyFormatter(
          */
         public fun minorUnitDigits(currencyCode: String?): Int {
             val digits = isoCurrency(currencyCode)?.defaultFractionDigits ?: return DEFAULT_MINOR_UNIT_DIGITS
-            // -1 is the JDK's answer for a currency with no minor unit *defined* — gold (XAU),
+            // -1 is the JDK's answer for a currency with no minor unit *defined*, gold (XAU),
             // special drawing rights (XDR), the test code XTS. Passed on, it would configure a
             // formatter with negative precision, which throws where it is used rather than here.
             return if (digits < 0) DEFAULT_MINOR_UNIT_DIGITS else digits
@@ -170,7 +166,7 @@ public class MoneyFormatter(
         }
 
         /**
-         * Rounds an amount that arrived as a fraction of a minor unit — see [formatShare].
+         * Rounds an amount that arrived as a fraction of a minor unit, see [formatShare].
          *
          * Half-up meaning *away from zero*, which is what a person reading a receipt expects.
          * Not `Math.round`, which is half-up towards positive infinity and so answers -2 for
@@ -195,8 +191,8 @@ public class MoneyFormatter(
          * web app shipped a fix for.
          *
          * So: a separator the locale spells decimals with is a decimal point. Otherwise the last
-         * separator is a decimal point *unless* it is shaped like a group — exactly three digits
-         * behind it and nothing after — and either the locale groups with that character or
+         * separator is a decimal point *unless* it is shaped like a group, exactly three digits
+         * behind it and nothing after, and either the locale groups with that character or
          * there is more than one of them, since no number has two decimal points.
          */
         public fun parseDecimal(text: String, locale: Locale = Locale.getDefault()): BigDecimal? {

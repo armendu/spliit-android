@@ -37,7 +37,7 @@ import app.spliit.android.ui.design.EmptyState
 import app.spliit.core.RecentGroupsStore
 
 /**
- * The cycle-1 route table — spec §2's screen list, one route each. Part 10 fills in the groups
+ * The cycle-1 route table, spec §2's screen list, one route each. Part 10 fills in the groups
  * list and the group form; Part 12 turns the list into the dashboard; Part 13 replaces the
  * settings stub with the real screen. The currency and active-user pickers below remain stubs.
  */
@@ -45,7 +45,7 @@ object Routes {
     const val GROUPS = "groups"
 
     /**
-     * Editing an existing group — "Edit group", from the group screen's overflow menu.
+     * Editing an existing group, "Edit group", from the group screen's overflow menu.
      *
      * There is no create route any more. Creating a group is a sheet over the dashboard (see
      * [app.spliit.android.feature.groups.CreateGroupSheet]), which is also what made this route
@@ -55,14 +55,14 @@ object Routes {
     const val GROUP_EDIT = "groups/{groupId}/edit"
     const val GROUP_DETAIL = "groups/{groupId}"
 
-    // Three ways into one screen — iOS's `createExpense`, `editExpense(id)` and
+    // Three ways into one screen, iOS's `createExpense`, `editExpense(id)` and
     // `settle(reimbursement)`. Separate patterns rather than one with optional arguments: a
     // settle-up carries three values a create has none of, and a route that can be missing most
     // of its arguments is a route whose mode is decided by which of them happen to be null.
 
     //
-    // There is no edit route. Editing an expense is a sheet drawn over the group screen — see
-    // ExpenseEditSheet — precisely so that the group screen is *not* dropped and rebuilt, which
+    // There is no edit route. Editing an expense is a sheet drawn over the group screen, see
+    // ExpenseEditSheet, precisely so that the group screen is *not* dropped and rebuilt, which
     // is what made every edit re-read the whole expense list. A destination cannot do that.
     const val EXPENSE_FORM_CREATE = "groups/{groupId}/expenses/new"
     const val EXPENSE_FORM_SETTLE = "groups/{groupId}/settle/{from}/{to}/{amount}"
@@ -79,8 +79,8 @@ object Routes {
      * Results a form hands back to the group screen it was opened from, through the previous
      * back-stack entry's `SavedStateHandle`.
      *
-     * The group screen no longer reloads on its way back into composition — that is the whole
-     * point of `loadIfNeeded` — so a full-screen form that *did* write something has to say so.
+     * The group screen no longer reloads on its way back into composition, that is the whole
+     * point of `loadIfNeeded`, so a full-screen form that *did* write something has to say so.
      * Two keys rather than one, because the two invalidate opposite things: an expense cannot
      * change the group, and a group edit does not move a single amount.
      */
@@ -94,7 +94,7 @@ object Routes {
     /**
      * An ID as one segment of a route, escaped to the unreserved set.
      *
-     * Spliit's IDs are nanoids, whose alphabet is already `A-Za-z0-9_-` — so in practice nothing
+     * Spliit's IDs are nanoids, whose alphabet is already `A-Za-z0-9_-`, so in practice nothing
      * here is ever escaped. It is written anyway because *relying* on that is a decision nobody
      * would find again: an ID with a `/` in it, from an instance that generates them differently,
      * would otherwise split into two segments and match no route at all.
@@ -130,16 +130,16 @@ fun SpliitNavHost(
                     viewModelFactory { initializer { GroupsListViewModel(recentGroupsStore) } }
                 },
             )
-            // Adding by link is a sheet over this screen rather than a destination of its own —
-            // see AddGroupByUrlSheet — so its ViewModel is scoped to this entry alongside the
+            // Adding by link is a sheet over this screen rather than a destination of its own -
+            // see AddGroupByUrlSheet, so its ViewModel is scoped to this entry alongside the
             // dashboard's, and reset each time the sheet opens.
             val addGroupViewModel: AddGroupByUrlViewModel = viewModel(
                 factory = remember {
                     viewModelFactory { initializer { AddGroupByUrlViewModel(recentGroupsStore) } }
                 },
             )
-            // Creating a group is a sheet over this screen rather than a destination — see
-            // CreateGroupSheet — so its ViewModel is scoped to this entry alongside the
+            // Creating a group is a sheet over this screen rather than a destination, see
+            // CreateGroupSheet, so its ViewModel is scoped to this entry alongside the
             // dashboard's, and reset each time the sheet opens (which is also where the current
             // default instance is read).
             val createGroupViewModel: GroupFormViewModel = viewModel(
@@ -191,8 +191,8 @@ fun SpliitNavHost(
             GroupFormScreen(
                 viewModel = viewModel,
                 onSaved = {
-                    // The group screen behind this does not reload on its way back — see
-                    // GroupDetailViewModel.loadIfNeeded — so the one thing that did change is
+                    // The group screen behind this does not reload on its way back, see
+                    // GroupDetailViewModel.loadIfNeeded, so the one thing that did change is
                     // announced rather than re-read speculatively.
                     navController.previousBackStackEntry
                         ?.savedStateHandle?.set(Routes.RESULT_GROUP_CHANGED, true)
@@ -203,7 +203,7 @@ fun SpliitNavHost(
         }
 
         composable(Routes.GROUP_DETAIL) { backStackEntry ->
-            // The route pattern's own "{groupId}" segment is what populates this — Navigation
+            // The route pattern's own "{groupId}" segment is what populates this, Navigation
             // Compose parses a path placeholder as a required String argument with no separate
             // declaration needed, unlike a typed or optional one.
             val groupId = checkNotNull(backStackEntry.arguments?.getString("groupId"))
@@ -215,7 +215,7 @@ fun SpliitNavHost(
             )
             // What a full-screen form did while this screen was off the stack. The group screen
             // no longer reloads on its way back into composition, so the two results below are
-            // how it learns — and each invalidates only what its own form could have changed.
+            // how it learns, and each invalidates only what its own form could have changed.
             val savedStateHandle = backStackEntry.savedStateHandle
             val expensesChanged by savedStateHandle
                 .getStateFlow(Routes.RESULT_EXPENSES_CHANGED, false)
@@ -239,7 +239,7 @@ fun SpliitNavHost(
                 onBack = { navController.popBackStack() },
                 onAddExpense = { navController.navigate(Routes.expenseFormCreate(groupId)) },
                 onEditGroup = { navController.navigate(Routes.groupEdit(groupId)) },
-                // Editing is a sheet over this screen, not a destination — hence a ViewModel
+                // Editing is a sheet over this screen, not a destination, hence a ViewModel
                 // handed in rather than a route navigated to. Scoped to this nav entry and keyed
                 // on the expense, so it outlives the sheet: the undo offered after a delete is
                 // still its to make once the sheet has gone.
@@ -287,7 +287,7 @@ fun SpliitNavHost(
                 mode = ExpenseFormMode.Settle(
                     fromParticipantId = checkNotNull(arguments.getString("from")),
                     toParticipantId = checkNotNull(arguments.getString("to")),
-                    // Minor units, so a Long — and parsed rather than declared a NavType, since
+                    // Minor units, so a Long, and parsed rather than declared a NavType, since
                     // navigation's own LongType would need the argument declared separately from
                     // the pattern for no gain over one toLongOrNull.
                     amountMinorUnits = arguments.getString("amount")?.toLongOrNull() ?: 0L,

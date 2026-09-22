@@ -7,61 +7,39 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import java.time.Instant
 
-// The write side, where "omitted is not cleared" lives.
+// The write side. Omitted is not cleared.
 //
-// [SuperJson]'s encoder runs `explicitNulls = false` and `encodeDefaults = false`, because a key
-// absent from a request is `undefined` to tRPC and Prisma skips the column — which is what lets a
-// partial update leave everything else alone. Two consequences shape every declaration here, and
-// both fail *silently*: the request is accepted, the unit tests are green, and the column keeps
-// its old value.
+// [SuperJson] encodes with `explicitNulls = false` and `encodeDefaults = false`, so a Kotlin
+// null and a Kotlin default both mean "key absent", and an absent key leaves the column alone.
+// Nothing the server requires gets a default; `FormValuesTest` pins the full key set.
 //
-//  1. **A Kotlin `null` is an omitted field, not a JSON null.** A field that must clear something
-//     with a literal `null` is therefore typed [JsonElement] and given [JsonNull] — see
-//     [ExpenseFormValues.originalCurrency], the only conversion field whose schema accepts one.
-//  2. **A Kotlin default value is an omitted field too.** So nothing the server's schema requires
-//     is declared with a default, however obvious the value looks. `FormValuesTest` pins the full
-//     key set of a request to catch a convenience default being added later.
+// To send a literal JSON null, the field is a [JsonElement] holding [JsonNull]. Only
+// [ExpenseFormValues.originalCurrency] needs that.
 //
-// What counts as "empty" is per field, and was established against a live instance rather than
-// read off the schema:
+// What "empty" means, per field, measured against a live instance:
 //
-// | field                             | null            | `""`            | omitted          |
-// |-----------------------------------|-----------------|-----------------|------------------|
-// | `groupFormValues.information`     | 400             | clears it       | leaves it        |
-// | `groupFormValues.currencyCode`    | accepted (null) | clears it (web) | leaves it        |
-// | `expenseFormValues.originalCurrency` | **clears it** | —               | leaves it        |
-// | `expenseFormValues.originalAmount`   | **400**       | clears it       | leaves it        |
-// | `expenseFormValues.conversionRate`   | **400**       | accepted        | leaves it        |
+// | field                                | null      | `""`      | omitted   |
+// |--------------------------------------|-----------|-----------|-----------|
+// | `groupFormValues.information`        | 400       | clears    | leaves    |
+// | `groupFormValues.currencyCode`       | accepted  | clears    | leaves    |
+// | `expenseFormValues.originalCurrency` | clears    | n/a       | leaves    |
+// | `expenseFormValues.originalAmount`   | 400       | clears    | leaves    |
+// | `expenseFormValues.conversionRate`   | 400       | accepted  | leaves    |
 
-/**
- * The input `groups.create` and `groups.update` take.
- *
- * No field has a default: with `encodeDefaults = false` a default is an omission, and an omitted
- * field on an update is one the server leaves exactly as it was.
- */
+/** The input `groups.create` and `groups.update` take. No defaults: see the note above. */
 @Serializable
 public data class GroupFormValues(
     public val name: String,
-    /**
-     * The group's description. **`""` is how it is cleared** — the schema is a plain string and a
-     * JSON null is a 400, verified against a live instance.
-     */
+    /** The description. `""` clears it; a JSON null is a 400. */
     public val information: String,
     /** A free-text symbol such as "$" or "CHF". The server does not interpret it. */
     public val currency: String,
-    /**
-     * ISO-4217, or `""` for a group that has no code — which is what the web app writes when a
-     * currency is dropped, and what clears the column. A Kotlin `null` here would omit the key
-     * and leave the old code in place on an update.
-     */
+    /** ISO-4217, or `""` to clear it. Not nullable: a null would omit the key and keep the
+     *  old code on an update. */
     public val currencyCode: String,
     public val participants: List<Participant>,
 ) {
-    /**
-     * A participant as the form sends one. An absent [id] is how the server is told to create a
-     * participant rather than rename an existing one; leaving a participant out of the list
-     * entirely is how one is removed.
-     */
+    /** No [id] creates a participant; leaving one out of the list removes it. */
     @Serializable
     public data class Participant(
         public val id: String? = null,
@@ -72,21 +50,15 @@ public data class GroupFormValues(
 /**
  * The input the three `groups.expenses.*` mutations take.
  *
- * [expenseDate] is `@Contextual`, and that is load-bearing. Kotlin binds serializers at compile
- * time, so the per-call marker that produces superjson's `meta.values` reaches a field only
- * through the per-call `SerializersModule` — and only `@Contextual` consults it. Writing
- * `@Serializable(with = InstantSerializer::class)` instead compiles, decodes perfectly, leaves
- * every unit test green, and sends the date with **no annotation at all**; the server rebuilds
- * real `Date` instances from those annotations before its own validation runs.
+ * [expenseDate] must stay `@Contextual`. Kotlin binds serializers at compile time, so the
+ * per-call marker that produces superjson's `meta.values` only reaches a field through the
+ * per-call `SerializersModule`, and only `@Contextual` consults it. Annotating the field
+ * directly compiles, decodes fine, and sends the date with no annotation at all.
  *
- * **Half of that is unverified, and it is the half that bites.** Sending the annotation was
- * confirmed end to end — our encoder's own bytes were replayed at a live instance, accepted, and
- * the date stored intact. The *rejection* was not: the e2e image's zod coerces a plain ISO string
- * and answers 200 with no `meta` block at all, so no server we have observed actually enforces
- * this. The annotation is held in place by `FormValuesTest` rather than by evidence, on the
- * strength of the iOS app having hit the failure against a server we have not reproduced here
- * (and which nobody should go looking for by writing to production spliit.app). If a write ever
- * starts answering 400 about a date, this is the first thing to look at rather than the last.
+ * Caveat: sending the annotation is verified, its necessity is not. No server we have tested
+ * rejects a plain ISO string, so `FormValuesTest` is what holds this in place, on the strength
+ * of the iOS app having hit the failure elsewhere. If a write starts answering 400 about a
+ * date, look here first.
  */
 @Serializable
 public data class ExpenseFormValues(
@@ -100,11 +72,7 @@ public data class ExpenseFormValues(
     public val paidBy: String,
     public val paidFor: List<PaidFor>,
     public val splitMode: SplitMode,
-    /**
-     * Sent, validated, and never read by any procedure — the web app keeps the saved split in
-     * `localStorage` and ours lives on the recent-group row (Part 7). It is in the schema, so it
-     * is in the request.
-     */
+    /** Sent, validated, never read by any procedure. In the schema, so in the request. */
     public val saveDefaultSplittingOptions: Boolean,
     public val isReimbursement: Boolean,
     public val documents: List<ExpenseDocument>,
@@ -112,35 +80,21 @@ public data class ExpenseFormValues(
     public val notes: String? = null,
     public val recurrenceRule: RecurrenceRule,
     /**
-     * What was actually paid, in [originalCurrency]'s own minor units.
-     *
-     * Its schema is a union of a number, a numeric string and `''`, and it **answers 400 to a
-     * null** — verified against a live instance. So conversion is dropped by clearing
-     * [originalCurrency] alone and omitting this, which leaves the stored figure in place,
-     * inert: [originalCurrency] is what says an expense was converted and nothing reads the
-     * other two without it.
+     * What was actually paid, in [originalCurrency]'s minor units. Answers 400 to a null, so
+     * conversion is dropped by clearing [originalCurrency] and omitting this. The stale figure
+     * left behind is inert: nothing reads it without a currency.
      */
     public val originalAmount: Int? = null,
     /**
-     * ISO-4217 of what was actually paid, as [JsonPrimitive] — or [JsonNull] to say the expense
-     * is in the group's own currency after all.
+     * ISO-4217 of what was paid, or [JsonNull] to stop the expense being converted. The one
+     * field in the API whose schema takes a null, which is why it is not a `String?`: that
+     * would omit the key and leave the expense claiming a currency it no longer has.
      *
-     * **This is the one field in the API whose schema takes a null, and the only way to stop an
-     * expense being converted.** It cannot be a Kotlin `String?`: `explicitNulls = false` would
-     * omit the key, the server would read `undefined`, Prisma would skip the column, and an
-     * expense moved back to the group's currency would go on claiming it was paid in another.
-     *
-     * A Kotlin `null` here is therefore *not* "no original currency" — it omits the field and
-     * leaves the column alone, which is only ever what a deliberately partial update wants.
-     * [conversionCurrency] is the safe way to spell both cases.
+     * Use [conversionCurrency]; a Kotlin null here means "leave the column alone".
      */
     public val originalCurrency: JsonElement? = null,
-    /**
-     * `amount` ÷ `originalAmount`: one unit of [originalCurrency] in the group's currency.
-     *
-     * Sent as a string, which its schema accepts alongside a number — and, like
-     * [originalAmount], **it answers 400 to a null**, so it is omitted rather than cleared.
-     */
+    /** `amount` / `originalAmount`, sent as a string. Answers 400 to a null, so it is
+     *  omitted rather than cleared. */
     public val conversionRate: LenientDecimal? = null,
 ) {
     @Serializable
@@ -148,23 +102,18 @@ public data class ExpenseFormValues(
         /** Participant ID. */
         public val participant: String,
         /**
-         * Stored verbatim, and meaning two different things depending on [splitMode]: the share
-         * value ×100 for [SplitMode.EVENLY], [SplitMode.BY_SHARES] and
-         * [SplitMode.BY_PERCENTAGE] — one share is `100`, 33.5% is `3350` — whatever the
-         * currency; and a raw **minor-unit amount** for [SplitMode.BY_AMOUNT], where the entries
-         * must sum to [amount]. Part 6 computes it; this carries it unaltered.
+         * Two units in one field, decided by [splitMode]. For EVENLY, BY_SHARES and
+         * BY_PERCENTAGE it is the share value x100 (one share is `100`, 33.5% is `3350`),
+         * whatever the currency. For BY_AMOUNT it is raw minor units summing to [amount].
          */
         public val shares: Int,
     )
 
     public companion object {
         /**
-         * [originalCurrency] for an expense paid in [code], or the explicit null that clears the
-         * conversion when [code] is null.
-         *
-         * The point of the helper is that the null-ish case has to reach the wire *as* a null:
-         * writing `code?.let(::JsonPrimitive)` and stopping there gives a Kotlin null, which is
-         * omitted.
+         * [originalCurrency] for an expense paid in [code], or the explicit null that clears
+         * the conversion. Exists because `code?.let(::JsonPrimitive)` gives a Kotlin null,
+         * which is omitted rather than sent.
          */
         public fun conversionCurrency(code: String?): JsonElement =
             if (code == null) JsonNull else JsonPrimitive(code)

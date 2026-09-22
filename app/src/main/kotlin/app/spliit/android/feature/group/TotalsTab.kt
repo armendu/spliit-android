@@ -146,7 +146,7 @@ private fun TotalsContent(
         }
         item(key = "group_total") {
             Figure(
-                // A group that has taken in more than it spent is not "spending" — the caption
+                // A group that has taken in more than it spent is not "spending", the caption
                 // carries the direction so the amount below it can stay unsigned.
                 label = if (stats.totalGroupSpendings < 0) "Total group earnings" else "Total group spending",
                 minorUnits = abs(stats.totalGroupSpendings),
@@ -204,7 +204,7 @@ private fun TotalsContent(
         }
 
         // A group with no expenses has no breakdown to draw, and an instance answering the
-        // removed procedure sends none — neither is a failure, and neither gets a heading.
+        // removed procedure sends none, neither is a failure, and neither gets a heading.
         if (stats.categories.isNotEmpty()) {
             item(key = "categories_header") { SectionHeader("By category") }
             items(
@@ -229,7 +229,7 @@ private fun TotalsContent(
 }
 
 /**
- * A caption, the amount under it, and — for the two figures that are a slice of the group's —
+ * A caption, the amount under it, and, for the two figures that are a slice of the group's -
  * how big a slice.
  *
  * Unsigned, like the balance headline on the tab next door and for the same reason: the caption
@@ -315,7 +315,7 @@ private fun SummaryLine(label: String, value: String?) {
     }
 }
 
-/** The row that opens the picker, saying what it would be changing — the same three states as on
+/** The row that opens the picker, saying what it would be changing, the same three states as on
  *  the balances tab, worded the same way. */
 @Composable
 private fun IdentityRow(you: Participant?, onIdentify: () -> Unit) {
@@ -346,7 +346,7 @@ private fun IdentityRow(you: Participant?, onIdentify: () -> Unit) {
 /**
  * One category, its spend, and how much of the group that is.
  *
- * Laid out like a balance row — glyph, name, amount, bar — because it is the same shape of
+ * Laid out like a balance row, glyph, name, amount, bar, because it is the same shape of
  * statement and the two tabs sit next to each other. The percentage is not written out the way
  * it is under the two figures above: those are one number each and the caption earns its place;
  * a dozen of them down a list is noise, and the bar is what the eye is comparing anyway. A
@@ -458,7 +458,7 @@ private val summaryDateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocali
  *
  * Parsed rather than printed verbatim: they arrive as ISO `YYYY-MM-DD` and a date shown to a
  * person belongs in their locale's order. Anything that does not parse is dropped rather than
- * guessed at — the range is a nicety, and a wrong date is worse than no date.
+ * guessed at, the range is a nicety, and a wrong date is worse than no date.
  */
 private fun dateRangeText(firstDate: String?, lastDate: String?): String? {
     val first = firstDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null

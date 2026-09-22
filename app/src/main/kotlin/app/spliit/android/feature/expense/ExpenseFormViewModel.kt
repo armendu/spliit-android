@@ -32,7 +32,7 @@ import app.spliit.api.SplitMode as ApiSplitMode
 import app.spliit.core.Participant as CoreParticipant
 
 /**
- * What this screen was opened to do — iOS's `ExpenseFormView.Mode` plus the settle-up case its
+ * What this screen was opened to do, iOS's `ExpenseFormView.Mode` plus the settle-up case its
  * group screen expresses by handing the form a prefilled draft.
  *
  * [Settle] is a *create*, not a mode of its own on the wire: Spliit has no "mark as paid", so a
@@ -58,7 +58,7 @@ sealed interface ExpenseFormMode {
  * An expense that has just been deleted, kept for exactly as long as the undo is on offer.
  *
  * **The server has no undelete.** `groups.expenses.delete` removes the row, and nothing brings
- * that row back — so undo re-creates the expense from the values it was deleted with and it
+ * that row back, so undo re-creates the expense from the values it was deleted with and it
  * comes back under a new ID. Everything a reader sees is restored; the activity log, honestly,
  * records a delete and a create.
  */
@@ -73,7 +73,7 @@ data class ExpenseFormUiState(
     val loadError: String? = null,
     val group: GroupInfo? = null,
     val categories: List<ApiCategory> = emptyList(),
-    /** Null until the group — and, when editing, the expense — have arrived. */
+    /** Null until the group, and, when editing, the expense, have arrived. */
     val draft: ExpenseFormDraft? = null,
     /**
      * Whether a save has been attempted. Problems are drawn only after one: a form that turns
@@ -82,9 +82,9 @@ data class ExpenseFormUiState(
     val hasAttemptedSave: Boolean = false,
     val isSaving: Boolean = false,
     val saveError: String? = null,
-    /** Whether anything has been changed since the form opened — what makes a back gesture ask. */
+    /** Whether anything has been changed since the form opened, what makes a back gesture ask. */
     val isDirty: Boolean = false,
-    /** Set once the write has actually gone through — the screen's cue to leave. */
+    /** Set once the write has actually gone through, the screen's cue to leave. */
     val savedExpenseId: String? = null,
     /** Set between a delete and the moment its undo stops being on offer. */
     val deleted: DeletedExpense? = null,
@@ -93,7 +93,7 @@ data class ExpenseFormUiState(
 ) {
     val isEditing: Boolean get() = mode is ExpenseFormMode.Edit
 
-    /** The problems one field should draw — [ExpenseFormDraft]'s, never a second opinion. */
+    /** The problems one field should draw, [ExpenseFormDraft]'s, never a second opinion. */
     fun problems(field: ExpenseFormDraft.Field): List<ExpenseFormDraft.Problem> =
         if (!hasAttemptedSave) emptyList() else draft?.problems(field).orEmpty()
 
@@ -107,7 +107,7 @@ data class ExpenseFormUiState(
  *
  * **Every rule about what an expense is worth and how it divides lives in [ExpenseFormDraft].**
  * This class holds one, drives the calls around it, and resolves the two things `:core` cannot
- * know on its own — which instance the group is on, and which participant is making the write,
+ * know on its own, which instance the group is on, and which participant is making the write,
  * for the activity log. There is no arithmetic here, and no second validator: the screen renders
  * `draft.problems(field)`.
  */
@@ -136,12 +136,12 @@ class ExpenseFormViewModel(
     private var documents: List<ExpenseDocument> = emptyList()
 
     /**
-     * Loads the group and, when editing, the expense — **once**.
+     * Loads the group and, when editing, the expense, **once**.
      *
      * Deliberately not the group screen's "reload on every composition": that screen is a read,
      * and re-reading it is how it catches up after this form has written something. This one
      * holds what the user is typing, and the composition it is called from runs again on every
-     * configuration change — a rotation, or the system flipping to dark. Reloading there would
+     * configuration change, a rotation, or the system flipping to dark. Reloading there would
      * rebuild the draft from the server and throw away the half-written expense, which is
      * exactly what happened before this guard existed.
      *
@@ -160,14 +160,14 @@ class ExpenseFormViewModel(
      * Re-arms the form for another open of the same expense.
      *
      * The edit sheet's ViewModel is keyed on the expense and scoped to the group screen's nav
-     * entry, so it outlives the sheet — which is the whole point: the undo offered after a
+     * entry, so it outlives the sheet, which is the whole point: the undo offered after a
      * delete is still this instance's to make once the sheet has gone. The cost is that a second
      * open would otherwise inherit the first one's ending, and there are two ways that goes
      * wrong: a [savedExpenseId] left set closes the sheet the instant it opens, and a draft left
      * holding edits somebody *discarded* comes back as if they had not been.
      *
      * So the state goes back to the shape it had before [load] and the expense is read again.
-     * That read is one `groups.expenses.get` — the form needs the notes, the shares and the
+     * That read is one `groups.expenses.get`, the form needs the notes, the shares and the
      * conversion, none of which a list row carries. What it deliberately does not do is make the
      * group screen behind it reload: see [app.spliit.android.feature.group.GroupDetailViewModel].
      */
@@ -176,7 +176,7 @@ class ExpenseFormViewModel(
         viewModelScope.launch { refresh() }
     }
 
-    /** [reopen]'s reset, without the read — public, like [refresh], so a test can drive the two
+    /** [reopen]'s reset, without the read, public, like [refresh], so a test can drive the two
      *  in sequence without a Main-dispatcher rule. */
     fun rearm() {
         initialDraft = null
@@ -184,7 +184,7 @@ class ExpenseFormViewModel(
         _state.value = ExpenseFormUiState(mode = _state.value.mode)
     }
 
-    /** The actual load — public, like the other ViewModels', so tests drive it without a
+    /** The actual load, public, like the other ViewModels', so tests drive it without a
      *  Main-dispatcher rule. */
     suspend fun refresh() {
         _state.update { it.copy(isLoading = true, loadError = null) }
@@ -261,7 +261,7 @@ class ExpenseFormViewModel(
      * The category list, or none at all.
      *
      * Failing to read the catalogue costs the form its category chips and nothing else, so it
-     * must not cost it the whole screen — an instance that answers `categories.list` with
+     * must not cost it the whole screen, an instance that answers `categories.list` with
      * anything unexpected would otherwise make every expense on it unopenable.
      */
     private suspend fun loadCategories(client: TrpcClient): List<ApiCategory> =
@@ -304,7 +304,7 @@ class ExpenseFormViewModel(
                 participants = participants,
                 groupCurrencyCode = group.currencyCode,
                 // A remembered participant who has since left falls back to the first, rather
-                // than prefilling the form as somebody who is gone — creating()'s own rule.
+                // than prefilling the form as somebody who is gone, creating()'s own rule.
                 paidBy = rememberedParticipantId,
                 defaultSplit = defaultSplit,
                 locale = locale,
@@ -466,7 +466,7 @@ class ExpenseFormViewModel(
         viewModelScope.launch { submitUndoDelete() }
     }
 
-    /** Writes the deleted expense back. It returns under a new ID — see [DeletedExpense]. */
+    /** Writes the deleted expense back. It returns under a new ID, see [DeletedExpense]. */
     suspend fun submitUndoDelete(): Boolean {
         val current = _state.value
         val deleted = current.deleted ?: return false
@@ -493,7 +493,7 @@ class ExpenseFormViewModel(
         }
     }
 
-    /** The undo has gone by — the delete stands and the screen can close. */
+    /** The undo has gone by, the delete stands and the screen can close. */
     fun dismissDeleted() = _state.update { it.copy(deleted = null, isFinished = true) }
 
     fun dismissSaveError() = _state.update { it.copy(saveError = null) }
@@ -508,7 +508,7 @@ class ExpenseFormViewModel(
      *
      * Read fresh from the store rather than cached at load: the active-user picker sits one
      * screen away and can have been answered since. Null both before anybody has answered and
-     * once the remembered answer has left the group — [RecentGroupsSnapshot.actorId]'s own rule,
+     * once the remembered answer has left the group, [RecentGroupsSnapshot.actorId]'s own rule,
      * because a write must never claim to be someone who is gone.
      */
     private suspend fun actorId(group: GroupInfo): String? = try {
@@ -539,7 +539,7 @@ class ExpenseFormViewModel(
     /**
      * `:core`'s submission as the wire wants it.
      *
-     * Everything here is a copy — [ExpenseSubmission.Wire] has already settled the widths and the
+     * Everything here is a copy, [ExpenseSubmission.Wire] has already settled the widths and the
      * three spellings of "empty", including the explicit JSON null that drops a conversion.
      * `notes` stays a Kotlin `String?`, which `explicitNulls = false` **omits**: the schema
      * answers 400 to a literal null (verified against a live server), so this must not be

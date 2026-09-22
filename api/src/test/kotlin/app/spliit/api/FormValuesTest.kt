@@ -78,7 +78,7 @@ class FormValuesTest {
      * The test that proves `expenseDate` is declared `@Contextual`.
      *
      * Kotlin binds serializers at compile time, so the per-call marker that produces
-     * `meta.values` reaches a field only through the per-call `SerializersModule` — and only
+     * `meta.values` reaches a field only through the per-call `SerializersModule`, and only
      * `@Contextual` consults it. Naming `InstantSerializer` on the field instead compiles,
      * decodes perfectly, keeps every other test green, and sends the date with no `meta` block at
      * all. The server rebuilds real `Date` instances before its own validation runs.
@@ -108,7 +108,7 @@ class FormValuesTest {
     /**
      * Verified against a live instance: `originalCurrency: null` answers 200 and clears the
      * column, while omitting it leaves whatever was there. Typed as a Kotlin `String?` it would
-     * be omitted — the encoder runs `explicitNulls = false` — and an expense moved back to the
+     * be omitted, the encoder runs `explicitNulls = false`, and an expense moved back to the
      * group's own currency would go on claiming it was paid in another.
      */
     @Test
@@ -141,7 +141,7 @@ class FormValuesTest {
     }
 
     /**
-     * Verified against a live instance: null answers 400 for both of these — their zod schema is
+     * Verified against a live instance: null answers 400 for both of these, their zod schema is
      * a union of a number, a numeric string and `''`. Omitting them leaves the stored values
      * alone, which is harmless: `originalCurrency` is what says an expense was converted, and
      * nothing reads the other two without it.
@@ -189,8 +189,8 @@ class FormValuesTest {
 
     @Test
     fun `a paid-for entry names the participant by id and carries its shares verbatim`() {
-        // The shares value means different things under different split modes — ×100 for EVENLY,
-        // BY_SHARES and BY_PERCENTAGE, minor units for BY_AMOUNT — and the model's job is to
+        // The shares value means different things under different split modes, ×100 for EVENLY,
+        // BY_SHARES and BY_PERCENTAGE, minor units for BY_AMOUNT, and the model's job is to
         // carry whatever Part 6 computed, unaltered.
         val body = SuperJson.encodeEnvelope(ExpenseFormValues.serializer(), expenseForm())
 
@@ -216,8 +216,8 @@ class FormValuesTest {
     }
 
     /**
-     * Verified against a live instance: `information: null` answers 400 — the schema is a plain
-     * string — while `""` is accepted and clears the text.
+     * Verified against a live instance: `information: null` answers 400, the schema is a plain
+     * string, while `""` is accepted and clears the text.
      */
     @Test
     fun `cleared information is sent as an empty string`() {

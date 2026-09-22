@@ -7,7 +7,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-/** A fixed clock, since bucketing must never consult the system clock or zone — see DateBuckets.kt. */
+/** A fixed clock, since bucketing must never consult the system clock or zone, see DateBuckets.kt. */
 private fun clockAt(instant: String, zone: ZoneId): Clock =
     Clock.fixed(Instant.parse(instant), zone)
 
@@ -85,7 +85,7 @@ class DateBucketsTest {
     // ---- the zone must actually be respected, not merely accepted ------------------------
 
     /**
-     * Kiritimati (UTC+14) and Niue (UTC-11) are 25 hours apart — the widest spread of real IANA
+     * Kiritimati (UTC+14) and Niue (UTC-11) are 25 hours apart, the widest spread of real IANA
      * zones. The same instant is "today" on one and "yesterday" on the other, which is exactly
      * the case a hard-coded UTC or system-default zone would get wrong.
      */
@@ -114,14 +114,14 @@ class DateBucketsTest {
      * The same UTC instant lands in different buckets under the two zones, at a fixed "now".
      *
      * now = 2025-06-15T04:00:00Z is 2025-06-15T18:00 local in Kiritimati (today = the 15th) and
-     * 2025-06-14T17:00 local in Niue (today = the 14th) — the 25-hour gap already puts the two
+     * 2025-06-14T17:00 local in Niue (today = the 14th), the 25-hour gap already puts the two
      * zones a calendar day apart on "today" alone.
      *
-     * target = 2025-06-13T10:30:00Z is 2025-06-14T00:30 local in Kiritimati — the 14th, one day
-     * before Kiritimati's "today", so [DateBucket.YESTERDAY] there — and 2025-06-12T23:30 local
-     * in Niue — the 12th, two days before Niue's "today" but still inside the same ISO week
+     * target = 2025-06-13T10:30:00Z is 2025-06-14T00:30 local in Kiritimati, the 14th, one day
+     * before Kiritimati's "today", so [DateBucket.YESTERDAY] there, and 2025-06-12T23:30 local
+     * in Niue, the 12th, two days before Niue's "today" but still inside the same ISO week
      * (Mon the 9th .. Sun the 15th), so [DateBucket.EARLIER_THIS_WEEK] there. One instant, one
-     * "now", two different answers — which is only possible if the zone is actually consulted.
+     * "now", two different answers, which is only possible if the zone is actually consulted.
      */
     @Test
     fun `zone changes which bucket a fixed instant falls into`() {

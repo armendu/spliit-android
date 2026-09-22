@@ -15,7 +15,7 @@ import androidx.compose.ui.test.junit4.ComposeTestRule
  * CLAUDE.md keeps this on its list for a reason the iOS suite paid for: an unbounded loop turned
  * a missing element into a CI job that swiped for forty minutes and then failed anyway. Every
  * helper here takes a timeout, defaults to a modest one, and fails with the tag it was looking
- * for rather than with a generic timeout — the tag is the only thing that makes the failure
+ * for rather than with a generic timeout, the tag is the only thing that makes the failure
  * readable months later.
  *
  * The default is generous by unit-test standards and deliberately so: these run against a real
@@ -24,7 +24,7 @@ import androidx.compose.ui.test.junit4.ComposeTestRule
  */
 private const val DEFAULT_TIMEOUT_MS = 10_000L
 
-/** Any one of [tags] — for a screen that shows one control or another depending on state. */
+/** Any one of [tags], for a screen that shows one control or another depending on state. */
 internal fun hasAnyTag(vararg tags: String): SemanticsMatcher =
     tags.map { hasTestTag(it) }.reduce { left, right -> left or right }
 
@@ -32,7 +32,7 @@ internal fun hasAnyTag(vararg tags: String): SemanticsMatcher =
  * Waits for whichever of [tags] turns up first.
  *
  * A helper rather than a bare `waitUntilAtLeastOneExists(hasAnyTag(…))` at the call site,
- * because Compose's own default timeout for that function is **one second** — short enough that
+ * because Compose's own default timeout for that function is **one second**, short enough that
  * a first network round trip loses to it, and the resulting failure blames the assertion rather
  * than the wait. Going through here is what applies this file's timeout instead.
  */
@@ -66,7 +66,7 @@ internal fun ComposeTestRule.waitUntilTextExists(
 }
 
 /**
- * Whether a node is there *right now* — no waiting, no failure if it is not.
+ * Whether a node is there *right now*, no waiting, no failure if it is not.
  *
  * Used for the "one control or the other" branch, where both outcomes are legitimate and
  * asserting either one would be wrong.
@@ -78,7 +78,7 @@ internal fun SemanticsNodeInteractionsProvider.exists(tag: String): Boolean =
  * The dashboard row for a group, whichever group it is.
  *
  * A row's tag carries the server-generated group ID, which a test that *created* the group has
- * no way of knowing — the ID never reaches the UI in a readable form. Matching the prefix would
+ * no way of knowing, the ID never reaches the UI in a readable form. Matching the prefix would
  * be enough if the row were the only thing tagged with it, but every part of a row is:
  * `groups_list_row_name_…`, `…_menu_…` and the rest all start the same way, and two of those are
  * clickable. Hence the explicit exclusion list rather than a prefix match plus `hasClickAction`.
@@ -97,7 +97,7 @@ internal fun isGroupRow(): SemanticsMatcher {
 }
 
 /**
- * Waits for a node to go away — the sheet closing, a spinner clearing.
+ * Waits for a node to go away, the sheet closing, a spinner clearing.
  *
  * "Gone" is often the only signal an operation finished that a screen actually gives. Creating a
  * group is the case here: the sheet dismisses itself on success, and waiting for what comes
@@ -112,7 +112,7 @@ internal fun ComposeTestRule.waitUntilGone(tag: String, timeoutMillis: Long = DE
  * The tag of the participant row that currently has no name in it.
  *
  * Participant rows are tagged by their **position**, and the form sorts them by name
- * (`GroupFormDraft.sortedParticipants`) — so a row moves the moment somebody types into it, and
+ * (`GroupFormDraft.sortedParticipants`), so a row moves the moment somebody types into it, and
  * a freshly added blank one lands wherever the empty string collates. Typing into
  * `participant_field_1` because it was the second row added therefore puts the text in whichever
  * row happens to be second *now*, which during this test was the row already holding "Ana".
@@ -129,7 +129,7 @@ internal fun ComposeTestRule.blankParticipantFieldTag(): String {
         node.config.getOrNull(SemanticsProperties.EditableText)?.text.isNullOrEmpty()
     }
     return requireNonNull(blank?.config?.getOrNull(SemanticsProperties.TestTag)) {
-        "No blank participant row on the form — every row already has a name."
+        "No blank participant row on the form, every row already has a name."
     }
 }
 

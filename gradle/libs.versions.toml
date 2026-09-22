@@ -1,6 +1,6 @@
 # The single place a version number is written down.
 #
-# Nothing else in the build declares one — not a build script, not a dependency line. If you
+# Nothing else in the build declares one, not a build script, not a dependency line. If you
 # find yourself typing a version anywhere but here, the answer is an alias here instead. That
 # is what makes "what are we on?" a question with one answer, and an upgrade a one-line diff.
 
@@ -17,16 +17,16 @@ compileSdkMinor = "1"
 minSdk = "26"
 targetSdk = "37"
 
-# The app's own version — the one a release is tagged with and the one a downloaded APK reports
+# The app's own version, the one a release is tagged with and the one a downloaded APK reports
 # under Settings > Apps. `appVersionName` is the human one and must match the `vX.Y.Z` git tag a
 # release is cut from; .github/workflows/release.yml refuses to build if the two disagree, which
 # is what stops a tag saying one thing and the installed app another. `appVersionCode` is the
-# integer Android compares when deciding whether an APK is an upgrade, so it only ever goes up —
+# integer Android compares when deciding whether an APK is an upgrade, so it only ever goes up -
 # including for a release that changes nothing else.
 appVersionName = "0.1.0"
 appVersionCode = "1"
 
-# :api — the tRPC transport. OkHttp stands in for URLSession, kotlinx-serialization for Codable.
+# :api, the tRPC transport. OkHttp stands in for URLSession, kotlinx-serialization for Codable.
 okhttp = "5.5.0"
 kotlinxSerialization = "1.11.0"
 kotlinxCoroutines = "1.11.0"
@@ -39,7 +39,7 @@ junit = "6.1.3"
 androidxTestJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
 
-# :app — Compose and the AndroidX pieces around it.
+# :app, Compose and the AndroidX pieces around it.
 composeBom = "2026.09.00"
 activityCompose = "1.13.0"
 navigationCompose = "2.10.1"
@@ -70,7 +70,7 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
-# viewModelScope — used by Part 10's ViewModels to launch their suspend work.
+# viewModelScope, used by Part 10's ViewModels to launch their suspend work.
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 
@@ -86,8 +86,8 @@ androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling
 [plugins]
 # There is deliberately no `kotlin-android` alias. AGP 9 compiles Kotlin itself and applying
 # `org.jetbrains.kotlin.android` alongside it is a hard build failure, not a deprecation
-# warning. :app therefore applies only the two below. `kotlin-jvm` is still needed — and only
-# needed — by :api and :core, which have no AGP to bring Kotlin with it.
+# warning. :app therefore applies only the two below. `kotlin-jvm` is still needed, and only
+# needed, by :api and :core, which have no AGP to bring Kotlin with it.
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

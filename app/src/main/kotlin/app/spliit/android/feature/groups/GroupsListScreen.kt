@@ -79,21 +79,21 @@ import app.spliit.android.ui.design.Monogram
 import app.spliit.core.LoadState
 
 /** DESIGN.md §3: "Cards and surfaces" are 16dp radius, `surface-container-lowest` with a 1dp
- *  `border-subtle` (M3's `outline`) hairline — Level 1, the one step up from the bare canvas. */
+ *  `border-subtle` (M3's `outline`) hairline, Level 1, the one step up from the bare canvas. */
 private val CardShape = RoundedCornerShape(16.dp)
 
 /**
  * The home screen: the groups this phone remembers, in three sections, with participant counts
  * fetched from the instance each one lives on.
  *
- * The list itself is local — Spliit has no accounts — so it renders from the stored snapshot
+ * The list itself is local, Spliit has no accounts, so it renders from the stored snapshot
  * immediately and the server detail fills in; a server that cannot be reached costs its own
  * groups their detail, never the whole screen (see [GroupsListViewModel]).
  *
  * Everything that can be done *to* a group lives in one menu per row, reached by a long press or
  * by the row's own overflow button. A swipe was the other option and is what iOS uses; two
  * affordances for three actions, one of them irreversible, is more surface than this screen
- * needs, and a menu is the Android idiom for "the things this row can do" — it also names the
+ * needs, and a menu is the Android idiom for "the things this row can do", it also names the
  * actions instead of asking anyone to learn a colour.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -118,14 +118,14 @@ fun GroupsListScreen(
 
     // Creating a group is a sheet over this screen rather than a destination, so the form's
     // ViewModel lives as long as the dashboard does and has to be put back to a blank draft each
-    // time — including re-reading the *current* default instance, which Settings can have changed
+    // time, including re-reading the *current* default instance, which Settings can have changed
     // since the app launched. The same shape as addGroupViewModel.reset() beside it.
     val openCreateSheet = {
         createGroupViewModel.resetForCreate(AppSettingsHolder.defaultInstanceBaseUrl)
         isCreateSheetOpen = true
     }
 
-    // Reruns whenever this screen is freshly composed — including on the way back from creating a
+    // Reruns whenever this screen is freshly composed, including on the way back from creating a
     // group, when the ViewModel itself (scoped to the nav entry, so it survives) would otherwise
     // keep showing what it loaded before. See GroupsListViewModel.load's own note.
     LaunchedEffect(Unit) { viewModel.load() }
@@ -150,7 +150,7 @@ fun GroupsListScreen(
         topBar = {
             TopAppBar(
                 // The one screen that is the app itself rather than a group, an expense or a
-                // form — the wordmark sits where the title would, fixed-size so the bar (a fixed
+                // form, the wordmark sits where the title would, fixed-size so the bar (a fixed
                 // height) never clips it as text scales. "Spliit" is still what a screen reader
                 // hears, via the wordmark's own text.
                 title = { SpliitWordmark() },
@@ -158,7 +158,7 @@ fun GroupsListScreen(
                     // Three entry points, each one tap, none of them the same instruction twice:
                     // the FAB creates, this joins a group somebody sent, and the overflow holds
                     // what is not a daily action. "Create group" deliberately does NOT appear in
-                    // a menu as well as on the FAB — the empty state already taught that lesson.
+                    // a menu as well as on the FAB, the empty state already taught that lesson.
                     IconButton(
                         onClick = {
                             addGroupViewModel.reset()
@@ -180,7 +180,7 @@ fun GroupsListScreen(
                             Icon(painterResource(R.drawable.ic_more_vert), contentDescription = null)
                         }
                         // iOS offers "Add by QR code" too. It needs the camera and a barcode
-                        // decoder, and cycle 1 defers both — an item that opens nothing is worse
+                        // decoder, and cycle 1 defers both, an item that opens nothing is worse
                         // than one that is not there, so it is left out rather than disabled.
                         DropdownMenu(expanded = isAddMenuOpen, onDismissRequest = { isAddMenuOpen = false }) {
                             DropdownMenuItem(
@@ -208,7 +208,7 @@ fun GroupsListScreen(
             // link somebody sent them.
             val dashboard = (state as? LoadState.Loaded)?.value
             if (dashboard != null && !dashboard.isEmpty) {
-                // Colour, shape, description and tooltip all come from SpliitFab — one
+                // Colour, shape, description and tooltip all come from SpliitFab, one
                 // definition, so this FAB and the group screen's cannot drift into two greens
                 // again, which is exactly what happened when only one of them passed its colours.
                 SpliitFab(
@@ -223,7 +223,7 @@ fun GroupsListScreen(
         Crossfade(
             targetState = state,
             animationSpec = tween(durationMillis = 220, easing = EaseInOut),
-            // Top only — the list below adds the navigation-bar inset to its own content padding
+            // Top only, the list below adds the navigation-bar inset to its own content padding
             // so it scrolls under the bar rather than stopping above it. See ExpensesTab.
             modifier = Modifier.padding(top = contentPadding.calculateTopPadding()).fillMaxSize(),
             label = "groups_list_content",
@@ -271,8 +271,8 @@ fun GroupsListScreen(
                                 ) {
                                     Text("Create group")
                                 }
-                                // The other half of the same decision — somebody else made the
-                                // group and this is how you get into it — rather than a second
+                                // The other half of the same decision, somebody else made the
+                                // group and this is how you get into it, rather than a second
                                 // thing to weigh up, so it is the quieter of the two.
                                 TextButton(
                                     onClick = {
@@ -333,7 +333,7 @@ fun GroupsListScreen(
     }
 }
 
-/** Centres short content vertically, and falls back to scrolling it when it doesn't fit — the
+/** Centres short content vertically, and falls back to scrolling it when it doesn't fit, the
  *  largest accessibility text sizes can make a title, a description and a button taller than the
  *  screen, and an empty state whose only action has fallen off the bottom is worse than none. */
 @Composable
@@ -388,7 +388,7 @@ private fun GroupsList(
         // nothing archived looks exactly as it did before either existed.
         groupSection("Starred", dashboard.starred, onGroupClick, onSetStarred, onSetArchived, onRemove)
         groupSection(
-            // Named only when it is not the whole list — a lone "Recent groups" header over
+            // Named only when it is not the whole list, a lone "Recent groups" header over
             // everything on the screen labels nothing.
             if (dashboard.starred.isEmpty() && dashboard.archived.isEmpty()) null else "Recent groups",
             dashboard.recent,
@@ -433,7 +433,7 @@ private fun LazyListScope.groupSection(
 }
 
 /** DESIGN.md §2: `label-sm` is the bucket-header style, and §3 asks for more space above a
- *  heading than below it — a heading belongs to what follows. */
+ *  heading than below it, a heading belongs to what follows. */
 @Composable
 private fun SectionHeader(label: String, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(
@@ -525,7 +525,7 @@ private fun GroupRow(
             )
             DropdownMenuItem(
                 // "Remove" on its own sounds like it deletes the group for everybody. It only
-                // takes it off this list — but with no account and no other record, the link is
+                // takes it off this list, but with no account and no other record, the link is
                 // the only way back, which is why this one is offered with an undo.
                 text = { Text("Remove from this list") },
                 onClick = {
@@ -539,7 +539,7 @@ private fun GroupRow(
 }
 
 /**
- * The row's metadata line: icon-led pairs, wrapping rather than truncating — iOS's own `GroupRow`
+ * The row's metadata line: icon-led pairs, wrapping rather than truncating, iOS's own `GroupRow`
  * draws the same two pairs with `Label(_, systemImage:)`, wrapped by an `AdaptiveHStack`. At the
  * largest accessibility text sizes three pairs will not fit on one line, and a truncated
  * participant count is worse than a row that grows a second line, so [FlowRow] rather than a
@@ -566,13 +566,13 @@ private fun GroupMetadataRow(group: GroupListItem) {
                 // The visible text is abbreviated ("14 Sep 2026") and leans on the calendar icon
                 // for "this is a date" context. The icon itself is contentDescription = null (see
                 // IconTextPair), so a screen reader has none of that context unless the text
-                // supplies it — hence a fuller, prefixed string here rather than the visible one.
+                // supplies it, hence a fuller, prefixed string here rather than the visible one.
                 contentDescription = createdDateContentDescription(createdAt),
             )
         }
         // No server here, deliberately. It used to appear for any group not on the current
         // default, and on a phone it wrapped the row onto a second line for the one fact most
-        // people never need. The group's server has not gone anywhere — the group's own
+        // people never need. The group's server has not gone anywhere, the group's own
         // **Information** tab states it, and the create form's **Advanced** section is where it
         // is chosen. The cost, which is real: two groups of the same name on two servers are
         // indistinguishable in this list until one of them is opened.
@@ -580,10 +580,10 @@ private fun GroupMetadataRow(group: GroupListItem) {
 }
 
 /**
- * One glyph-and-caption pair — the participant count or the created date.
+ * One glyph-and-caption pair, the participant count or the created date.
  *
  * The icon is decorative: [Icon]'s own `contentDescription` is always null, because the text right
- * next to it already says what it is — a screen reader hearing "image, 3 participants, image, 14
+ * next to it already says what it is, a screen reader hearing "image, 3 participants, image, 14
  * September 2026" says the same thing twice for no benefit. Sized to the caption text (14dp against
  * `bodySmall`'s ~12sp) and aligned to its *baseline* rather than centred in the row: centring
  * against a taller sibling in the same [FlowRow] line is what makes a small icon look like it is
@@ -626,11 +626,11 @@ private val createdDateFormatterLong: DateTimeFormatter = DateTimeFormatter.ofLo
 private fun createdDateText(createdAt: Instant): String =
     createdAt.atZone(ZoneId.systemDefault()).toLocalDate().format(createdDateFormatterMedium)
 
-/** The fuller, unabbreviated form for the icon-less accessible string — see [IconTextPair]. */
+/** The fuller, unabbreviated form for the icon-less accessible string, see [IconTextPair]. */
 private fun createdDateContentDescription(createdAt: Instant): String =
     "Created " + createdAt.atZone(ZoneId.systemDefault()).toLocalDate().format(createdDateFormatterLong)
 
-/** An instance that did not answer costs its own groups a count, not their row — so the count is
+/** An instance that did not answer costs its own groups a count, not their row, so the count is
  *  the thing that goes missing, and the note above the list says which server owes it. */
 private fun participantsLabel(count: Int?): String = when (count) {
     null -> "…"
@@ -690,7 +690,7 @@ private fun GroupRowSkeleton() {
 }
 
 /**
- * Spliit has no bespoke wordmark asset yet — the launcher icon's own comment says the same. This
+ * Spliit has no bespoke wordmark asset yet, the launcher icon's own comment says the same. This
  * is a text stand-in, fixed at a fixed visual size (via `LocalDensity`, not `sp`) so it never
  * grows past the app bar's own fixed height, and can be replaced with real mark art without
  * touching the call site, the same way [app.spliit.android.ui.design.CategoryIcon] documents for

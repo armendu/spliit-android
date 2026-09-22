@@ -15,7 +15,7 @@ import kotlinx.serialization.json.JsonNull
 
 /**
  * One call to the Spliit API: which procedure, whether it reads or writes, and the input it
- * carries. [TrpcClient] is the only thing that reads these fields — everything about turning
+ * carries. [TrpcClient] is the only thing that reads these fields, everything about turning
  * them into bytes on the wire lives there, not here.
  */
 public class TrpcProcedure<I, O> private constructor(
@@ -66,7 +66,7 @@ public class TrpcProcedure<I, O> private constructor(
  * Input for a procedure that takes none.
  *
  * [TrpcClient] recognizes this singleton by reference and, for a [TrpcProcedure.Kind.Query],
- * omits the `input` query parameter entirely rather than sending an encoded null — the two are
+ * omits the `input` query parameter entirely rather than sending an encoded null, the two are
  * different requests to a tRPC router. A [TrpcProcedure.Kind.Mutation] still needs a body, so it
  * sends this encoded as `{"json":null}` the same as any other input would be.
  */
@@ -75,7 +75,7 @@ public object NoInput
 
 internal object NoInputSerializer : KSerializer<NoInput> {
     // Nominal, like TrpcVoidSerializer's: this type is never read back, only ever written (or,
-    // for a query, not written at all — see NoInput's own doc).
+    // for a query, not written at all, see NoInput's own doc).
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("app.spliit.api.NoInput", PrimitiveKind.STRING)
 

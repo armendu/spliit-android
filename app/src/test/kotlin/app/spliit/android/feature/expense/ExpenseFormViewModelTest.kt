@@ -60,7 +60,7 @@ private val CATEGORIES_JSON = """
     {"id":8,"grouping":"Food and Drink","name":"Dining Out"}]}
 """.trimIndent()
 
-/** An expense as `groups.expenses.get` answers it — every field the form round-trips. */
+/** An expense as `groups.expenses.get` answers it, every field the form round-trips. */
 private val EXPENSE_JSON = """
     {"expense":{"id":"e1","groupId":"$GROUP_ID","title":"Dinner","amount":3000,"categoryId":8,
     "category":{"id":8,"grouping":"Food and Drink","name":"Dining Out"},
@@ -160,7 +160,7 @@ class ExpenseFormViewModelTest {
         assertEquals("MONTHLY", draft.recurrenceRule)
         assertFalse(draft.isReimbursement)
         assertEquals(Instant.parse("2025-06-01T00:00:00Z"), draft.expenseDate)
-        // Two of the three were paid for, at 1 and 2 shares — `shares` is ×100 in this mode.
+        // Two of the three were paid for, at 1 and 2 shares, `shares` is ×100 in this mode.
         assertEquals(listOf(true, true, false), draft.participants.map { it.isIncluded })
         assertEquals(listOf("1", "2", "1"), draft.participants.map { it.valueText })
         // The expense the row named, not whichever one the server felt like.
@@ -255,7 +255,7 @@ class ExpenseFormViewModelTest {
         // The remembered participant is who a new expense is paid by until somebody says otherwise.
         assertEquals("p2", values.getValue("paidBy").jsonPrimitive.content)
         // A conversion that was never started is an explicit null, and the two figures that go
-        // with it are omitted rather than blanked — see ExpenseSubmission.Wire.
+        // with it are omitted rather than blanked, see ExpenseSubmission.Wire.
         assertEquals(JsonNull, values.getValue("originalCurrency"))
         assertFalse(values.containsKey("originalAmount"))
         assertFalse(values.containsKey("conversionRate"))
@@ -274,7 +274,7 @@ class ExpenseFormViewModelTest {
         viewModel.setAmountText("21.00")
         assertTrue(viewModel.submit())
 
-        // Omitted, so the log says "Someone" — which is exactly what is known. A write must never
+        // Omitted, so the log says "Someone", which is exactly what is known. A write must never
         // claim to be a participant who has left.
         assertFalse(router.input("groups.expenses.create").containsKey("participantId"))
         // And the payer falls back to the first participant rather than naming the stranger.
@@ -311,7 +311,7 @@ class ExpenseFormViewModelTest {
 
         viewModel.refresh()
 
-        // Not trimmed to a 70% split nobody chose — back to the group's plain default.
+        // Not trimmed to a 70% split nobody chose, back to the group's plain default.
         val draft = checkNotNull(viewModel.state.value.draft)
         assertEquals(SplitMode.EVENLY, draft.splitMode)
         assertEquals(3, draft.includedParticipants.size)
@@ -380,7 +380,7 @@ class ExpenseFormViewModelTest {
         viewModel.setSplitMode(SplitMode.BY_AMOUNT)
 
         val draft = checkNotNull(viewModel.state.value.draft)
-        // The selection survives the change — who paid has nothing to do with how it divides.
+        // The selection survives the change, who paid has nothing to do with how it divides.
         assertEquals(listOf("p1", "p2"), draft.includedParticipants.map { it.id })
         // And the amounts arrive already adding up to the expense.
         assertEquals(listOf("5.00", "5.00"), draft.includedParticipants.map { it.valueText })
@@ -399,7 +399,7 @@ class ExpenseFormViewModelTest {
         viewModel.refresh()
         viewModel.setAmountText("10.00")
 
-        // A third of 10.00 is 334 / 333 / 333, not 333.33 three times — `:core`'s apportionment,
+        // A third of 10.00 is 334 / 333 / 333, not 333.33 three times, `:core`'s apportionment,
         // which the breakdown list draws straight from.
         val amounts = checkNotNull(viewModel.state.value.draft).splitAmounts()
         assertEquals(listOf(334L, 333L, 333L), amounts.map { it.amount })
@@ -472,7 +472,7 @@ class ExpenseFormViewModelTest {
         val deleted = checkNotNull(viewModel.state.value.deleted)
         assertEquals("Dinner", deleted.title)
 
-        // The server has no undelete, so undo re-creates it — under a new ID, and carrying the
+        // The server has no undelete, so undo re-creates it, under a new ID, and carrying the
         // same participantId so the log credits the same person.
         assertTrue(viewModel.submitUndoDelete())
         val recreated = router.input("groups.expenses.create")
@@ -507,7 +507,7 @@ class ExpenseFormViewModelTest {
         viewModel.refresh()
         viewModel.setTitle("Half-written")
 
-        // What the screen does on every composition — and a rotation, or the system flipping to
+        // What the screen does on every composition, and a rotation, or the system flipping to
         // dark, is a fresh composition. Before this was guarded it rebuilt the draft from the
         // server and the title went with it.
         viewModel.load()

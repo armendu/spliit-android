@@ -100,8 +100,8 @@ class AddGroupByUrlViewModelTest {
     @Test
     fun `a real group id, hyphens and all, is a bare id and not a hostname`() = runBlocking {
         // The shape people actually paste out of an address bar: a nanoid, which may carry
-        // hyphens and underscores. Prefixing "https://" onto it — which is right for a
-        // scheme-less URL — would make the ID the hostname and look up a server that isn't there.
+        // hyphens and underscores. Prefixing "https://" onto it, which is right for a
+        // scheme-less URL, would make the ID the hostname and look up a server that isn't there.
         server.enqueue(
             MockResponse.Builder().code(200).body(
                 okBody(
@@ -156,8 +156,8 @@ class AddGroupByUrlViewModelTest {
 
         viewModel.reset()
 
-        // The sheet is opened against one long-lived ViewModel, so a stale error — or a stale
-        // addedGroupId, which would close it the moment it appeared — must not survive a reopen.
+        // The sheet is opened against one long-lived ViewModel, so a stale error, or a stale
+        // addedGroupId, which would close it the moment it appeared, must not survive a reopen.
         assertEquals("", viewModel.state.value.urlText)
         assertNull(viewModel.state.value.problem)
         assertNull(viewModel.state.value.addedGroupId)
