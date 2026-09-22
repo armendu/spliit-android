@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,9 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.CategoryIcon
 import app.spliit.android.ui.design.DateHeader
 import app.spliit.android.ui.design.EmptyState
@@ -52,6 +48,7 @@ import app.spliit.core.MoneyFormatter
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import app.spliit.android.ui.design.CenteredScroll
 
 /**
  * The expenses tab: everything `groups.expenses.list` has answered so far, under date-bucket
@@ -140,7 +137,7 @@ private fun ExpensesList(
             start = 16.dp,
             end = 16.dp,
             top = 8.dp,
-            bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = fabAndNavigationBarPadding(),
         ),
     ) {
         for (section in sections) {
@@ -299,15 +296,6 @@ private fun captionText(expense: ExpenseListItem): String {
     return if (expense.documentCount > 0) "$date · ${expense.documentCount} attached" else date
 }
 
-@Composable
-private fun CenteredScroll(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
 
 @Composable
 private fun ExpensesSkeleton() {

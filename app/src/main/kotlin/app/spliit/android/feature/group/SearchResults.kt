@@ -2,10 +2,7 @@ package app.spliit.android.feature.group
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,6 +21,7 @@ import app.spliit.android.ui.design.DateHeader
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 
 /**
  * What the search field is currently answering, in place of the expense list.
@@ -88,8 +86,7 @@ internal fun SearchResults(
                     start = 16.dp,
                     end = 16.dp,
                     top = 8.dp,
-                    bottom = 88.dp +
-                        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+                    bottom = fabAndNavigationBarPadding(),
                 ),
             ) {
                 for (section in sections) {

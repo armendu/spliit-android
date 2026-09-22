@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,14 +25,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,11 +45,9 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.AppSettingsHolder
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.SpliitFab
 import java.time.Instant
@@ -77,6 +70,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.spliit.android.ui.design.Monogram
 import app.spliit.core.LoadState
+import app.spliit.android.ui.design.CenteredScroll
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /** DESIGN.md §3: "Cards and surfaces" are 16dp radius, `surface-container-lowest` with a 1dp
  *  `border-subtle` (M3's `outline`) hairline, Level 1, the one step up from the bare canvas. */
@@ -329,15 +325,6 @@ fun GroupsListScreen(
 /** Centres short content vertically, and falls back to scrolling it when it doesn't fit, the
  *  largest accessibility text sizes can make a title, a description and a button taller than the
  *  screen, and an empty state whose only action has fallen off the bottom is worse than none. */
-@Composable
-private fun CenteredScroll(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        contentAlignment = Alignment.Center,
-    ) {
-        content()
-    }
-}
 
 @Composable
 private fun GroupsList(
@@ -362,7 +349,7 @@ private fun GroupsList(
             start = 16.dp,
             end = 16.dp,
             top = 16.dp,
-            bottom = 88.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
+            bottom = fabAndNavigationBarPadding(),
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
