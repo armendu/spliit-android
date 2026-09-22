@@ -43,11 +43,8 @@ data class GroupListItem(
 )
 
 /**
- * The three sections the dashboard draws, and the note about what could not be reached.
- *
- * Sections rather than one list, because starring and archiving are about *where* a group sits
- * rather than about a badge on it, which is also why no row carries a star icon: the header it
- * sits under already says so, and saying it twice is how a list starts looking like a form.
+ * The three sections the dashboard draws, and the note about what could not be reached. Sections
+ * rather than badges: the header a row sits under already says it is starred.
  */
 data class GroupsDashboard(
     val starred: List<GroupListItem> = emptyList(),
@@ -67,22 +64,15 @@ data class GroupsDashboard(
 data class PendingRemoval(val groupId: String, val groupName: String)
 
 /**
- * The dashboard's state: which groups this phone remembers, in their three sections, enriched
- * with server-side detail.
+ * The dashboard's state: the groups this phone remembers, in three sections, enriched with
+ * server-side detail. Three rules shape it:
  *
- * Three rules from the spec shape this class, and each one fails the opposite way a careless
- * implementation would:
- *
- *  - **One request per instance.** `groups.list` takes a list of IDs but only ever answers for
- *    the server it was sent to, so a list spanning two instances is two requests, issued
- *    together, so the slow one does not hold up the other.
- *  - **An unreachable instance costs its own groups their detail, never the screen.** Its rows
- *    still appear, under the names this phone stored, with no participant count; the sections
- *    say what could not be reached. [LoadState.Failed] is reserved for the one failure that
- *    leaves nothing to draw at all, the stored list itself being unreadable.
- *  - **A group the server no longer has drops out silently.** `groups.list` simply omits an ID it
- *    does not recognise, that is how a group deleted server-side shows up here, so a row
- *    missing from an answer that *did* arrive is left out rather than treated as a failure.
+ *  - One request per instance. `groups.list` only answers for the server it was sent to, so two
+ *    instances are two requests, issued together.
+ *  - An unreachable instance costs its groups their detail, never the screen. Rows still appear
+ *    under stored names; [LoadState.Failed] is only for the stored list itself being unreadable.
+ *  - A group the server no longer has drops out silently. `groups.list` omits an ID it does not
+ *    recognise, which is how a server-side deletion arrives.
  */
 class GroupsListViewModel(
     private val recentGroupsStore: RecentGroupsStore,
@@ -116,12 +106,8 @@ class GroupsListViewModel(
     private var refreshJob: Job? = null
 
     /**
-     * Kicks [refresh] off on this ViewModel's own scope. Deliberately not called from `init` -
-     * this ViewModel outlives the screen's composition (it is scoped to the "groups" nav-graph
-     * entry), and a group just added or created needs the list to reload when the screen becomes
-     * visible again, not only the first time it was ever constructed. The screen calls this from
-     * a `LaunchedEffect`, which reruns exactly when that recomposition happens; a retry action
-     * calls it again for the same reason. Tests call [refresh] directly: see its own doc.
+     * Kicks [refresh] off on this ViewModel's scope. Not from `init`: this ViewModel outlives the
+     * composition, and a group just created needs the list to reload when the screen returns.
      */
     fun load() {
         // One load at a time. Two of them share [snapshot], [summaries] and [answeredInstances],
@@ -187,14 +173,10 @@ class GroupsListViewModel(
     }
 
     /**
-     * Takes [groupId] off the list, after an undo window, not now.
-     *
-     * A group is reachable only by its link, so a removal somebody did not mean is a group gone
-     * for good unless they still have the link. The row disappears immediately, which is what
-     * makes the screen feel like it did the thing; the `forget` that is actually irreversible
-     * waits out [UNDO_WINDOW_MILLIS], and [undoRemoval] cancels it. A second removal commits the
-     * first straight away rather than queueing two, one snackbar can only offer to undo one
-     * thing, and the thing anybody means by "undo" is the last one.
+     * Takes [groupId] off the list after an undo window, not now. A group is reachable only by
+     * its link, so an unintended removal loses it for good. The row goes immediately; the
+     * irreversible `forget` waits out [UNDO_WINDOW_MILLIS]. A second removal commits the first,
+     * since one snackbar can only undo one thing.
      */
     fun removeGroup(groupId: String) {
         // Cancelling here does *not* skip the earlier removal's write: the job's first act below
@@ -225,13 +207,8 @@ class GroupsListViewModel(
         publish()
     }
 
-    /**
-     * Writes the `forget` the undo window was holding back, if there is one.
-     *
-     * Reads the store again rather than writing [snapshot] straight out: an edit made while the
-     * window was open, from this screen or from a group screen, would otherwise be overwritten
-     * by a snapshot taken before it.
-     */
+    /** Writes the `forget` the undo window held back. Re-reads the store, so an edit made while
+     *  the window was open is not overwritten by a stale snapshot. */
     internal suspend fun commitPendingRemoval() {
         val pending = _pendingRemoval.value ?: return
         _pendingRemoval.value = null
@@ -248,12 +225,8 @@ class GroupsListViewModel(
         publish()
     }
 
-    /**
-     * The actual load, as a plain suspend function, called through [load] in production (which
-     * runs it on [viewModelScope], the Main dispatcher), and called directly in tests, which
-     * sidesteps needing a Main-dispatcher test rule for what is otherwise ordinary, deterministic
-     * suspending code.
-     */
+    /** The actual load. Called through [load] in production and directly in tests, which
+     *  sidesteps needing a Main-dispatcher rule. */
     suspend fun refresh() {
         // The skeleton is for a screen with nothing on it yet. Every later load, coming back
         // from a group, adding one, pulling the list again, keeps the rows that are already

@@ -27,58 +27,33 @@ import java.time.Instant
 public data class RecentGroup(
     public val groupId: String,
     /**
-     * Where this group lives, as a base URL, `spliit.app`, or a self-hosted instance's own
-     * address. A group ID alone answers nothing: the same list can hold a flatshare on spliit.app
-     * and a family group on a server in somebody's hallway, and asking the wrong one about either
-     * gets back "not found" rather than the group. A plain [String] rather than [java.net.URL] -
-     * `URL.equals` resolves hostnames to compare them, which is a network call this comparison
-     * should never make.
+     * Where this group lives. A group ID alone answers nothing: one list can hold groups on
+     * spliit.app and on a self-hosted server, and the wrong one returns "not found".
+     *
+     * A [String], not [java.net.URL], whose `equals` resolves hostnames over the network.
      */
     public val instanceBaseUrl: String,
     /** This group's name, as of the last time this phone saw it. */
     public val groupName: String,
-    /**
-     * Kept at the top of the list. The web app stores its starred IDs in a second `localStorage`
-     * key because that is what `localStorage` gives you; here the flag belongs to the row, which
-     * means one write and no way to end up starring a group the list has already forgotten.
-     */
+    /** Kept at the top of the list. On the row rather than in a separate set, so a forgotten
+     *  group cannot be left starred. */
     public val isStarred: Boolean = false,
-    /**
-     * Kept, but out of the way, the trip that ended, the flatshare somebody moved out of.
-     * Starring and archiving say opposite things, so [RecentGroupsSnapshot.settingStarred] and
-     * [RecentGroupsSnapshot.settingArchived] never let a row carry both.
-     */
+    /** Kept but out of the way. Never set at the same time as [isStarred]. */
     public val isArchived: Boolean = false,
-    /**
-     * Who this phone is in this group, a participant ID, or null when that has never been
-     * answered. Read this through [RecentGroupsSnapshot.actorId], not directly: a participant who
-     * has since left the group must never be handed back as though they still belonged to it.
-     */
+    /** Who this phone is here, or null if never answered. Read via
+     *  [RecentGroupsSnapshot.actorId], which drops a participant who has left. */
     public val participantId: String? = null,
     /** How this group's expenses are usually divided, once [settingDefaultSplit] has set it. */
     public val defaultSplit: DefaultSplit? = null,
-    /**
-     * When this group was last opened, what "most recently used" sorts by, via
-     * [RecentGroupsSnapshot.orderedGroups]. The one field [opening] moves and every other
-     * mutation on this row deliberately leaves alone; see the note at the top of this file.
-     */
+    /** What "most recently used" sorts by. Only [opening] moves it. */
     public val lastOpenedAt: Instant? = null,
-    /**
-     * When this row last changed, in any way. The one field [RecentGroupsSnapshot.merging] trusts
-     * to settle a group both sides have, see the note at the top of this file for why every
-     * mutation stamps it, including the ones that do not move [lastOpenedAt].
-     */
+    /** When this row last changed, in any way. What [RecentGroupsSnapshot.merging] settles a
+     *  conflict with, so every mutation stamps it. */
     public val updatedAt: Instant? = null,
 )
 
-/**
- * The whole of what one device knows about the list: the groups, and the ones it has been told to
- * forget.
- *
- * The tombstones live here, and only here. A snapshot with no tombstones at all is not a
- * malformed one, the empty snapshot [RecentGroupsSnapshot()] is exactly what a device that has
- * never deleted anything, or that has not yet synced, carries.
- */
+/** What one device knows: the groups, and the ones it has been told to forget. An empty
+ *  snapshot is what a device that has never deleted anything carries. */
 public data class RecentGroupsSnapshot(
     public val groups: List<RecentGroup> = emptyList(),
     /** Group ID to when it was deleted. See [forget] and [merging]. */
@@ -86,23 +61,17 @@ public data class RecentGroupsSnapshot(
 ) {
 
     /**
-     * [groups], most recently opened first.
-     *
-     * Computed on every read rather than maintained as the list's own order, so no mutation below
-     * has to remember to re-sort, there is exactly one place ordering can go wrong instead of
-     * one per mutation. The group ID breaks a tie so that two devices sorting the same rows, at
-     * the same [RecentGroup.lastOpenedAt] down to the tick, cannot disagree about the order.
+     * [groups], most recently opened first. Computed on read so no mutation has to remember to
+     * re-sort. The group ID breaks ties, so two devices cannot disagree about the order.
      */
     public val orderedGroups: List<RecentGroup>
         get() = groups.sortedWith(
             compareByDescending<RecentGroup> { it.lastOpenedAt ?: Instant.MIN }.thenBy { it.groupId },
         )
 
-    // The three collections the home screen draws as its three sections, in the order it draws
-    // them. Every group is in exactly one: a row that somehow carried both flags reads as
-    // archived, because putting a group away when it should have been starred is the quieter of
-    // the two mistakes to make on somebody's behalf. Derived from [orderedGroups] rather than
-    // from [groups], so each section keeps the one ordering this type has.
+    // The home screen's three sections. Every group is in exactly one, and a row carrying both
+    // flags reads as archived, the quieter mistake. Derived from [orderedGroups] so each keeps
+    // the same ordering.
 
     /** Starred and not archived, pinned to the top of the list. */
     public val starred: List<RecentGroup>
@@ -120,16 +89,11 @@ public data class RecentGroupsSnapshot(
      * Adds [group], or moves it to the front and refreshes what a server just told us, while
      * keeping what only this phone knows.
      *
-     * [group] is built fresh from a server response, which carries no participant answer, no
-     * remembered split and neither flag, so the existing row's [RecentGroup.participantId],
-     * [RecentGroup.defaultSplit], [RecentGroup.isStarred] and [RecentGroup.isArchived] win over
-     * [group]'s. Anything [group] does *not* carry that this phone has locally would otherwise be
-     * destroyed by every rename: opening a starred group would quietly unstar it. Anything else
-     * that comes to live on a row belongs in this list too.
+     * [group] comes fresh from the server and carries no participant answer, split or flags, so
+     * the existing row's win. Without that, opening a starred group would unstar it. Anything
+     * else that comes to live on a row belongs in this list too.
      *
-     * Removes any tombstone for this group: opening it is the plainest possible statement that it
-     * belongs in the list, and it outranks another device having deleted it earlier, see
-     * [merging], which would otherwise be free to still honour that tombstone on the next sync.
+     * Removes any tombstone: opening a group outranks another device having deleted it.
      */
     public fun opening(group: RecentGroup, now: Instant = Instant.now()): RecentGroupsSnapshot {
         val existing = groups.firstOrNull { it.groupId == group.groupId }
@@ -147,25 +111,16 @@ public data class RecentGroupsSnapshot(
         )
     }
 
-    /**
-     * Records who this phone is in [groupId].
-     *
-     * A no-op for a group this list has never heard of: every way into a group remembers it via
-     * [opening] first, so there is no row here to invent one for. Deliberately does **not** touch
-     * [RecentGroup.lastOpenedAt], answering "who am I here" is not opening the group, and a list
-     * that jumped to the front over it would be a surprise nobody asked for.
-     */
+    /** Records who this phone is in [groupId]. A no-op for an unknown group, and does not touch
+     *  [RecentGroup.lastOpenedAt]: answering this is not opening the group. */
     public fun settingParticipantId(
         groupId: String,
         participantId: String?,
         now: Instant = Instant.now(),
     ): RecentGroupsSnapshot = modifying(groupId, now) { it.copy(participantId = participantId) }
 
-    /**
-     * Remembers how [groupId]'s expenses are usually divided. As [settingParticipantId], a no-op
-     * for an unknown group and silent on [RecentGroup.lastOpenedAt], saving a split is not
-     * opening the group either.
-     */
+    /** Remembers how [groupId]'s expenses divide. As [settingParticipantId]: no-op for an
+     *  unknown group, silent on [RecentGroup.lastOpenedAt]. */
     public fun settingDefaultSplit(
         groupId: String,
         defaultSplit: DefaultSplit,
@@ -173,14 +128,11 @@ public data class RecentGroupsSnapshot(
     ): RecentGroupsSnapshot = modifying(groupId, now) { it.copy(defaultSplit = defaultSplit) }
 
     /**
-     * Stars [groupId], or takes the star away. Starring un-archives: a group cannot be both the
-     * one you reach for most and the one you have put away.
+     * Stars [groupId], or takes the star away. Starring un-archives.
      *
-     * As [settingParticipantId], a no-op for an unknown group and silent on
-     * [RecentGroup.lastOpenedAt], starring is not opening. It does stamp
-     * [RecentGroup.updatedAt], though the list does not reorder: that stamp is the *only* thing
-     * another device compares against, and a star this snapshot left unstamped is a star the
-     * next merge is free to discard without anything looking wrong.
+     * No-op for an unknown group, silent on [RecentGroup.lastOpenedAt]. It does stamp
+     * [RecentGroup.updatedAt] even though nothing reorders: an unstamped star is one the next
+     * merge may discard.
      */
     public fun settingStarred(
         groupId: String,
@@ -200,14 +152,9 @@ public data class RecentGroupsSnapshot(
     }
 
     /**
-     * Applies [change] to [groupId] and stamps [RecentGroup.updatedAt].
-     *
-     * The one place every non-[opening] edit goes through, so that stamping is not something each
-     * mutation has to remember, the note at the top of this file is about a field that is lost
-     * silently when it is forgotten, which is exactly the kind of thing a per-call-site
-     * responsibility eventually forgets. A group this list has never heard of is a no-op: every
-     * way into a group remembers it via [opening] first, so there is no row here to invent one
-     * for.
+     * Applies [change] to [groupId] and stamps [RecentGroup.updatedAt]. The one place every
+     * non-[opening] edit goes through, so no mutation has to remember to stamp. No-op for an
+     * unknown group.
      */
     private fun modifying(
         groupId: String,
@@ -221,13 +168,8 @@ public data class RecentGroupsSnapshot(
         return copy(groups = updated)
     }
 
-    /**
-     * Removes [groupId] and leaves a tombstone in its place.
-     *
-     * The tombstone is the one thing a plain union cannot express, see rule 4 at the top of this
-     * file. Without it, merging with a device that has not heard about this deletion yet puts the
-     * group straight back the moment the two lists meet.
-     */
+    /** Removes [groupId] and leaves a tombstone. Without one, merging with a device that has
+     *  not heard about the deletion puts the group straight back. */
     public fun forget(groupId: String, now: Instant = Instant.now()): RecentGroupsSnapshot =
         copy(
             groups = groups.filterNot { it.groupId == groupId },
@@ -235,13 +177,9 @@ public data class RecentGroupsSnapshot(
         )
 
     /**
-     * Who to credit for a write made from this phone, as the server's activity log wants it.
-     *
-     * Null twice over: for a group this phone has never answered for, and for a remembered
-     * [RecentGroup.participantId] naming somebody [participants] no longer has. The second case is
-     * the one that matters, a write must never claim to be someone who has left the group, and
-     * it is why this exists instead of every call site reading [RecentGroup.participantId]
-     * directly. The log then reads "Someone", which is exactly what is known.
+     * Who to credit for a write from this phone. Null when unanswered, and also when the
+     * remembered participant has left the group, which is why call sites use this instead of
+     * [RecentGroup.participantId]. The log then reads "Someone".
      */
     public fun actorId(groupId: String, participants: List<Participant>): String? {
         val remembered = groups.firstOrNull { it.groupId == groupId }?.participantId ?: return null
@@ -249,11 +187,8 @@ public data class RecentGroupsSnapshot(
     }
 
     public companion object {
-        /**
-         * Long enough for a phone that spent a season in a drawer to still have its deletions
-         * honoured; short enough that the list of groups somebody once deleted does not become
-         * the larger half of what a device stores.
-         */
+        /** Long enough for a phone left in a drawer to still have its deletions honoured,
+         *  short enough that tombstones do not outweigh the groups. */
         public val TOMBSTONE_LIFETIME: Duration = Duration.ofDays(90)
 
         /**

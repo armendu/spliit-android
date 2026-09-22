@@ -31,50 +31,29 @@ internal val OutlineVariantLight = Color(0xFFBCCAC0) // hairline dividers
 internal val BorderSubtleLight = Color(0xFFE4E4E7) // card outlines, M3's `outline` slot
 internal val ErrorLight = Color(0xFFBA1A1A)
 
-// The tonal error pair, for a destructive action that is offered rather than announced, the
-// delete button on the expense form. DESIGN.md §1 names `error-container` #FFDAD6 with
-// `on-error-container` #93000A; a filled `error` behind white shouts at somebody who has merely
-// scrolled to the bottom of a form.
-//
-// Measured, not asserted: #93000A on #FFDAD6 is **7.24:1**, well past the 4.5:1 a button label
-// needs. The container against the light canvas #FBF8FF is 1.23:1, that is a tint, not a
-// boundary, which is why the button keeps a visible text label and a divider above it rather
-// than relying on its own edge to be found.
+// The tonal error pair, for a destructive action that is offered rather than announced.
+// Measured: #93000A on #FFDAD6 is 7.24:1. The container on the light canvas is 1.23:1, a tint
+// rather than a boundary, which is why the button keeps a text label and a divider above it.
 internal val ErrorContainerLight = Color(0xFFFFDAD6)
 internal val OnErrorContainerLight = Color(0xFF93000A)
 
-// Dark mirrors the *relationship*, not the hexes, DESIGN.md §1's instruction for dark is
-// "derived", and what carries over is a faint tint of the canvas toward the error hue, carrying
-// a label in the tone that theme uses to mean error.
+// Dark mirrors the relationship, not the hexes: a faint tint of the canvas toward the error
+// hue. Measured, #4A1113 on the dark canvas is 1.22:1, matching the light pair's 1.23:1, and
+// the #FFB4AB label on it is 8.96:1.
 //
-// Measured against the light pair it mirrors: #FFDAD6 on the light canvas #FBF8FF is **1.23:1**,
-// and #4A1113 on M3's dark canvas (~#141218) is **1.22:1**, the same strength of tint, read the
-// other way up. The label, #FFB4AB (M3's own dark `error` tone), measures **8.96:1** on it.
-//
-// M3's baseline dark pair, container #93000A, label #FFDAD6, was tried first and rejected on
-// looking at it: #93000A is **1.99:1** against the canvas, nearly twice the tint the light side
-// carries, and on screen it is a solid red bar, which is exactly the shout this button is not
-// supposed to be. Its label measured 7.24:1, so the rejection is about weight, not contrast.
+// M3's baseline dark container #93000A was rejected at 1.99:1, nearly twice that tint and a
+// solid red bar on screen. Its label measured fine, so this is about weight, not contrast.
 internal val ErrorContainerDark = Color(0xFF4A1113)
 internal val OnErrorContainerDark = Color(0xFFFFB4AB)
 
-// Dark: the brief supplies a light palette only, so surfaces here are M3's own dark-scheme
-// defaults seeded by `primary` (see Theme.kt's darkColorScheme call) rather than a hand-picked
-// hex per slot, hand-tuning eleven more surface tones with no brief to check them against would
-// be inventing a palette DESIGN.md never asked for. Only `primary` itself is overridden: M3's
-// usual light-on-dark pattern for a saturated primary is a *lighter* tone of the same hue, paired
-// with a dark `onPrimary` rather than white.
+// Dark: the brief supplies a light palette only, so surfaces are M3's dark defaults seeded by
+// `primary`. Only `primary` is overridden, to a lighter tone of the hue with a dark `onPrimary`.
 //
-// These are the brief's own tokens, not invented ones: `inverse-primary` in Material 3 *means*
-// primary as it appears in the opposite theme, so the light palette already names what dark's
-// primary should be, and `on-primary-fixed` names the label that belongs on it.
+// These are the brief's own tokens: `inverse-primary` means primary as it appears in the
+// opposite theme, and `on-primary-fixed` the label that belongs on it.
 //
-// They replace a pair that failed twice over, measured rather than argued: `#00855D` on
-// `#003D29` is **2.66:1**, nowhere near the 4.5:1 a button label needs, and the comment that
-// used to sit here claimed ">8:1", which was simply wrong. The same `#00855D` as accent *text*
-// on the dark canvas measured 3.68:1, so every green label failed too, not just the ones inside
-// a filled button. The replacements are 10.01:1 for the label on primary and 10.03:1 for primary
-// on the canvas.
+// They replace #00855D on #003D29, which measured 2.66:1 under a comment claiming ">8:1", and
+// which also failed as accent text at 3.68:1. The replacements are 10.01:1 and 10.03:1.
 internal val PrimaryDark = Color(0xFF68DBA9) // the brief's `inverse-primary`
 internal val OnPrimaryDark = Color(0xFF002114) // the brief's `on-primary-fixed`
 internal val PrimaryContainerDark = Color(0xFF00855D)
@@ -106,12 +85,9 @@ internal val BalancePositiveDark = Color(0xFF4ADE80)
 internal val BalanceNegativeDark = Color(0xFFFDA4AF)
 
 /**
- * Eight colours for participant monograms, DESIGN.md's closing note: "Participants are
- * identified by monograms on the eight-colour palette, keyed by a stable hash of the participant
- * id." Unchanged from the values [app.spliit.android.ui.design.MonogramPalette] already hashes
- * into: chosen for >=4.5:1 against the white initials drawn on top, and a monogram sits on its
- * own solid circle rather than on a themed surface, so it does not need separate light/dark
- * tuning the way the ledger axis does.
+ * Eight colours for participant monograms, keyed by a stable hash of the participant id. Chosen
+ * for >=4.5:1 against the white initials. A monogram sits on its own solid circle, so it needs
+ * no light/dark tuning.
  */
 internal val MonogramColors = listOf(
     Color(0xFF06805F), // emerald
@@ -127,23 +103,16 @@ internal val MonogramColors = listOf(
 // ---- category glyphs ---------------------------------------------------------------------
 
 /**
- * One hue per category grouping, DESIGN.md §5's table, measured against the tile the glyph sits
- * on rather than against the page. The **glyph** takes the colour; the tile stays neutral and
- * nothing is filled, so a row gains a hue to scan by without gaining a second saturated block
- * competing with the amount.
+ * One hue per category grouping, measured against the tile the glyph sits on. The glyph takes
+ * the colour and the tile stays neutral, so a row gains something to scan by without a second
+ * saturated block competing with the amount.
  *
- * **The light and dark values of a hue are not the same colour, and the bolt is why.** A true
- * yellow, `#FBBF24`, what "the bolt should be yellow" actually means, measures **1.52:1**
- * against the light tile and is effectively invisible on it; even `#D97706` is 2.90:1, still
- * under the 3:1 bar a meaningful non-text graphic has to clear. So light gets a deep amber and
- * dark gets the yellow. Swapping the light value for something brighter to make the two match
- * will look right on the screen it is chosen on and vanish on a bright one: the rule is that a
- * hue reads as the colour it was asked to be wherever that colour can be seen, and darkens where
- * it cannot.
+ * Light and dark values of a hue differ, and the bolt is why: a true yellow #FBBF24 is 1.52:1
+ * on the light tile and invisible, and even #D97706 is 2.90:1, under the 3:1 a non-text graphic
+ * needs. So light gets deep amber and dark gets the yellow. Do not match them up.
  *
- * Keyed by `grouping`, the same top-level key [app.spliit.android.ui.design.CategoryGlyphs]
- * already picks the drawable with, so a category the server invents after this ships falls back
- * with its glyph rather than half-matching.
+ * Keyed by `grouping`, like the glyph itself, so a category invented after this ships falls
+ * back consistently.
  */
 internal val CategoryGlyphColorsLight = mapOf(
     "Utilities" to Color(0xFFB45309), // deep amber, not yellow, see above

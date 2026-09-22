@@ -59,18 +59,12 @@ import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
 
 /**
- * Where this screen's tabs live.
+ * Where this screen's tabs live. Material reserves `NavigationBar` for top-level destinations
+ * and these four are views within one, so they default to a top `TabRow`. Both layouts are
+ * built; this constant is the whole switch.
  *
- * Material reserves `NavigationBar` for **top-level** destinations, and these four are views
- * within one destination, which is why they started at the top, as a `TabRow`. The question came
- * up twice anyway, so both layouts are built and this constant is the whole switch between them:
- * flip it, rebuild, and look at the two rather than argue about them.
- *
- * **The FAB conflict is resolved by removing the FAB, not by docking it.** M3 dropped the
- * docked-FAB pattern, and a floating FAB stacked over a navigation bar either covers the bar's
- * last item or floats above it with nothing holding it there. So in the bottom-bar layout "Add
- * expense" becomes a top-app-bar action, shown only on the Expenses tab, which is also what iOS
- * does, and it keeps the action in the same place the search and overflow actions already are.
+ * In the bottom-bar layout the FAB is removed rather than docked (M3 dropped that pattern), and
+ * "Add expense" becomes a top-app-bar action on the Expenses tab, as on iOS.
  */
 internal object GroupDetailLayout {
     /** True draws the four tabs as a bottom [NavigationBar]; false as a top [PrimaryScrollableTabRow]. */
@@ -78,12 +72,9 @@ internal object GroupDetailLayout {
 }
 
 /**
- * The tabs this group screen has.
- *
- * An enum with its own label, icon and tag, iterated over by whichever bar is drawing them, so
- * the two layouts cannot fall out of step about what the tabs are or what order they come in.
- * Totals sits beside Balances rather than beside Information because it answers the same question
- * from the other end: that tab says where the group will settle, this one what it has spent.
+ * The tabs this group screen has, iterated over by whichever bar draws them, so the two layouts
+ * cannot disagree. Totals sits beside Balances because it answers the same question from the
+ * other end: where the group will settle, versus what it has spent.
  */
 private enum class GroupDetailTab(
     val label: String,
@@ -349,12 +340,9 @@ internal fun groupShareLink(instanceBaseUrl: String, groupId: String): String =
     "${instanceBaseUrl.trimEnd('/')}/groups/$groupId"
 
 /**
- * The top bar, in its two states.
- *
- * Search is an **app-bar action that expands into a field**, not a fifth tab. iOS's search tab is
- * an iOS idiom, the search role puts a magnifying glass in its own capsule beside the tab bar -
- * and Android's equivalent has always been the bar. A fifth tab here would also squeeze four
- * labels for the destination people open least.
+ * The top bar, in its two states. Search is an app-bar action that expands into a field, not a
+ * fifth tab: the tab bar is an iOS idiom, and a fifth tab would squeeze four labels for the
+ * destination people open least.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -481,19 +469,13 @@ private fun GroupTopBar(
 }
 
 /**
- * Material's own tab row, not a hand-drawn one.
+ * Material's own tab row, not a hand-drawn one: it brings the sliding indicator,
+ * `selectableGroup()` semantics so TalkBack says "tab 1 of 4", touch targets and keyboard
+ * traversal.
  *
- * Navigating between sibling views is what tabs are *for*, and the component brings what a row of
- * pills cannot: the sliding selection indicator, `selectableGroup()` semantics so TalkBack
- * announces "tab 1 of 4", proper touch targets and keyboard traversal.
- *
- * `PrimaryScrollableTabRow` rather than the fixed variant now that there are four: the fixed
- * row divides the width equally and clipped "Information" to "Informatio" at the *default* font
- * size on a Pixel 8, seen on the emulator, not predicted, and DESIGN.md §2 is explicit that
- * anything which would clip must wrap or scroll rather than truncate.
- *
- * Colours are the theme's. DESIGN.md names no override for tabs, and passing one here is how two
- * screens end up subtly different greens.
+ * Scrollable rather than fixed because the fixed row divides the width equally and clipped
+ * "Information" at the default font size on a Pixel 8. Colours are the theme's; DESIGN.md names
+ * no override for tabs.
  */
 @Composable
 private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab) -> Unit) {
@@ -512,23 +494,15 @@ private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab)
 }
 
 /**
- * The same four tabs at the bottom, the layout [GroupDetailLayout] exists to let somebody
- * compare.
+ * The same four tabs at the bottom. Icons are required here: a `NavigationBar` item reserves the
+ * icon slot whether or not one is supplied.
  *
- * Icons are not optional here the way they are in a `TabRow`: a `NavigationBar` item is drawn
- * icon-above-label, and the component reserves the icon slot whether or not one is supplied.
+ * Transparent, not `surfaceContainer`: M3's default is a tone lighter than the background and
+ * drew the bar as a pale band with the system nav area below it in a third shade. Transparent
+ * lets one background run to the bottom of the display.
  *
- * **Transparent, not `surfaceContainer`.** M3's default container is a tone lighter than this
- * app's background, which drew the bar as a pale band with the system navigation area below it
- * in a third shade, three horizontal stripes at the bottom of a screen whose whole point is the
- * list above them. Transparent lets the one background run from the last expense row to the
- * bottom of the display, which is also what the status bar already does at the other end (see
- * MainActivity's note on why both system bars are transparent).
- *
- * Nothing is lost to legibility, because nothing scrolls underneath: `Scaffold` measures this bar
- * and hands its height to the content as padding, so the list stops above it rather than running
- * beneath. The selected item keeps its own `secondaryContainer` pill, which is what marks the
- * current tab once the bar itself has no edge.
+ * Nothing scrolls underneath, since `Scaffold` hands this bar's height to the content as
+ * padding. The selected item's `secondaryContainer` pill is what marks the current tab.
  */
 @Composable
 private fun GroupBottomBar(selected: GroupDetailTab, onSelect: (GroupDetailTab) -> Unit) {

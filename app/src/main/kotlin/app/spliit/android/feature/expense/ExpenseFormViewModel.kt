@@ -32,12 +32,9 @@ import app.spliit.api.SplitMode as ApiSplitMode
 import app.spliit.core.Participant as CoreParticipant
 
 /**
- * What this screen was opened to do, iOS's `ExpenseFormView.Mode` plus the settle-up case its
- * group screen expresses by handing the form a prefilled draft.
- *
- * [Settle] is a *create*, not a mode of its own on the wire: Spliit has no "mark as paid", so a
- * debt is settled by writing an ordinary expense with [ExpenseFormDraft.isReimbursement] set.
- * It is a separate case here only because what the form starts from differs.
+ * What this screen was opened to do. [Settle] is a create, not a wire mode: a debt is settled by
+ * writing an ordinary expense with [ExpenseFormDraft.isReimbursement] set. It differs only in
+ * what the form starts from.
  */
 sealed interface ExpenseFormMode {
     data object Create : ExpenseFormMode
@@ -55,12 +52,9 @@ sealed interface ExpenseFormMode {
 }
 
 /**
- * An expense that has just been deleted, kept for exactly as long as the undo is on offer.
- *
- * **The server has no undelete.** `groups.expenses.delete` removes the row, and nothing brings
- * that row back, so undo re-creates the expense from the values it was deleted with and it
- * comes back under a new ID. Everything a reader sees is restored; the activity log, honestly,
- * records a delete and a create.
+ * A just-deleted expense, kept as long as the undo is on offer. The server has no undelete, so
+ * undo re-creates it from the values it was deleted with and it returns under a new ID. The
+ * activity log honestly records a delete and a create.
  */
 data class DeletedExpense(
     val values: ExpenseFormValues,
@@ -105,11 +99,9 @@ data class ExpenseFormUiState(
 /**
  * The expense form: create, edit, settle up, delete.
  *
- * **Every rule about what an expense is worth and how it divides lives in [ExpenseFormDraft].**
- * This class holds one, drives the calls around it, and resolves the two things `:core` cannot
- * know on its own, which instance the group is on, and which participant is making the write,
- * for the activity log. There is no arithmetic here, and no second validator: the screen renders
- * `draft.problems(field)`.
+ * Every rule about what an expense is worth lives in [ExpenseFormDraft]. This class holds one,
+ * drives the calls around it, and resolves what `:core` cannot know: which instance the group is
+ * on, and who is making the write. No arithmetic and no second validator.
  */
 class ExpenseFormViewModel(
     private val groupId: String,
@@ -136,16 +128,11 @@ class ExpenseFormViewModel(
     private var documents: List<ExpenseDocument> = emptyList()
 
     /**
-     * Loads the group and, when editing, the expense, **once**.
+     * Loads the group and, when editing, the expense, once.
      *
-     * Deliberately not the group screen's "reload on every composition": that screen is a read,
-     * and re-reading it is how it catches up after this form has written something. This one
-     * holds what the user is typing, and the composition it is called from runs again on every
-     * configuration change, a rotation, or the system flipping to dark. Reloading there would
-     * rebuild the draft from the server and throw away the half-written expense, which is
-     * exactly what happened before this guard existed.
-     *
-     * [retry] is the way back in after a failure, and is not guarded.
+     * Not the group screen's "reload on every composition": this one holds what the user is
+     * typing, and a rotation would rebuild the draft from the server and discard it. [retry] is
+     * the way back in after a failure, and is not guarded.
      */
     fun load() {
         if (_state.value.draft != null) return
@@ -159,17 +146,12 @@ class ExpenseFormViewModel(
     /**
      * Re-arms the form for another open of the same expense.
      *
-     * The edit sheet's ViewModel is keyed on the expense and scoped to the group screen's nav
-     * entry, so it outlives the sheet, which is the whole point: the undo offered after a
-     * delete is still this instance's to make once the sheet has gone. The cost is that a second
-     * open would otherwise inherit the first one's ending, and there are two ways that goes
-     * wrong: a [savedExpenseId] left set closes the sheet the instant it opens, and a draft left
-     * holding edits somebody *discarded* comes back as if they had not been.
+     * This ViewModel outlives the sheet, so the undo after a delete is still its to offer. The
+     * cost is that a second open would inherit the first one's ending: a set [savedExpenseId]
+     * closes the sheet instantly, and a discarded draft comes back as if it had not been.
      *
-     * So the state goes back to the shape it had before [load] and the expense is read again.
-     * That read is one `groups.expenses.get`, the form needs the notes, the shares and the
-     * conversion, none of which a list row carries. What it deliberately does not do is make the
-     * group screen behind it reload: see [app.spliit.android.feature.group.GroupDetailViewModel].
+     * So the state resets and the expense is read again, one `groups.expenses.get` for the
+     * notes, shares and conversion a list row does not carry.
      */
     fun reopen() {
         rearm()
@@ -257,13 +239,7 @@ class ExpenseFormViewModel(
         }
     }
 
-    /**
-     * The category list, or none at all.
-     *
-     * Failing to read the catalogue costs the form its category chips and nothing else, so it
-     * must not cost it the whole screen, an instance that answers `categories.list` with
-     * anything unexpected would otherwise make every expense on it unopenable.
-     */
+    /** The category list, or none at all. A failure costs the chips, never the screen. */
     private suspend fun loadCategories(client: TrpcClient): List<ApiCategory> =
         try {
             client.call(SpliitEndpoints.categoriesList()).categories
@@ -503,14 +479,8 @@ class ExpenseFormViewModel(
 
     // ---- the pieces `:core` cannot know -----------------------------------------------------
 
-    /**
-     * Who the activity log should credit for this write.
-     *
-     * Read fresh from the store rather than cached at load: the active-user picker sits one
-     * screen away and can have been answered since. Null both before anybody has answered and
-     * once the remembered answer has left the group, [RecentGroupsSnapshot.actorId]'s own rule,
-     * because a write must never claim to be someone who is gone.
-     */
+    /** Who the activity log credits. Read fresh, since the picker is one screen away. Null
+     *  before anyone has answered, and once the remembered answer has left the group. */
     private suspend fun actorId(group: GroupInfo): String? = try {
         recentGroupsStore.load().actorId(groupId, group.participants.map { CoreParticipant(it.id, it.name) })
     } catch (e: CancellationException) {
@@ -537,13 +507,9 @@ class ExpenseFormViewModel(
     }
 
     /**
-     * `:core`'s submission as the wire wants it.
-     *
-     * Everything here is a copy, [ExpenseSubmission.Wire] has already settled the widths and the
-     * three spellings of "empty", including the explicit JSON null that drops a conversion.
-     * `notes` stays a Kotlin `String?`, which `explicitNulls = false` **omits**: the schema
-     * answers 400 to a literal null (verified against a live server), so this must not be
-     * "fixed" into one.
+     * `:core`'s submission as the wire wants it. A copy: [ExpenseSubmission.Wire] settled the
+     * widths and the spellings of "empty" already. `notes` stays `String?`, which is omitted,
+     * because the schema answers 400 to a literal null.
      */
     private fun formValues(submission: ExpenseSubmission): ExpenseFormValues {
         val wire = submission.toWire()
@@ -607,13 +573,8 @@ internal fun ApiSplitMode.toCore(): SplitMode = when (this) {
     ApiSplitMode.BY_AMOUNT -> SplitMode.BY_AMOUNT
 }
 
-/**
- * The server's own word for a cadence, which is what [ExpenseFormDraft.recurrenceRule] carries.
- *
- * An expense whose rule this version has no words for keeps it: [RecurrenceRule.Unknown] round
- * trips the server's raw string, so an expense edited on a screen that cannot name its cadence
- * is saved with the cadence it had rather than silently reset to NONE.
- */
+/** The server's word for a cadence. [RecurrenceRule.Unknown] round-trips the raw string, so an
+ *  expense keeps a cadence this version cannot name. */
 internal fun nameOf(rule: RecurrenceRule?): String = when (rule) {
     null, RecurrenceRule.None -> ExpenseFormDraft.NO_RECURRENCE
     RecurrenceRule.Daily -> "DAILY"
