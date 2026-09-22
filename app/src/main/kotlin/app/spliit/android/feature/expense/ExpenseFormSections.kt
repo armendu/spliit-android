@@ -62,6 +62,7 @@ import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.MoneyFormatter
 import app.spliit.core.SplitMode
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.FieldError
 
 /**
  * The oversized, centred amount entry from DESIGN.md §4. Under a conversion the total is not
@@ -402,12 +403,7 @@ private fun ParticipantSplitRow(
             }
         }
         for (problem in problems) {
-            Text(
-                text = problem.message(formatter),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(start = 48.dp),
-            )
+            FieldError(problem.message(formatter), modifier = Modifier.padding(start = 48.dp))
         }
     }
 }

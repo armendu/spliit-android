@@ -45,6 +45,7 @@ import app.spliit.core.ThemeMode
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.CardShape
 import app.spliit.android.ui.design.FormSectionHeader
+import app.spliit.android.ui.design.FieldError
 
 
 
@@ -203,11 +204,9 @@ private fun InstanceCard(
         )
         if (state.hasAttemptedSaveInstance && !state.instanceIsValid) {
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = "That doesn't look like a web address. Try something like spliit.example.com.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag(TestTags.SETTINGS_INSTANCE_ERROR),
+            FieldError(
+                message = "That doesn't look like a web address. Try something like spliit.example.com.",
+                testTag = TestTags.SETTINGS_INSTANCE_ERROR,
             )
         }
         Spacer(Modifier.height(8.dp))

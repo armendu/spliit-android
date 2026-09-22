@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -69,6 +68,8 @@ import java.time.format.FormatStyle
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.ui.design.SectionHeader
+import app.spliit.android.ui.design.DiscardChangesDialog
+import app.spliit.android.ui.design.FieldError
 
 
 /**
@@ -182,24 +183,14 @@ fun ExpenseFormScreen(
     }
 
     if (showDiscardDialog) {
-        AlertDialog(
-            onDismissRequest = { showDiscardDialog = false },
-            modifier = Modifier.testTag(TestTags.EXPENSE_FORM_DISCARD_DIALOG),
-            title = { Text("Discard changes?") },
-            text = { Text("What you've typed on this expense won't be kept.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDiscardDialog = false
-                        viewModel.close()
-                    },
-                    modifier = Modifier.testTag(TestTags.EXPENSE_FORM_DISCARD_CONFIRM),
-                ) {
-                    Text("Discard")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDiscardDialog = false }) { Text("Keep editing") }
+        DiscardChangesDialog(
+            dialogTestTag = TestTags.EXPENSE_FORM_DISCARD_DIALOG,
+            confirmTestTag = TestTags.EXPENSE_FORM_DISCARD_CONFIRM,
+            onDismiss = { showDiscardDialog = false },
+            onKeepEditing = { showDiscardDialog = false },
+            onDiscard = {
+                showDiscardDialog = false
+                viewModel.close()
             },
         )
     }
@@ -469,12 +460,7 @@ internal fun FieldProblems(
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
         Spacer(Modifier.height(4.dp))
         for (problem in problems) {
-            Text(
-                text = problem.message(formatter),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag(TestTags.expenseFormError(field.name)),
-            )
+            FieldError(problem.message(formatter), testTag = TestTags.expenseFormError(field.name))
         }
     }
 }

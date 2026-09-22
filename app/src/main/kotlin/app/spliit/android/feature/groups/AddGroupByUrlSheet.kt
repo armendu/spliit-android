@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.FieldError
 
 
 
@@ -117,14 +118,10 @@ fun AddGroupByUrlSheet(
                 // there, and the alternative is dismissing the keyboard to reach a button.
                 keyboardActions = KeyboardActions(onGo = { viewModel.add() }),
             )
-            if (state.problem != null) {
+            val problem = state.problem
+            if (problem != null) {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = state.problem.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.testTag(TestTags.ADD_GROUP_URL_ERROR),
-                )
+                FieldError(problem, testTag = TestTags.ADD_GROUP_URL_ERROR)
             }
             Spacer(Modifier.height(12.dp))
             Text(
