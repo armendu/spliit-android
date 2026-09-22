@@ -84,17 +84,14 @@ private val CardShape = RoundedCornerShape(16.dp)
 
 /**
  * The home screen: the groups this phone remembers, in three sections, with participant counts
- * fetched from the instance each one lives on.
+ * from the instance each lives on.
  *
- * The list itself is local, Spliit has no accounts, so it renders from the stored snapshot
- * immediately and the server detail fills in; a server that cannot be reached costs its own
- * groups their detail, never the whole screen (see [GroupsListViewModel]).
+ * The list is local, so it renders from the stored snapshot immediately and server detail fills
+ * in. An unreachable server costs its own groups their detail, never the screen.
  *
- * Everything that can be done *to* a group lives in one menu per row, reached by a long press or
- * by the row's own overflow button. A swipe was the other option and is what iOS uses; two
- * affordances for three actions, one of them irreversible, is more surface than this screen
- * needs, and a menu is the Android idiom for "the things this row can do", it also names the
- * actions instead of asking anyone to learn a colour.
+ * Everything that can be done to a group lives in one menu per row, on long press or the
+ * overflow button. A swipe was the alternative, but a menu names its actions instead of asking
+ * anyone to learn a colour.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -200,12 +197,8 @@ fun GroupsListScreen(
             )
         },
         floatingActionButton = {
-            // Only once there is a list to sit beside. The empty state already leads with
-            // "Create group" as its one action, and a FAB saying the same thing two inches
-            // below it is the same instruction twice, competing with itself. Where there is a
-            // list, the FAB is the shortcut to the thing most people opened this screen to do;
-            // the "+" menu above is where the full set lives, including the one that needs a
-            // link somebody sent them.
+            // Only once there is a list to sit beside: the empty state already leads with
+            // "Create group", and a FAB two inches below it is the same instruction twice.
             val dashboard = (state as? LoadState.Loaded)?.value
             if (dashboard != null && !dashboard.isEmpty) {
                 // Colour, shape, description and tooltip all come from SpliitFab, one
@@ -538,13 +531,8 @@ private fun GroupRow(
     }
 }
 
-/**
- * The row's metadata line: icon-led pairs, wrapping rather than truncating, iOS's own `GroupRow`
- * draws the same two pairs with `Label(_, systemImage:)`, wrapped by an `AdaptiveHStack`. At the
- * largest accessibility text sizes three pairs will not fit on one line, and a truncated
- * participant count is worse than a row that grows a second line, so [FlowRow] rather than a
- * fixed [Row].
- */
+/** The row's metadata line: icon-led pairs that wrap rather than truncate. [FlowRow], because
+ *  at the largest text sizes these will not fit on one line. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupMetadataRow(group: GroupListItem) {
@@ -570,24 +558,16 @@ private fun GroupMetadataRow(group: GroupListItem) {
                 contentDescription = createdDateContentDescription(createdAt),
             )
         }
-        // No server here, deliberately. It used to appear for any group not on the current
-        // default, and on a phone it wrapped the row onto a second line for the one fact most
-        // people never need. The group's server has not gone anywhere, the group's own
-        // **Information** tab states it, and the create form's **Advanced** section is where it
-        // is chosen. The cost, which is real: two groups of the same name on two servers are
-        // indistinguishable in this list until one of them is opened.
+        // No server here: it wrapped the row onto a second line for a fact most people never
+        // need, and the Information tab states it. The real cost is that two groups of the same
+        // name on two servers look identical here until one is opened.
     }
 }
 
 /**
- * One glyph-and-caption pair, the participant count or the created date.
- *
- * The icon is decorative: [Icon]'s own `contentDescription` is always null, because the text right
- * next to it already says what it is, a screen reader hearing "image, 3 participants, image, 14
- * September 2026" says the same thing twice for no benefit. Sized to the caption text (14dp against
- * `bodySmall`'s ~12sp) and aligned to its *baseline* rather than centred in the row: centring
- * against a taller sibling in the same [FlowRow] line is what makes a small icon look like it is
- * floating, where baseline alignment ties it to the one piece of text it belongs to.
+ * One glyph-and-caption pair. The icon is decorative, so its `contentDescription` is null: the
+ * text beside it already says what it is. Baseline-aligned rather than centred, since centring
+ * against a taller sibling in the same [FlowRow] line makes a small icon look like it floats.
  */
 @Composable
 private fun IconTextPair(icon: Int, text: String, testTag: String, contentDescription: String? = null) {
@@ -689,13 +669,8 @@ private fun GroupRowSkeleton() {
     }
 }
 
-/**
- * Spliit has no bespoke wordmark asset yet, the launcher icon's own comment says the same. This
- * is a text stand-in, fixed at a fixed visual size (via `LocalDensity`, not `sp`) so it never
- * grows past the app bar's own fixed height, and can be replaced with real mark art without
- * touching the call site, the same way [app.spliit.android.ui.design.CategoryIcon] documents for
- * its own placeholder.
- */
+/** A text stand-in until there is a real wordmark. Sized via `LocalDensity` rather than `sp`,
+ *  so it never outgrows the app bar's fixed height. */
 @Composable
 private fun SpliitWordmark() {
     val fixedSize = with(LocalDensity.current) { 20.dp.toSp() }

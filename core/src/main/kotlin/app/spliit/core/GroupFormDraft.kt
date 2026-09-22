@@ -31,13 +31,9 @@ public data class ParticipantFormDraft(
 )
 
 /**
- * The group form's state, plus the validation the server would apply.
- *
- * Mirrors `groupFormSchema` in the web app for the rules that schema actually states; the two
- * beyond it, a participant with expenses cannot be removed, and how a cleared currency code is
- * spelled, come from server behaviour no schema states but every client has to honour. See the
- * notes at the top of this file. Immutable, like [ExpenseFormDraft]: a screen holds one and
- * replaces it wholesale.
+ * The group form's state, plus the validation the server would apply. Mirrors the web app's
+ * `groupFormSchema`, plus two rules no schema states: a participant with expenses cannot be
+ * removed, and a cleared currency code is `""`. Immutable.
  */
 public data class GroupFormDraft(
     public val name: String = "",
@@ -45,20 +41,12 @@ public data class GroupFormDraft(
     public val information: String = "",
     /** A free-text symbol such as "$" or "CHF". The server does not interpret it. */
     public val currency: String = "$",
-    /**
-     * ISO-4217, or null for a group with only a free-text symbol, predating currency codes, or
-     * a symbol the user chose to type themselves. Use [withCurrency] and [withCustomSymbol]
-     * rather than setting this directly: picking a currency sets [currency] to match, and a code
-     * that disagreed with the symbol beside every amount would be worse than no code at all.
-     */
+    /** ISO-4217, or null for a free-text symbol. Set via [withCurrency] / [withCustomSymbol],
+     *  which keep [currency] in step: a code disagreeing with the symbol is worse than none. */
     public val currencyCode: String? = null,
     public val participants: List<ParticipantFormDraft> = emptyList(),
-    /**
-     * Server IDs of participants who appear on at least one expense, `participantsWithExpenses`
-     * in the server's `groups.getDetails` response, and the only source of truth this draft has
-     * for who [withParticipantRemoved] is not free to take out: removing one would orphan the
-     * expenses that name them, silently, on whatever screen loads next.
-     */
+    /** Participants who appear on at least one expense, from `groups.getDetails`. Removing one
+     *  would silently orphan the expenses naming them. */
     public val participantsWithExpenses: Set<String> = emptySet(),
     public val locale: Locale = Locale.getDefault(),
 ) {
@@ -100,15 +88,12 @@ public data class GroupFormDraft(
     }
 
     /**
-     * Removes the row for [id], or **null** when that participant is on at least one expense.
+     * Removes the row for [id], or null when that participant is on an expense.
      *
-     * Null rather than the unchanged draft, deliberately: a same-type no-op is a return value a
-     * call site can drop without the compiler ever objecting, and that is exactly what a stale
-     * remove button, a race with another device's edit landing between render and tap, or a test
-     * that forgot [canRemoveParticipant] would do, silently. A nullable return forces a branch.
-     * [canRemoveParticipant] is still there for greying out a control before the user ever taps
-     * it; this is what a screen falls back on when that check was skipped or went stale, and the
-     * null is what lets it say *why* nothing happened rather than say nothing at all.
+     * Null rather than an unchanged draft: a same-type no-op is a return value a call site can
+     * drop without the compiler objecting, which is what a stale remove button would do.
+     * [canRemoveParticipant] greys the control out beforehand; this is the fallback when that
+     * check was skipped or went stale.
      */
     public fun withParticipantRemoved(id: String): GroupFormDraft? {
         if (!canRemoveParticipant(id)) return null
@@ -249,13 +234,8 @@ public data class GroupFormDraft(
     }
 }
 
-/**
- * Everything a `GroupFormValues` needs, in `:core`'s own types.
- *
- * Unlike [ExpenseSubmission], there is no unit boundary to cross here: every field is already
- * the wire's own shape, string for string, so `:app` copies this straight onto `GroupFormValues`
- * field for field rather than through a separate `Wire` type first.
- */
+/** Everything a `GroupFormValues` needs, in `:core`'s types. No unit boundary to cross, unlike
+ *  [ExpenseSubmission], so `:app` copies it straight across. */
 public data class GroupSubmission(
     public val name: String,
     public val information: String,

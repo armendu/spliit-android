@@ -44,12 +44,9 @@ data class ExpensesPage(
 )
 
 /**
- * The balances tab's whole answer, with [Balance]'s `paid`/`paidFor` already discarded.
- *
- * **`groups.balances.list` does not tell you what anyone paid.** Its `paid` and `paidFor` are
- * derived from the suggested payments rather than from the expenses, one is always zero and the
- * other is `abs(total)`. Only `total` means anything, so [balances] carries nothing else: there
- * is no field left for a later call site to misread.
+ * The balances tab's answer, with `paid`/`paidFor` discarded. They are derived from the
+ * suggested payments, not the expenses: one is always zero and the other `abs(total)`. Only
+ * `total` means anything, so nothing else is carried for a call site to misread.
  */
 data class BalancesInfo(
     /** Participant ID to minor-units total. A participant with no activity is absent, not zero -
@@ -59,16 +56,13 @@ data class BalancesInfo(
 )
 
 /**
- * The totals tab's answer, already reduced to what it draws.
+ * The totals tab's answer, reduced to what it draws.
  *
- * [yourShareMinorUnits] is rounded here rather than on the wire: `totalParticipantShare` is the
- * one amount in the API that is not an integer, and an instance older than the web app's *Shares*
- * change sends thirds of a cent. It stays a `Double` through [SpliitEndpoints.GroupStatsResponse]
- * and becomes whole minor units at exactly this boundary, never by dividing anything.
+ * [yourShareMinorUnits] rounds here, not on the wire: `totalParticipantShare` is not an integer
+ * on older instances, so it stays a `Double` until this boundary and never by dividing.
  *
- * [summary] and [categories] are absent on an instance still answering the removed
- * `groups.stats.get`, which carries the three figures and nothing else. The tab draws what it
- * has; it does not treat their absence as a failure.
+ * [summary] and [categories] are absent on an instance answering the removed
+ * `groups.stats.get`. The tab draws what it has rather than failing.
  */
 data class StatsInfo(
     val totalGroupSpendings: Long,
@@ -86,12 +80,9 @@ data class ActivitiesPage(
 )
 
 /**
- * The search field's state, kept beside the expense list rather than narrowing it.
- *
- * The server does the matching, `groups.expenses.list` takes a case-insensitive `filter` on the
- * title, so a search covers the whole group, not only the pages paged in. [results] is null
- * exactly while nothing has been typed: an empty result and an unasked question are different
- * sentences with different ways out of them.
+ * The search field's state, kept beside the expense list rather than narrowing it. The server
+ * matches, so a search covers the whole group and not only the pages loaded. [results] is null
+ * exactly while nothing has been typed: no results and no question are different answers.
  */
 data class SearchUiState(
     val isActive: Boolean = false,
@@ -129,13 +120,9 @@ data class GroupDetailUiState(
 data class ExpenseSection(val bucket: DateBucket, val expenses: List<ExpenseListItem>)
 
 /**
- * Groups [expenses] under the same [DateBucket]s the app uses elsewhere, newest first.
- *
- * A plain function rather than a method on the ViewModel: it needs nothing the ViewModel holds
- * beyond the list and a clock, so it is exercised directly in tests with neither a server nor a
- * `RecentGroupsStore` in the way. [DateBucket]'s own ordinal order is already newest-to-oldest,
- * which is what sorting the buckets by it relies on; the expenses within one bucket keep the
- * order the server sent them in.
+ * Groups [expenses] under the app's [DateBucket]s, newest first. A plain function so tests drive
+ * it without a server. [DateBucket]'s ordinal order is already newest-first, and expenses within
+ * a bucket keep the server's order.
  */
 fun bucketExpenses(expenses: List<ExpenseListItem>, clock: Clock = Clock.systemDefaultZone()): List<ExpenseSection> {
     val byBucket = LinkedHashMap<DateBucket, MutableList<ExpenseListItem>>()
@@ -147,18 +134,14 @@ fun bucketExpenses(expenses: List<ExpenseListItem>, clock: Clock = Clock.systemD
 }
 
 /**
- * [item] in [expenses], at the position its date gives it, the server orders a group's expenses
- * newest first, and an edit can move one.
+ * [item] placed in [expenses] by date, newest first.
  *
- * A row whose date did not change does not move at all, even to a place its date would also
- * allow. Expense dates are whole days, so several rows commonly share one, and their order
- * within that day is the server's (by creation) rather than anything this side can recompute -
- * inserting by date alone shuffled an edited row to the end of its own day, which looks like the
- * list reloading and is the thing the sheet exists to avoid.
+ * A row whose date did not change does not move at all. Dates are whole days, so rows share
+ * them, and their order within a day is the server's by creation: inserting by date alone
+ * shuffled an edited row to the end of its own day, which looks like the list reloading.
  *
- * Otherwise the old copy goes and the new one is inserted before the first row that is older,
- * leaving every other row where it was. An undone delete comes back under a new ID and lands the
- * same way.
+ * Otherwise the old copy goes and the new one is inserted before the first older row. An undone
+ * delete comes back under a new ID and lands the same way.
  */
 fun placed(expenses: List<ExpenseListItem>, item: ExpenseListItem): List<ExpenseListItem> {
     val current = expenses.indexOfFirst { it.id == item.id }
@@ -171,13 +154,9 @@ fun placed(expenses: List<ExpenseListItem>, item: ExpenseListItem): List<Expense
 }
 
 /**
- * The active participant's own balance, in minor units, what the "You" summary at the top of
- * the balances tab draws, and null exactly when that summary has nothing to lead with: either
- * nobody has said who they are yet, or the balances themselves have not loaded.
- *
- * A plain extension over [GroupDetailUiState] rather than a stored field, so there is exactly one
- * place this can disagree with [GroupDetailUiState.balances], nowhere, because it is read from
- * it directly instead of copied alongside it.
+ * The active participant's balance, which the "You" summary draws. Null when nobody has said who
+ * they are, or the balances have not loaded. An extension rather than a stored field, so it
+ * cannot disagree with [GroupDetailUiState.balances].
  */
 fun GroupDetailUiState.yourBalanceMinorUnits(): Long? {
     val id = activeParticipantId ?: return null
