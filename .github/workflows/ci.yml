@@ -16,6 +16,8 @@ on:
     # 04:15 UTC daily, for the upstream-drift job below.
     - cron: '15 4 * * *'
 
+# Actions are pinned to commit SHAs, not tags: a tag is mutable, so `@v4` is a promise the
+# action's owner can rewrite under us. The trailing comment is the human-readable version.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -27,16 +29,16 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21'
 
       # Caches the Gradle distribution, the dependency cache and the build cache, and writes
       # them back only from the default branch so a pull request cannot poison them.
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # The Android SDK, provisioned explicitly rather than trusted to the runner image.
       #
@@ -51,7 +53,7 @@ jobs:
       #     version and carries on, which is the silent-wrong-answer failure this repo keeps a
       #     list of. Hence pinning the tools version below rather than taking the default; the
       #     action's default is 20.0 today, and this pin is what stops that drifting under us.
-      - uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           cmdline-tools-version: 14742923 # 20.0, the first release that parses Major.Minor
           packages: 'platform-tools platforms;android-37.1 build-tools;37.0.0'
@@ -86,7 +88,7 @@ jobs:
       # should be running anyway. Note GitHub wraps artifacts in a zip, so this downloads as
       # spliit-debug-<sha>.zip with the APK inside.
       - name: Upload this build's APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: spliit-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -94,7 +96,7 @@ jobs:
           retention-days: 30
 
       # The one thing worth keeping when a build fails: which test, and what it expected.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: test-reports
@@ -127,18 +129,18 @@ jobs:
     # down is not a defect in this repo, and a job that cries wolf gets muted.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - run: make test-live BASE_URL=https://spliit.app/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: upstream-drift-reports
