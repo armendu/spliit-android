@@ -274,6 +274,13 @@ that installs nothing, and the failure surfaces much later as an AGP complaint a
 `compileSdk`. CI asserts the platform directory exists afterwards; do the same for anything
 else it installs.
 
+**Shared UI chrome lives in `app/src/main/.../ui/design/`.** Section headers, dividers, footnotes,
+sheet headers, the discard dialog, failure panels, field errors, shapes and insets each have one
+definition there. Every one of them was previously written out per screen, and every one had
+drifted: sibling tabs of the same screen disagreed by 4dp on their headers and their dividers,
+and four of them disagreed about whether an empty state should clear the FAB. A value repeated is
+a value that drifts, so a new screen takes what is there rather than writing its own.
+
 **Refreshing is rate-limited, and the limit is on the work rather than the launcher.**
 `RefreshLimiter` allows one refresh per five seconds; pull-to-refresh and the retry buttons go
 through it, and first loads, lazily-opened tabs and write-triggered reloads do not, those happen
@@ -323,7 +330,15 @@ whose opinion counts. Assertions avoid the server-generated IDs, they change on 
 re-record.
 
 Compose `testTag`s belong in one shared object, used by both the app and the instrumented
-tests, and added in the same commit as the screen they belong to.
+tests, and added in the same commit as the screen they belong to. The instrumented suite derives
+its tag *prefixes* from `TestTags`' own generators rather than spelling them out: a renamed tag
+would otherwise leave a matcher finding nothing, which reads as a timeout rather than a rename.
+
+**Anything a test needs to drive belongs outside `viewModelScope.launch`.** The launcher
+dispatches on Main, which the JVM suites deliberately do not install, so a `fun` whose whole body
+is a launch is a function no unit test can reach. The pattern throughout is a `suspend fun` doing
+the work and a thin launcher calling it: `refreshInPlace`, `loadNextExpensesPage`,
+`applyActiveParticipant`, `retryNow`.
 
 ## CI
 
