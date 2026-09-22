@@ -196,4 +196,31 @@ class GroupFormViewModelTest {
         assertNull(draft.currencyCode)
         assertTrue(draft.usesCustomSymbol)
     }
+
+    @Test
+    fun `a group created on the server but not stored locally hands back its link`() = runBlocking {
+        // The one failure this design cannot recover from. There is no account and no
+        // server-side list, so a group the server has and this phone does not is unreachable
+        // for good. Reporting success would send the user to a list it is not in.
+        val store = FakeRecentGroupsStore(failSaves = true)
+        server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"groupId":"abc123"}""")).build())
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.CREATE,
+            groupId = null,
+            instanceBaseUrl = server.url("/").toString(),
+            recentGroupsStore = store,
+        )
+        viewModel.setName("Lisbon")
+        viewModel.addParticipant()
+        viewModel.renameParticipant(viewModel.state.value.draft.participants.single().id, "Ana")
+
+        val saved = viewModel.submit()
+
+        assertFalse(saved, "a group that did not store must not report success")
+        assertNull(viewModel.state.value.savedGroupId, "navigating on would lose the group")
+        val error = viewModel.state.value.saveError
+        assertNotNull(error)
+        assertTrue(error!!.contains("abc123"), "the link is the only way back to it: $error")
+    }
+
 }

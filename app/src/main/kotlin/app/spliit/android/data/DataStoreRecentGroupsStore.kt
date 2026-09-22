@@ -11,6 +11,7 @@ import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.SplitMode
+import java.io.IOException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -59,7 +60,16 @@ public class DataStoreRecentGroupsStore(
     public constructor(context: Context) : this(context.recentGroupsDataStore)
 
     override suspend fun load(): RecentGroupsSnapshot {
-        val json = dataStore.data.first()[SNAPSHOT_KEY] ?: return RecentGroupsSnapshot()
+        // The read itself, not only the decode. DataStore documents `data` as throwing
+        // IOException, and this runs inside `viewModelScope.launch` at call sites with no
+        // exception handler, where a throw reaches the thread's default handler and takes the
+        // process with it. An unreadable file degrades to an empty list, exactly as a
+        // corrupt one already did below.
+        val json = try {
+            dataStore.data.first()[SNAPSHOT_KEY]
+        } catch (_: IOException) {
+            return RecentGroupsSnapshot()
+        } ?: return RecentGroupsSnapshot()
         return try {
             // Decoding and converting are one attempt, not two: a row this build cannot make
             // sense of, malformed JSON, or a `SplitMode` name written by a newer version this
@@ -75,9 +85,19 @@ public class DataStoreRecentGroupsStore(
         }
     }
 
-    override suspend fun save(snapshot: RecentGroupsSnapshot) {
+    /**
+     * Returns false when the write failed, which callers that have just created a group must
+     * act on: there is no account and no server-side list, so a group the server has and this
+     * file does not is unreachable for good.
+     */
+    override suspend fun save(snapshot: RecentGroupsSnapshot): Boolean {
         val json = JSON.encodeToString(StoredSnapshot.serializer(), StoredSnapshot.from(snapshot))
-        dataStore.edit { prefs -> prefs[SNAPSHOT_KEY] = json }
+        return try {
+            dataStore.edit { prefs -> prefs[SNAPSHOT_KEY] = json }
+            true
+        } catch (_: IOException) {
+            false
+        }
     }
 }
 

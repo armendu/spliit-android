@@ -6,6 +6,7 @@ import app.spliit.api.ExpenseListItem
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcClientError
+import app.spliit.api.TrpcException
 import app.spliit.api.TrpcServerError
 import app.spliit.api.groupStats
 import app.spliit.core.MoneyFormatter
@@ -201,9 +202,7 @@ class GroupDetailViewModel(
             _state.update { it.copy(group = LoadState.Loaded(info), activeParticipantId = actorId) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(group = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(group = LoadState.Failed(e.message)) }
         }
     }
@@ -217,9 +216,7 @@ class GroupDetailViewModel(
             client.call(SpliitEndpoints.groupsGet(groupId)).group ?: return
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            return
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             return
         }
         val info = GroupInfo(
@@ -243,9 +240,7 @@ class GroupDetailViewModel(
             _state.update { it.copy(expenses = LoadState.Loaded(page)) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            if (!keepOnFailure) _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!keepOnFailure) _state.update { it.copy(expenses = LoadState.Failed(e.message)) }
         }
     }
@@ -301,9 +296,7 @@ class GroupDetailViewModel(
             _state.update { it.copy(balances = LoadState.Loaded(BalancesInfo(totals, response.reimbursements))) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            if (!keepOnFailure) _state.update { it.copy(balances = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!keepOnFailure) _state.update { it.copy(balances = LoadState.Failed(e.message)) }
         }
     }
@@ -624,9 +617,7 @@ class GroupDetailViewModel(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Failed(e.message)) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             if (!keepOnFailure) _state.update { it.copy(activities = LoadState.Failed(e.message)) }
         }
     }
@@ -661,9 +652,7 @@ class GroupDetailViewModel(
         } catch (e: CancellationException) {
             _state.update { it.copy(isLoadingMoreActivities = false) }
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isLoadingMoreActivities = false) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isLoadingMoreActivities = false) }
         }
     }

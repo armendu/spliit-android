@@ -9,6 +9,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.spliit.core.AppSettings
 import app.spliit.core.SettingsStore
 import app.spliit.core.ThemeMode
+import java.io.IOException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -51,7 +52,12 @@ public class DataStoreSettingsStore(
     public constructor(context: Context) : this(context.settingsDataStore)
 
     override suspend fun load(): AppSettings {
-        val json = dataStore.data.first()[SETTINGS_KEY] ?: return AppSettings()
+        // See DataStoreRecentGroupsStore.load: the read can throw, not just the decode.
+        val json = try {
+            dataStore.data.first()[SETTINGS_KEY]
+        } catch (_: IOException) {
+            return AppSettings()
+        } ?: return AppSettings()
         return try {
             JSON.decodeFromString(StoredSettings.serializer(), json).toCore()
         } catch (_: Exception) {
@@ -63,9 +69,15 @@ public class DataStoreSettingsStore(
         }
     }
 
+    /** Silently no-ops on an I/O failure: a theme that did not persist is worth less than the
+     *  crash that reporting it from `viewModelScope` would otherwise cause. */
     override suspend fun save(settings: AppSettings) {
         val json = JSON.encodeToString(StoredSettings.serializer(), StoredSettings.from(settings))
-        dataStore.edit { prefs -> prefs[SETTINGS_KEY] = json }
+        try {
+            dataStore.edit { prefs -> prefs[SETTINGS_KEY] = json }
+        } catch (_: IOException) {
+            // Nothing to say and nowhere to say it; the value stays in AppSettingsHolder.
+        }
     }
 }
 

@@ -8,8 +8,7 @@ import app.spliit.api.LenientDecimal
 import app.spliit.api.RecurrenceRule
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
-import app.spliit.api.TrpcClientError
-import app.spliit.api.TrpcServerError
+import app.spliit.api.TrpcException
 import app.spliit.android.feature.group.GroupInfo
 import app.spliit.core.DefaultSplit
 import app.spliit.core.ExpenseFormDraft
@@ -232,9 +231,7 @@ class ExpenseFormViewModel(
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isLoading = false, loadError = e.message) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isLoading = false, loadError = e.message) }
         }
     }
@@ -245,9 +242,7 @@ class ExpenseFormViewModel(
             client.call(SpliitEndpoints.categoriesList()).categories
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            emptyList()
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             emptyList()
         }
 
@@ -386,10 +381,7 @@ class ExpenseFormViewModel(
             // Catching Exception here instead would tell the user the server was unreachable.
             _state.update { it.copy(isSaving = false) }
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isSaving = false, saveError = e.message) }
-            return false
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isSaving = false, saveError = e.message) }
             return false
         }
@@ -429,10 +421,7 @@ class ExpenseFormViewModel(
         } catch (e: CancellationException) {
             _state.update { it.copy(isSaving = false) }
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isSaving = false, saveError = e.message) }
-            return false
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isSaving = false, saveError = e.message) }
             return false
         }
@@ -460,10 +449,7 @@ class ExpenseFormViewModel(
         } catch (e: CancellationException) {
             _state.update { it.copy(isSaving = false) }
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isSaving = false, saveError = e.message) }
-            return false
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isSaving = false, saveError = e.message) }
             return false
         }

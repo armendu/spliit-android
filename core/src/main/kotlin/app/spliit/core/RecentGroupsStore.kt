@@ -26,5 +26,13 @@ public interface RecentGroupsStore {
     public suspend fun load(): RecentGroupsSnapshot
 
     /** Replaces the stored snapshot with [snapshot], in full. */
-    public suspend fun save(snapshot: RecentGroupsSnapshot)
+    /**
+     * Persists [snapshot], answering false when it could not be written.
+     *
+     * The return value matters in exactly one place and is ignorable everywhere else: a group
+     * just created on the server exists nowhere else, because Spliit has no accounts and no
+     * server-side list of what this phone can reach. A row that fails to store there is a group
+     * gone for good, so that caller has to say so rather than carry on.
+     */
+    public suspend fun save(snapshot: RecentGroupsSnapshot): Boolean
 }

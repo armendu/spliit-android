@@ -6,19 +6,18 @@ import app.spliit.api.GroupFormValues
 import app.spliit.api.Participant
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
-import app.spliit.api.TrpcClientError
-import app.spliit.api.TrpcServerError
+import app.spliit.api.TrpcException
 import app.spliit.core.Currencies
 import app.spliit.core.GroupFormDraft
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsStore
 import kotlinx.coroutines.CancellationException
-import app.spliit.core.Participant as CoreParticipant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import app.spliit.core.Participant as CoreParticipant
 
 /** Whether the form is creating a group or editing one already on a server. */
 enum class GroupFormMode { CREATE, EDIT }
@@ -152,9 +151,7 @@ class GroupFormViewModel(
             _state.update { it.copy(isLoading = false, draft = draft) }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isLoading = false, loadError = e.message) }
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isLoading = false, loadError = e.message) }
         }
     }
@@ -245,7 +242,7 @@ class GroupFormViewModel(
                     // The only way :core exposes to add a row, see RecentGroupsSnapshot.opening.
                     // Freshly created is freshly relevant, so it belongs at the top of the list.
                     val snapshot = recentGroupsStore.load()
-                    recentGroupsStore.save(
+                    val stored = recentGroupsStore.save(
                         snapshot.opening(
                             RecentGroup(
                                 groupId = response.groupId,
@@ -254,6 +251,21 @@ class GroupFormViewModel(
                             ),
                         ),
                     )
+                    // The group now exists on the server. If the row did not store, nothing on
+                    // this phone can reach it again: there is no account and no server-side list
+                    // of what this device has seen. So the link goes on screen rather than the
+                    // form quietly reporting success.
+                    if (!stored) {
+                        _state.update {
+                            it.copy(
+                                isSaving = false,
+                                saveError = "The group was created but could not be saved to " +
+                                    "this phone's list. Keep this link: " +
+                                    "${instanceBaseUrl.trimEnd('/')}/groups/${response.groupId}",
+                            )
+                        }
+                        return false
+                    }
                     _state.update { it.copy(isSaving = false, savedGroupId = response.groupId) }
                 }
 
@@ -270,10 +282,7 @@ class GroupFormViewModel(
             return true
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isSaving = false, saveError = e.message) }
-            return false
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isSaving = false, saveError = e.message) }
             return false
         }

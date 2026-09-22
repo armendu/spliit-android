@@ -5,8 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.spliit.android.AppSettingsHolder
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
-import app.spliit.api.TrpcClientError
-import app.spliit.api.TrpcServerError
+import app.spliit.api.TrpcException
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsStore
 import kotlinx.coroutines.CancellationException
@@ -110,19 +109,25 @@ class AddGroupByUrlViewModel(
             }
 
             val snapshot = recentGroupsStore.load()
-            recentGroupsStore.save(
+            val stored = recentGroupsStore.save(
                 snapshot.opening(
                     RecentGroup(groupId = group.id, instanceBaseUrl = instanceBaseUrl, groupName = group.name),
                 ),
             )
+            // Less costly than the create path, the user still has the link they pasted, but
+            // reporting success for a row that did not store would send them back to a list the
+            // group is not in.
+            if (!stored) {
+                _state.update {
+                    it.copy(isChecking = false, problem = "Couldn't save this group to your list. Try again.")
+                }
+                return false
+            }
             _state.update { it.copy(isChecking = false, addedGroupId = group.id) }
             return true
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
-            _state.update { it.copy(isChecking = false, problem = e.message) }
-            return false
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             _state.update { it.copy(isChecking = false, problem = e.message) }
             return false
         }

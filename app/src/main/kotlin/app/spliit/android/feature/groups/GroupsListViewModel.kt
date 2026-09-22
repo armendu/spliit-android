@@ -5,8 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.spliit.api.GroupSummary
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
-import app.spliit.api.TrpcClientError
-import app.spliit.api.TrpcServerError
+import app.spliit.api.TrpcException
 import app.spliit.core.LoadState
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
@@ -279,9 +278,7 @@ class GroupsListViewModel(
             // this alongside the two below would report "unreachable" for a load nobody is
             // waiting on any more.
             throw e
-        } catch (e: TrpcServerError) {
-            instanceBaseUrl to null
-        } catch (e: TrpcClientError) {
+        } catch (e: TrpcException) {
             instanceBaseUrl to null
         }
 

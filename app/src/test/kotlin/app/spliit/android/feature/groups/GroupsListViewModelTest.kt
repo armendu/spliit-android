@@ -150,7 +150,7 @@ class GroupsListViewModelTest {
     fun `an unreadable stored list is the one failure with nothing left to draw`() = runBlocking {
         val store = object : app.spliit.core.RecentGroupsStore {
             override suspend fun load(): RecentGroupsSnapshot = throw IllegalStateException("corrupt")
-            override suspend fun save(snapshot: RecentGroupsSnapshot) = Unit
+            override suspend fun save(snapshot: RecentGroupsSnapshot) = true
         }
         val viewModel = GroupsListViewModel(store)
 
