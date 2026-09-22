@@ -2,25 +2,19 @@ package app.spliit.android.feature.group
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.spliit.api.Activity
 import app.spliit.api.ExpenseListItem
-import app.spliit.api.Participant
-import app.spliit.api.Reimbursement
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcClientError
 import app.spliit.api.TrpcServerError
 import app.spliit.api.groupStats
-import app.spliit.core.DateBucket
 import app.spliit.core.MoneyFormatter
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.RefreshLimiter
 import app.spliit.core.LoadState
 import java.time.Clock
-import java.time.Instant
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -30,178 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import app.spliit.core.Participant as CoreParticipant
-
-/** The group screen's currency-bearing detail, everything the tabs draw from that only
- *  `groups.get` carries, plus the one thing it does not: which server answered. */
-data class GroupInfo(
-    val id: String,
-    val name: String,
-    /** The group's note, as the information tab shows it. Blank and absent mean the same thing
-     *  here; the tab trims before deciding which it is. */
-    val information: String?,
-    /** Free-text, e.g. "$" or "CHF", see [app.spliit.core.MoneyFormatter]'s own note. */
-    val currencySymbol: String,
-    val currencyCode: String?,
-    val createdAt: Instant,
-    val participants: List<Participant>,
-    /**
-     * The instance this group is on, resolved from its stored row rather than from the app's
-     * default, **the share link is built from this**. A self-hosted group shared as a
-     * spliit.app link opens nothing, so the default must never stand in for it.
-     */
-    val instanceBaseUrl: String,
-)
-
-/** One page of the expense list, as `groups.expenses.list` answers it, carried whole rather
- *  than unpacked, since [loadMoreExpenses] needs [nextCursor] and [hasMore] verbatim. */
-data class ExpensesPage(
-    val expenses: List<ExpenseListItem>,
-    val hasMore: Boolean,
-    val nextCursor: Int,
-)
-
-/**
- * The balances tab's whole answer, with [Balance]'s `paid`/`paidFor` already discarded.
- *
- * **`groups.balances.list` does not tell you what anyone paid.** Its `paid` and `paidFor` are
- * derived from the suggested payments rather than from the expenses, one is always zero and the
- * other is `abs(total)`. Only `total` means anything, so [balances] carries nothing else: there
- * is no field left for a later call site to misread.
- */
-data class BalancesInfo(
-    /** Participant ID to minor-units total. A participant with no activity is absent, not zero -
-     *  see [SpliitEndpoints.BalancesResponse]. */
-    val balances: Map<String, Long>,
-    val reimbursements: List<Reimbursement>,
-)
-
-/**
- * The totals tab's answer, already reduced to what it draws.
- *
- * [yourShareMinorUnits] is rounded here rather than on the wire: `totalParticipantShare` is the
- * one amount in the API that is not an integer, and an instance older than the web app's *Shares*
- * change sends thirds of a cent. It stays a `Double` through [SpliitEndpoints.GroupStatsResponse]
- * and becomes whole minor units at exactly this boundary, never by dividing anything.
- *
- * [summary] and [categories] are absent on an instance still answering the removed
- * `groups.stats.get`, which carries the three figures and nothing else. The tab draws what it
- * has; it does not treat their absence as a failure.
- */
-data class StatsInfo(
-    val totalGroupSpendings: Long,
-    val yourSpendings: Long?,
-    val yourShareMinorUnits: Long?,
-    val summary: SpliitEndpoints.StatsSummary?,
-    val categories: List<SpliitEndpoints.CategoryTotal>,
-)
-
-/** One page of the activity log, newest first, the same offset-cursor shape as [ExpensesPage]. */
-data class ActivitiesPage(
-    val activities: List<Activity>,
-    val hasMore: Boolean,
-    val nextCursor: Int,
-)
-
-/**
- * The search field's state, kept beside the expense list rather than narrowing it.
- *
- * The server does the matching, `groups.expenses.list` takes a case-insensitive `filter` on the
- * title, so a search covers the whole group, not only the pages paged in. [results] is null
- * exactly while nothing has been typed: an empty result and an unasked question are different
- * sentences with different ways out of them.
- */
-data class SearchUiState(
-    val isActive: Boolean = false,
-    /** Exactly what is in the field, including whitespace, the field's own value, not the
-     *  trimmed query that was sent. */
-    val query: String = "",
-    val results: LoadState<List<ExpenseListItem>>? = null,
-)
-
-data class GroupDetailUiState(
-    val group: LoadState<GroupInfo> = LoadState.Loading,
-    val expenses: LoadState<ExpensesPage> = LoadState.Loading,
-    val isLoadingMoreExpenses: Boolean = false,
-    val balances: LoadState<BalancesInfo> = LoadState.Loading,
-    /** Who this phone is in this group, resolved via [app.spliit.core.RecentGroupsSnapshot.actorId]
-     * , null both before anyone has answered and once a remembered answer has left the group. */
-    val activeParticipantId: String? = null,
-    /** [LoadState.Loading] both before the totals tab has been opened and while its request is
-     *  out; [statsRequested] is what tells those apart, and only the tab itself needs to. */
-    val stats: LoadState<StatsInfo> = LoadState.Loading,
-    /**
-     * This instance answers neither name the totals go by. Not a failure: there is nothing to
-     * retry and nothing the user did wrong, so the tab says so once and offers no button.
-     */
-    val statsUnavailable: Boolean = false,
-    val activities: LoadState<ActivitiesPage> = LoadState.Loading,
-    val isLoadingMoreActivities: Boolean = false,
-    val search: SearchUiState = SearchUiState(),
-    /** A pull-to-refresh is in flight. Distinct from [LoadState.Loading], which replaces what is
-     *  on screen with a skeleton, a refresh leaves the numbers up until new ones arrive. */
-    val isRefreshing: Boolean = false,
-)
-
-/** One bucket's worth of expenses, newest bucket first, see [bucketExpenses]. */
-data class ExpenseSection(val bucket: DateBucket, val expenses: List<ExpenseListItem>)
-
-/**
- * Groups [expenses] under the same [DateBucket]s the app uses elsewhere, newest first.
- *
- * A plain function rather than a method on the ViewModel: it needs nothing the ViewModel holds
- * beyond the list and a clock, so it is exercised directly in tests with neither a server nor a
- * `RecentGroupsStore` in the way. [DateBucket]'s own ordinal order is already newest-to-oldest,
- * which is what sorting the buckets by it relies on; the expenses within one bucket keep the
- * order the server sent them in.
- */
-fun bucketExpenses(expenses: List<ExpenseListItem>, clock: Clock = Clock.systemDefaultZone()): List<ExpenseSection> {
-    val byBucket = LinkedHashMap<DateBucket, MutableList<ExpenseListItem>>()
-    for (expense in expenses) {
-        val bucket = DateBucket.of(expense.expenseDate, clock)
-        byBucket.getOrPut(bucket) { mutableListOf() }.add(expense)
-    }
-    return byBucket.entries.sortedBy { it.key.ordinal }.map { ExpenseSection(it.key, it.value) }
-}
-
-/**
- * [item] in [expenses], at the position its date gives it, the server orders a group's expenses
- * newest first, and an edit can move one.
- *
- * A row whose date did not change does not move at all, even to a place its date would also
- * allow. Expense dates are whole days, so several rows commonly share one, and their order
- * within that day is the server's (by creation) rather than anything this side can recompute -
- * inserting by date alone shuffled an edited row to the end of its own day, which looks like the
- * list reloading and is the thing the sheet exists to avoid.
- *
- * Otherwise the old copy goes and the new one is inserted before the first row that is older,
- * leaving every other row where it was. An undone delete comes back under a new ID and lands the
- * same way.
- */
-fun placed(expenses: List<ExpenseListItem>, item: ExpenseListItem): List<ExpenseListItem> {
-    val current = expenses.indexOfFirst { it.id == item.id }
-    if (current >= 0 && expenses[current].expenseDate == item.expenseDate) {
-        return expenses.toMutableList().also { it[current] = item }
-    }
-    val without = expenses.filterNot { it.id == item.id }
-    val index = without.indexOfFirst { it.expenseDate.isBefore(item.expenseDate) }
-    return if (index < 0) without + item else without.take(index) + item + without.drop(index)
-}
-
-/**
- * The active participant's own balance, in minor units, what the "You" summary at the top of
- * the balances tab draws, and null exactly when that summary has nothing to lead with: either
- * nobody has said who they are yet, or the balances themselves have not loaded.
- *
- * A plain extension over [GroupDetailUiState] rather than a stored field, so there is exactly one
- * place this can disagree with [GroupDetailUiState.balances], nowhere, because it is read from
- * it directly instead of copied alongside it.
- */
-fun GroupDetailUiState.yourBalanceMinorUnits(): Long? {
-    val id = activeParticipantId ?: return null
-    val loaded = balances as? LoadState.Loaded ?: return null
-    // Absent means no activity, which is a real zero here, see BalancesInfo's own note.
-    return loaded.value.balances[id] ?: 0L
-}
 
 /**
  * One group's detail screen: the expenses tab and the balances tab, loaded together.
@@ -229,7 +51,6 @@ class GroupDetailViewModel(
          * Every keystroke cancels the job before it, so this delay is only ever survived by the
          * last one, which is what makes it a debounce rather than a lag. See [search].
          */
-        const val SEARCH_DEBOUNCE_MILLIS = 250L
     }
 
     private val _state = MutableStateFlow(GroupDetailUiState())
@@ -238,6 +59,14 @@ class GroupDetailViewModel(
     /** Set once [refresh] has resolved which instance [groupId] lives on, reused by
      *  [loadNextExpensesPage] and [selectActiveParticipant] so neither re-derives it. */
     private var resolvedInstanceBaseUrl: String? = null
+
+    private val searcher = ExpenseSearch(
+        groupId = groupId,
+        pageSize = PAGE_SIZE,
+        state = _state,
+        scope = viewModelScope,
+        client = { resolvedInstanceBaseUrl?.let(::client) },
+    )
 
     /** See [app.spliit.android.feature.groups.GroupsListViewModel.load] for why this exists
      *  alongside [refresh] rather than being called from `init`. */
@@ -312,7 +141,7 @@ class GroupDetailViewModel(
                 val balances = async { loadBalances(client, keepOnFailure = true) }
                 val stats = async { refreshStatsIfRequested(client) }
                 val activities = async { refreshActivitiesIfLoaded(client) }
-                val search = async { reloadSearch(client) }
+                val search = async { searcher.reload(client) }
                 group.await(); expenses.await(); balances.await(); stats.await(); activities.await(); search.await()
             }
         } finally {
@@ -621,7 +450,7 @@ class GroupDetailViewModel(
      */
     private suspend fun reloadDerivedAfterExpenseChange(client: TrpcClient) {
         coroutineScope {
-            val search = async { reloadSearch(client) }
+            val search = async { searcher.reload(client) }
             val stats = async { refreshStatsIfRequested(client) }
             val activities = async { refreshActivitiesIfLoaded(client) }
             search.await()
@@ -915,93 +744,15 @@ class GroupDetailViewModel(
 
     /** The in-flight search, cancelled by the next keystroke. Holding the job is what makes the
      *  delay in [runSearch] a debounce: only the last one ever survives it. */
-    private var searchJob: Job? = null
 
-    fun setSearchActive(active: Boolean) {
-        if (!active) {
-            searchJob?.cancel()
-            searchJob = null
-            _state.update { it.copy(search = SearchUiState()) }
-        } else {
-            _state.update { it.copy(search = it.search.copy(isActive = true)) }
-        }
-    }
+    // The search field owns its own state slice and its own debounce job; see [ExpenseSearch].
+    // These three stay as delegates because the screen and the tests both call them by name.
 
-    /**
-     * Answers [text], after a pause long enough to mean the typing has stopped.
-     *
-     * Every call cancels the one before it, so the delay below is only ever reached by the last
-     * keystroke, and the cancellation lands *in the delay*, before a request goes out, for
-     * anyone typing faster than that.
-     *
-     * When it does land in a request instead, [TrpcClient] propagates a real
-     * [CancellationException] rather than dressing it up as a network failure, and [runSearch]
-     * catches it separately from the two error types. Reporting it would put "Couldn't search"
-     * on screen between characters for anyone typing slower than the debounce.
-     */
-    fun search(text: String) {
-        _state.update { it.copy(search = it.search.copy(isActive = true, query = text)) }
-        searchJob?.cancel()
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) {
-            // An emptied field is not a search for nothing: drop the results and go back to the
-            // prompt rather than asking the server for the whole group again.
-            searchJob = null
-            _state.update { it.copy(search = it.search.copy(results = null)) }
-            return
-        }
-        searchJob = viewModelScope.launch {
-            delay(SEARCH_DEBOUNCE_MILLIS)
-            runSearch(trimmed)
-        }
-    }
+    fun setSearchActive(active: Boolean): Unit = searcher.setActive(active)
 
-    /** The request itself, without the debounce, public so a test can drive one search without
-     *  waiting out a timer. */
-    suspend fun runSearch(query: String) {
-        val baseUrl = resolvedInstanceBaseUrl ?: return
-        _state.update { it.copy(search = it.search.copy(results = LoadState.Loading)) }
-        try {
-            val response = client(baseUrl).call(
-                SpliitEndpoints.expensesList(groupId, cursor = 0, limit = PAGE_SIZE, filter = query),
-            )
-            // The field may have moved on while this was in flight; a stale page must not become
-            // the answer to a question nobody asked.
-            if (_state.value.search.query.trim() != query) return
-            _state.update { it.copy(search = it.search.copy(results = LoadState.Loaded(response.expenses))) }
-        } catch (e: CancellationException) {
-            // The keystroke after this one is already searching. Nothing to report, and nothing
-            // to leave on screen either, rethrown so the cancelled job dies as one.
-            throw e
-        } catch (e: TrpcServerError) {
-            if (_state.value.search.query.trim() == query) {
-                _state.update { it.copy(search = it.search.copy(results = LoadState.Failed(e.message))) }
-            }
-        } catch (e: TrpcClientError) {
-            if (_state.value.search.query.trim() == query) {
-                _state.update { it.copy(search = it.search.copy(results = LoadState.Failed(e.message))) }
-            }
-        }
-    }
+    fun search(text: String): Unit = searcher.onQueryChanged(text)
 
-    /** Re-runs whatever the field currently asks, for when an expense changed underneath it. */
-    private suspend fun reloadSearch(client: TrpcClient) {
-        val query = _state.value.search.query.trim()
-        if (query.isEmpty()) return
-        try {
-            val response = client.call(
-                SpliitEndpoints.expensesList(groupId, cursor = 0, limit = PAGE_SIZE, filter = query),
-            )
-            if (_state.value.search.query.trim() != query) return
-            _state.update { it.copy(search = it.search.copy(results = LoadState.Loaded(response.expenses))) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: TrpcServerError) {
-            // The results on screen are a moment old rather than wrong; an error panel over them
-            // would be worse than that.
-        } catch (e: TrpcClientError) {
-        }
-    }
+    suspend fun runSearch(query: String): Unit = searcher.run(query)
 
     private fun client(baseUrl: String): TrpcClient = clientFactory(baseUrl)
 }

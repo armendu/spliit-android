@@ -136,14 +136,25 @@ class GroupsListViewModel(
     /**
      * Rate-limited, unlike [load].
      *
-     * This screen has no pull gesture, so the button beside a failure is the only thing a user
-     * can repeat, and it is the most expensive thing in the app when they do, because it fans
-     * out one request per stored group. [load] itself is left alone: it runs once per composition
-     * and is not something anybody can hammer.
+     * This screen has no pull gesture, so the button beside a failure is the only repeatable
+     * thing on it, and the most expensive: one request per stored group. [load] is left alone,
+     * because it runs once per composition and nobody can hammer it.
      */
     fun retry() {
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch { retryNow() }
+    }
+
+    /**
+     * The work behind [retry], where the rate limit lives.
+     *
+     * On the work rather than on [retry] so a test can reach it: `viewModelScope` dispatches on
+     * Main, which the JVM suites do not install, and a check inside the launcher is a check
+     * nothing can assert on. [refresh] stays unguarded because it is also the composition path.
+     */
+    suspend fun retryNow() {
         if (!refreshLimiter.allow()) return
-        load()
+        refresh()
     }
 
     /** Stamps [groupId] as just-opened, so it sorts to the top next time the list loads. */
