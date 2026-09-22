@@ -11,7 +11,7 @@ import java.time.Instant
 /**
  * A real round trip against a running Spliit instance.
  *
- * `make test` never runs this — :api's build.gradle.kts excludes `@Tag("live")` there — and
+ * `make test` never runs this, :api's build.gradle.kts excludes `@Tag("live")` there, and
  * `make test-live` runs only it, after `make e2e-up`. Tagged rather than named `*LiveTest` so a
  * live test can sit beside the mocked tests for the same procedure instead of in a file of its
  * own; see the Makefile and build.gradle.kts for the wiring.
@@ -69,12 +69,12 @@ class SpliitEndpointsLiveTest {
 
             val balances = client.call(SpliitEndpoints.balancesList(groupId)).balances
             assertEquals(2, balances.size)
-            // Ana paid the whole $10.00, split evenly — she's owed half, Bruno owes half.
+            // Ana paid the whole $10.00, split evenly, she's owed half, Bruno owes half.
             assertEquals(500, balances.getValue(ana.id).total)
             assertEquals(-500, balances.getValue(bruno.id).total)
 
             // The e2e image serves only `overview`, so this is the case where the fallback's
-            // first attempt succeeds outright — real-world confirmation that the happy path
+            // first attempt succeeds outright, real-world confirmation that the happy path
             // this client will hit for almost everyone actually resolves against a live server,
             // complementing MockWebServer's coverage of the fallback itself in
             // SpliitEndpointsTest.

@@ -24,13 +24,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.Instant
 
-/** One row on the groups screen — a remembered group, enriched with what the server said about it. */
+/** One row on the groups screen, a remembered group, enriched with what the server said about it. */
 data class GroupListItem(
     val groupId: String,
     val name: String,
     val instanceBaseUrl: String,
     /**
-     * Null when the instance this group lives on has not answered — it did not respond, or has
+     * Null when the instance this group lives on has not answered, it did not respond, or has
      * not been asked yet. A row is drawn either way: the name is local, and a server that is down
      * costs its own groups their detail rather than costing somebody the only route back to them.
      */
@@ -46,7 +46,7 @@ data class GroupListItem(
  * The three sections the dashboard draws, and the note about what could not be reached.
  *
  * Sections rather than one list, because starring and archiving are about *where* a group sits
- * rather than about a badge on it — which is also why no row carries a star icon: the header it
+ * rather than about a badge on it, which is also why no row carries a star icon: the header it
  * sits under already says so, and saying it twice is how a list starts looking like a form.
  */
 data class GroupsDashboard(
@@ -63,7 +63,7 @@ data class GroupsDashboard(
     val isEmpty: Boolean get() = starred.isEmpty() && recent.isEmpty() && archived.isEmpty()
 }
 
-/** A removal waiting out its undo window — see [GroupsListViewModel.removeGroup]. */
+/** A removal waiting out its undo window, see [GroupsListViewModel.removeGroup]. */
 data class PendingRemoval(val groupId: String, val groupName: String)
 
 /**
@@ -74,20 +74,20 @@ data class PendingRemoval(val groupId: String, val groupName: String)
  * implementation would:
  *
  *  - **One request per instance.** `groups.list` takes a list of IDs but only ever answers for
- *    the server it was sent to, so a list spanning two instances is two requests — issued
+ *    the server it was sent to, so a list spanning two instances is two requests, issued
  *    together, so the slow one does not hold up the other.
  *  - **An unreachable instance costs its own groups their detail, never the screen.** Its rows
  *    still appear, under the names this phone stored, with no participant count; the sections
  *    say what could not be reached. [LoadState.Failed] is reserved for the one failure that
- *    leaves nothing to draw at all — the stored list itself being unreadable.
+ *    leaves nothing to draw at all, the stored list itself being unreadable.
  *  - **A group the server no longer has drops out silently.** `groups.list` simply omits an ID it
- *    does not recognise — that is how a group deleted server-side shows up here — so a row
+ *    does not recognise, that is how a group deleted server-side shows up here, so a row
  *    missing from an answer that *did* arrive is left out rather than treated as a failure.
  */
 class GroupsListViewModel(
     private val recentGroupsStore: RecentGroupsStore,
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
-    /** Injected so the tests can drive its clock — see RefreshLimiter. */
+    /** Injected so the tests can drive its clock, see RefreshLimiter. */
     private val refreshLimiter: RefreshLimiter = RefreshLimiter(),
 ) : ViewModel() {
 
@@ -108,7 +108,7 @@ class GroupsListViewModel(
     private val summaries = HashMap<String, GroupSummary>()
 
     /** Base URLs that answered the last load. What separates "this server has no such group any
-     *  more" from "nobody asked this server, or it did not reply" — two situations with the same
+     *  more" from "nobody asked this server, or it did not reply", two situations with the same
      *  missing summary and opposite right answers. */
     private var answeredInstances: Set<String> = emptySet()
     private var unreachableInstances: List<String> = emptyList()
@@ -116,7 +116,7 @@ class GroupsListViewModel(
     private var refreshJob: Job? = null
 
     /**
-     * Kicks [refresh] off on this ViewModel's own scope. Deliberately not called from `init` —
+     * Kicks [refresh] off on this ViewModel's own scope. Deliberately not called from `init` -
      * this ViewModel outlives the screen's composition (it is scoped to the "groups" nav-graph
      * entry), and a group just added or created needs the list to reload when the screen becomes
      * visible again, not only the first time it was ever constructed. The screen calls this from
@@ -125,7 +125,7 @@ class GroupsListViewModel(
      */
     fun load() {
         // One load at a time. Two of them share [snapshot], [summaries] and [answeredInstances],
-        // so an earlier one finishing late publishes over a newer one's result — which is how a
+        // so an earlier one finishing late publishes over a newer one's result, which is how a
         // group added while the first load was still on the wire came back to an empty list,
         // watched happen on a device. The newer load is always the one that is still wanted, so
         // the older is cancelled rather than waited for.
@@ -137,7 +137,7 @@ class GroupsListViewModel(
      * Rate-limited, unlike [load].
      *
      * This screen has no pull gesture, so the button beside a failure is the only thing a user
-     * can repeat — and it is the most expensive thing in the app when they do, because it fans
+     * can repeat, and it is the most expensive thing in the app when they do, because it fans
      * out one request per stored group. [load] itself is left alone: it runs once per composition
      * and is not something anybody can hammer.
      */
@@ -176,13 +176,13 @@ class GroupsListViewModel(
     }
 
     /**
-     * Takes [groupId] off the list — after an undo window, not now.
+     * Takes [groupId] off the list, after an undo window, not now.
      *
      * A group is reachable only by its link, so a removal somebody did not mean is a group gone
      * for good unless they still have the link. The row disappears immediately, which is what
      * makes the screen feel like it did the thing; the `forget` that is actually irreversible
      * waits out [UNDO_WINDOW_MILLIS], and [undoRemoval] cancels it. A second removal commits the
-     * first straight away rather than queueing two — one snackbar can only offer to undo one
+     * first straight away rather than queueing two, one snackbar can only offer to undo one
      * thing, and the thing anybody means by "undo" is the last one.
      */
     fun removeGroup(groupId: String) {
@@ -198,7 +198,7 @@ class GroupsListViewModel(
         }
     }
 
-    /** Hides [groupId] and starts offering the undo — the half of [removeGroup] that is only a
+    /** Hides [groupId] and starts offering the undo, the half of [removeGroup] that is only a
      *  change of mind away, split out so tests can drive the two halves without a clock. */
     internal fun beginRemoval(groupId: String) {
         val group = snapshot.groups.firstOrNull { it.groupId == groupId } ?: return
@@ -218,7 +218,7 @@ class GroupsListViewModel(
      * Writes the `forget` the undo window was holding back, if there is one.
      *
      * Reads the store again rather than writing [snapshot] straight out: an edit made while the
-     * window was open — from this screen or from a group screen — would otherwise be overwritten
+     * window was open, from this screen or from a group screen, would otherwise be overwritten
      * by a snapshot taken before it.
      */
     internal suspend fun commitPendingRemoval() {
@@ -230,7 +230,7 @@ class GroupsListViewModel(
         publish()
     }
 
-    /** Applies one snapshot edit, saves it, and redraws — see [snapshot] for why this is local. */
+    /** Applies one snapshot edit, saves it, and redraws, see [snapshot] for why this is local. */
     private suspend fun edit(change: (RecentGroupsSnapshot) -> RecentGroupsSnapshot) {
         snapshot = change(recentGroupsStore.load())
         recentGroupsStore.save(snapshot)
@@ -238,14 +238,14 @@ class GroupsListViewModel(
     }
 
     /**
-     * The actual load, as a plain suspend function — called through [load] in production (which
+     * The actual load, as a plain suspend function, called through [load] in production (which
      * runs it on [viewModelScope], the Main dispatcher), and called directly in tests, which
      * sidesteps needing a Main-dispatcher test rule for what is otherwise ordinary, deterministic
      * suspending code.
      */
     suspend fun refresh() {
-        // The skeleton is for a screen with nothing on it yet. Every later load — coming back
-        // from a group, adding one, pulling the list again — keeps the rows that are already
+        // The skeleton is for a screen with nothing on it yet. Every later load, coming back
+        // from a group, adding one, pulling the list again, keeps the rows that are already
         // drawn: they are read from local storage and are not what the request is for, and
         // replacing them with a skeleton for a second would make returning to this screen look
         // like it lost the list.
@@ -291,7 +291,7 @@ class GroupsListViewModel(
             val response = clientFactory(instanceBaseUrl).call(SpliitEndpoints.groupsList(groupIds))
             instanceBaseUrl to response.groups
         } catch (e: CancellationException) {
-            // Not a server that is down — the screen went away, or another load started. Catching
+            // Not a server that is down, the screen went away, or another load started. Catching
             // this alongside the two below would report "unreachable" for a load nobody is
             // waiting on any more.
             throw e
@@ -339,7 +339,7 @@ class GroupsListViewModel(
         /**
          * How long a removed group can still be brought back. Longer than a snackbar's usual few
          * seconds, because the thing being undone is not reversible afterwards by any other
-         * route — the group is reachable only by a link the person may no longer have.
+         * route, the group is reachable only by a link the person may no longer have.
          */
         const val UNDO_WINDOW_MILLIS: Long = 8_000
     }

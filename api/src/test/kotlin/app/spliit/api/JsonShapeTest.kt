@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test
  * The drift detector's own tests.
  *
  * A comparison that reports nothing is indistinguishable from one that finds nothing, so the
- * cases below are mostly about making it *fail* — each is a change the live server could
+ * cases below are mostly about making it *fail*, each is a change the live server could
  * plausibly make, and each one has to come back named.
  */
 class JsonShapeTest {
@@ -64,7 +64,7 @@ class JsonShapeTest {
 
     @Test
     fun `null is data rather than a type, in either direction`() {
-        // `notes` is null on an expense without notes and a string on one with — which of those
+        // `notes` is null on an expense without notes and a string on one with, which of those
         // got recorded is an accident of the fixture, not a statement about the schema.
         assertTrue(diff("""{"notes":null}""", """{"notes":"something"}""").isEmpty())
         assertTrue(diff("""{"notes":"something"}""", """{"notes":null}""").isEmpty())

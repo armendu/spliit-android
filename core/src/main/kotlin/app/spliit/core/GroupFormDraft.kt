@@ -4,45 +4,23 @@ import java.util.Locale
 import java.util.UUID
 
 // The group form's state, plus the validation the server would apply. Sibling to
-// ExpenseFormDraft, and deliberately shaped like it — see the derived-validation-and-submission
-// shape below.
+// ExpenseFormDraft and deliberately shaped like it.
 //
-// ── Uniqueness is case- and whitespace-insensitive ────────────────────────────────────────────
+// Participant names are compared trimmed and case-folded: "Ana" and "ana " are the same mistake,
+// not two people. The fold uses [Locale.ROOT] so two devices editing one shared list reach the
+// same answer. Neither folding choice is strictly correct, and it is worth knowing what ROOT
+// costs: verified on the JDK, "Ismail"/"ismail" collide under ROOT while "Ismail" (dotted
+// capital I) and "ismail" do not, and a Turkish locale swaps which pair collides.
+// `GroupFormDraftTest` pins this on that pair, because an all-ASCII pair proves nothing.
 //
-// Two participants named "Ana" and "ana " are the same mistake, not two different people, and a
-// check that only catches byte-for-byte duplicates misses the one a real user actually makes —
-// typing a name a second time with different capitalisation or a stray space. So a name is
-// compared trimmed and case-folded, not as typed.
-//
-// The fold uses [Locale.ROOT], and the reason is the same one the currency code below is
-// documented against: a participant list is shared state, edited from whichever device happens
-// to be running the check right now, so two devices comparing the same two names must reach the
-// same answer regardless of whose phone it is. Locale-invariant folding is what guarantees that.
-//
-// It is not chosen because it is simply "correct" — neither folding choice is, here. Verified on
-// the JDK: under ROOT, "İsmail" (dotted capital I) and "ismail" do *not* collide, missing the
-// Turkish reading of the pair; but "Ismail" — an ASCII "I", typed on any non-Turkish keyboard —
-// and "ismail" *do*. Under a Turkish locale it is the other way around: the first pair collides
-// and the second stops colliding, which is a new false negative for everyone not typing on a
-// Turkish layout. ROOT is the choice that answers the same way on every device, and it is also
-// the choice that gets the overwhelmingly common case — ASCII names, stray case, stray
-// whitespace — right unconditionally. `GroupFormDraftTest` pins this on the İ/ı pair under a
-// Turkish [Locale], because that pair is what actually distinguishes the two folding choices; an
-// all-ASCII pair like "Ana"/"ana " collides identically under either one and proves nothing.
-//
-// ── A cleared currency code is sent as "" ─────────────────────────────────────────────────────
-//
-// `GroupFormValues.currencyCode` in :api is a plain, non-null `String` — not `String?` — which is
-// exactly what makes this rule impossible to get wrong from here: there is no null to reach for.
-// The reason it is typed that way is worth keeping, because it is not obvious from the type
-// alone: the web app writes `""` for "no code" rather than omitting the key or sending a JSON
-// null, and the web app, iOS and this app share one database, so the same action — dropping a
-// group's ISO code — has to leave the same state whichever client performed it. See CLAUDE.md.
-
+// A cleared currency code is sent as `""`. `GroupFormValues.currencyCode` is a non-null String
+// precisely so there is no null to reach for: the web app writes `""` for "no code", and all
+// three clients share one database, so dropping a code has to leave the same state whoever did
+// it. See CLAUDE.md.
 /** A group member as the group form edits one. */
 public data class ParticipantFormDraft(
     /**
-     * Local identity for this row, stable across edits so a screen can track it — including a
+     * Local identity for this row, stable across edits so a screen can track it, including a
      * row for a participant that does not exist on the server yet, which has no [serverId] to
      * be tracked by.
      */
@@ -56,19 +34,19 @@ public data class ParticipantFormDraft(
  * The group form's state, plus the validation the server would apply.
  *
  * Mirrors `groupFormSchema` in the web app for the rules that schema actually states; the two
- * beyond it — a participant with expenses cannot be removed, and how a cleared currency code is
- * spelled — come from server behaviour no schema states but every client has to honour. See the
+ * beyond it, a participant with expenses cannot be removed, and how a cleared currency code is
+ * spelled, come from server behaviour no schema states but every client has to honour. See the
  * notes at the top of this file. Immutable, like [ExpenseFormDraft]: a screen holds one and
  * replaces it wholesale.
  */
 public data class GroupFormDraft(
     public val name: String = "",
-    /** The group's description. `""` clears it — see [submission]. */
+    /** The group's description. `""` clears it, see [submission]. */
     public val information: String = "",
     /** A free-text symbol such as "$" or "CHF". The server does not interpret it. */
     public val currency: String = "$",
     /**
-     * ISO-4217, or null for a group with only a free-text symbol — predating currency codes, or
+     * ISO-4217, or null for a group with only a free-text symbol, predating currency codes, or
      * a symbol the user chose to type themselves. Use [withCurrency] and [withCustomSymbol]
      * rather than setting this directly: picking a currency sets [currency] to match, and a code
      * that disagreed with the symbol beside every amount would be worse than no code at all.
@@ -76,7 +54,7 @@ public data class GroupFormDraft(
     public val currencyCode: String? = null,
     public val participants: List<ParticipantFormDraft> = emptyList(),
     /**
-     * Server IDs of participants who appear on at least one expense — `participantsWithExpenses`
+     * Server IDs of participants who appear on at least one expense, `participantsWithExpenses`
      * in the server's `groups.getDetails` response, and the only source of truth this draft has
      * for who [withParticipantRemoved] is not free to take out: removing one would orphan the
      * expenses that name them, silently, on whatever screen loads next.
@@ -88,7 +66,7 @@ public data class GroupFormDraft(
     // ---- currency -----------------------------------------------------------------------
 
     /**
-     * True when the group carries only a symbol — predating ISO codes, or a symbol the user
+     * True when the group carries only a symbol, predating ISO codes, or a symbol the user
      * chose to type themselves. The symbol is theirs to edit in that state and nobody else's.
      */
     public val usesCustomSymbol: Boolean get() = currencyCode.isNullOrBlank()
@@ -113,7 +91,7 @@ public data class GroupFormDraft(
         copy(participants = participants.map { if (it.id == id) it.copy(name = name) else it })
 
     /**
-     * Whether the row for [id] could be removed right now — a screen uses this to grey out its
+     * Whether the row for [id] could be removed right now, a screen uses this to grey out its
      * own remove control before the user ever taps it, rather than after.
      */
     public fun canRemoveParticipant(id: String): Boolean {
@@ -127,7 +105,7 @@ public data class GroupFormDraft(
      * Null rather than the unchanged draft, deliberately: a same-type no-op is a return value a
      * call site can drop without the compiler ever objecting, and that is exactly what a stale
      * remove button, a race with another device's edit landing between render and tap, or a test
-     * that forgot [canRemoveParticipant] would do — silently. A nullable return forces a branch.
+     * that forgot [canRemoveParticipant] would do, silently. A nullable return forces a branch.
      * [canRemoveParticipant] is still there for greying out a control before the user ever taps
      * it; this is what a screen falls back on when that check was skipped or went stale, and the
      * null is what lets it say *why* nothing happened rather than say nothing at all.
@@ -139,7 +117,7 @@ public data class GroupFormDraft(
 
     /**
      * [participants], ordered the way the reader's language orders names rather than by Unicode
-     * code point — see [localizedOrder]. What a screen actually lists.
+     * code point, see [localizedOrder]. What a screen actually lists.
      */
     public val sortedParticipants: List<ParticipantFormDraft>
         get() = participants.sortedWith(compareBy(localizedOrder(locale)) { it.name })
@@ -153,7 +131,7 @@ public data class GroupFormDraft(
     }
 
     /**
-     * One thing the server would refuse, and which field it belongs to — see
+     * One thing the server would refuse, and which field it belongs to, see
      * [ExpenseFormDraft.Problem], whose shape this matches.
      */
     public sealed interface Problem {
@@ -175,7 +153,7 @@ public data class GroupFormDraft(
         }
 
         /**
-         * Reported against every row that collides, not just the later one — a screen with two
+         * Reported against every row that collides, not just the later one, a screen with two
          * offending fields should mark both rather than leave the reader hunting for the other.
          */
         public data class DuplicateParticipantName(override val participantId: String) : Problem {
@@ -197,7 +175,7 @@ public data class GroupFormDraft(
             }
 
             // Grouped by the folded name so every colliding row is reported, not just the second
-            // one to appear — see the note at the top of this file for why folding happens at
+            // one to appear, see the note at the top of this file for why folding happens at
             // all, and why it uses [Locale.ROOT] rather than [locale].
             participants
                 .filter { it.name.isNotBlank() }
@@ -229,7 +207,7 @@ public data class GroupFormDraft(
             name = name.trim(),
             information = information.trim(),
             currency = currency.trim(),
-            // "" for a dropped code, never a Kotlin null — see the note at the top of this file.
+            // "" for a dropped code, never a Kotlin null, see the note at the top of this file.
             currencyCode = currencyCode?.trim().orEmpty(),
             participants = participants.map {
                 GroupSubmission.Participant(id = it.serverId, name = it.name.trim())
@@ -245,7 +223,7 @@ public data class GroupFormDraft(
         /**
          * A group loaded for editing.
          *
-         * @param participantsWithExpenses IDs from the server's `participantsWithExpenses` — see
+         * @param participantsWithExpenses IDs from the server's `participantsWithExpenses`, see
          *   the field of the same purpose on this class.
          */
         public fun editing(
@@ -266,7 +244,7 @@ public data class GroupFormDraft(
             locale = locale,
         )
 
-        /** A name as it is compared for uniqueness — see the note at the top of this file. */
+        /** A name as it is compared for uniqueness, see the note at the top of this file. */
         private fun foldedName(name: String): String = name.trim().lowercase(Locale.ROOT)
     }
 }
@@ -282,7 +260,7 @@ public data class GroupSubmission(
     public val name: String,
     public val information: String,
     public val currency: String,
-    /** `""` for a group with no code — never a Kotlin null. See [GroupFormDraft]. */
+    /** `""` for a group with no code, never a Kotlin null. See [GroupFormDraft]. */
     public val currencyCode: String,
     public val participants: List<Participant>,
 ) {

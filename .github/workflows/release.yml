@@ -1,7 +1,7 @@
 # Cutting a release: a tag in, a downloadable APK out.
 #
 # Trigger it by pushing an annotated tag whose name is `v` plus the version in
-# gradle/libs.versions.toml — `git tag -a v0.1.0 -m '…' && git push origin v0.1.0`. The job
+# gradle/libs.versions.toml, `git tag -a v0.1.0 -m '…' && git push origin v0.1.0`. The job
 # below refuses to build if those two disagree, because the failure it prevents is silent: a
 # release page saying v0.2.0 whose APK reports 0.1.0 under Settings > Apps, and no way to tell
 # which is wrong six months later.
@@ -35,7 +35,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # Identical to ci.yml's, and for the same reasons — see the long note there about why the
+      # Identical to ci.yml's, and for the same reasons, see the long note there about why the
       # platform is installed explicitly and why cmdline-tools is pinned to 20.0.
       - uses: android-actions/setup-android@v4
         with:
@@ -50,7 +50,7 @@ jobs:
             exit 1
           }
 
-      # Read once, here, and reused by every step below — so "what version is this?" has one
+      # Read once, here, and reused by every step below, so "what version is this?" has one
       # answer in this workflow too, not one per step.
       - name: Read the version the build will stamp
         id: version
@@ -82,7 +82,7 @@ jobs:
       - run: make lint
 
       # Present only when the four secrets are configured. Absent, the build falls back to the
-      # debug key — see app/build.gradle.kts for what that costs — and the release notes below
+      # debug key, see app/build.gradle.kts for what that costs, and the release notes below
       # say so plainly rather than letting somebody assume otherwise.
       - name: Decode the signing keystore, if one is configured
         id: signing
@@ -116,7 +116,7 @@ jobs:
           echo "path=$out" >> "$GITHUB_OUTPUT"
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
 
-      # Always uploaded, tag or not — this is what makes a manual run useful.
+      # Always uploaded, tag or not, this is what makes a manual run useful.
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.apk.outputs.path }}
@@ -142,7 +142,7 @@ jobs:
             if [ "$SIGNED" != "true" ]; then
               echo "> **This build is signed with a debug key.** It installs and runs, but Android"
               echo "> identifies an app by its signature, so it cannot upgrade a copy installed from"
-              echo "> a differently-signed build — uninstall the old one first. Configure the"
+              echo "> a differently-signed build, uninstall the old one first. Configure the"
               echo "> \`SPLIIT_KEYSTORE_*\` repository secrets to publish properly signed releases."
               echo
             fi

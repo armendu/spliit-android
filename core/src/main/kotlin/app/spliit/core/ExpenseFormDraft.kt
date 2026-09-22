@@ -10,41 +10,30 @@ import java.util.Locale
 
 // The expense form's arithmetic: what an expense divides into, and what the server would refuse.
 //
-// ── The one thing in this file that must not be "simplified" ─────────────────────────────────
+// Do not "simplify" the shares rule. `paidFor[].shares` is one field carrying four things,
+// decided by the sibling `splitMode`:
 //
-// `paidFor[].shares` is ONE field carrying FOUR different things, and which one is decided by a
-// sibling field, `splitMode`:
+//   | mode          | what `shares` carries                  | scales with currency? |
+//   |---------------|----------------------------------------|-----------------------|
+//   | EVENLY        | share value x100, always exactly 100    | no                    |
+//   | BY_SHARES     | share value x100, 2 shares are 200      | no                    |
+//   | BY_PERCENTAGE | percentage x100, 30% is 3000            | no                    |
+//   | BY_AMOUNT     | a raw minor-unit amount                 | yes                   |
 //
-//   | mode           | what `shares` carries                      | scales with the currency? |
-//   |----------------|--------------------------------------------|---------------------------|
-//   | EVENLY         | the share value ×100 — always exactly 100   | no                        |
-//   | BY_SHARES      | the share value ×100 — 2 shares are 200     | no                        |
-//   | BY_PERCENTAGE  | the percentage ×100 — 30% is 3000           | no                        |
-//   | BY_AMOUNT      | a raw minor-unit amount                     | **yes**                   |
+// Only BY_AMOUNT is money. An even split in yen still sends 100 a head. Get it wrong either way
+// and the numbers look plausible: scale the x100 modes and a yen group splits `1` a head; scale
+// BY_AMOUNT too and every by-amount expense is 100x the money. `ExpenseFormDraftTest` pins all
+// four in three currencies so a tidying-up pass has to notice.
 //
-// The first three are ×100 **whatever the currency**: an even split in a group counted in whole
-// yen still sends 100 a head, and 30% is 3000 in a yen group and in a Kuwaiti one alike. Only
-// BY_AMOUNT is money, so only BY_AMOUNT changes meaning between a yen group and a euro one —
-// ¥500 is `500`, and so is 5.00 €, and so is 0.500 KWD.
-//
-// Every way of getting this wrong produces numbers that look entirely plausible: scale the ×100
-// modes by the currency and a yen group's even split becomes `1` a head; scale BY_AMOUNT by 100
-// as well and every by-amount expense is a hundred times the money. `ExpenseFormDraftTest` pins
-// all four, in three currencies, precisely so a tidying-up pass has to notice.
-//
-// ── Int and Long ─────────────────────────────────────────────────────────────────────────────
-//
-// `:core` counts minor units in [Long]; `:api` types them [Int], because that is what the wire
-// carries. Long is not caution for its own sake — a sum of amounts overflows 32 bits in a
-// zero-decimal currency long before the figure is unreasonable (2.1 billion VND is about
-// $85,000, which a real trip can exceed), and an overflow here is a wrong number rather than an
-// error. [MinorUnits] is the single place the two widths meet; there are no other conversions in
-// this module, and `:app` should not add any of its own.
+// `:core` counts minor units in [Long]; `:api` uses [Int] because that is what the wire carries.
+// A sum overflows 32 bits in a zero-decimal currency well before the figure is unreasonable
+// (2.1 billion VND is about $85,000), and an overflow is a wrong number, not an error.
+// [MinorUnits] is the only place the two widths meet.
 
 /**
  * The one place minor units change width between `:core` and `:api`.
  *
- * `:api` owns [Int] — it is the wire's type, and the server's. `:core` owns [Long] for the
+ * `:api` owns [Int], it is the wire's type, and the server's. `:core` owns [Long] for the
  * reason given at the top of this file. Everything that crosses does so here: the draft takes
  * wire-width values in [ExpenseFormDraft.ExistingExpense] and hands them back in
  * [ExpenseSubmission.Wire], and `:app` copies those straight into `ExpenseFormValues`.
@@ -65,8 +54,8 @@ public object MinorUnits {
 /**
  * How an expense divides between the people it was paid for.
  *
- * `:core`'s own, deliberately not `:api`'s: this module does not depend on the wire models — see
- * CLAUDE.md — and the split maths is about amounts and participants. `:app` maps the two, which
+ * `:core`'s own, deliberately not `:api`'s: this module does not depend on the wire models, see
+ * CLAUDE.md, and the split maths is about amounts and participants. `:app` maps the two, which
  * is a `when` over four entries that the compiler checks.
  */
 public enum class SplitMode {
@@ -106,7 +95,7 @@ public data class ParticipantAmount(
  *
  * Mirrors `expenseFormSchema` in the web app, including the split-mode sum rules that are the
  * easiest thing to get subtly wrong. Immutable: a screen holds one and replaces it, which keeps
- * every derived value honest — there is nothing to forget to recompute.
+ * every derived value honest, there is nothing to forget to recompute.
  *
  * Documents are not here. They are `:api`'s `ExpenseDocument`, nothing in this module computes
  * from them, and carrying them would make `:core` depend on a wire model to no end; `:app`
@@ -119,7 +108,7 @@ public data class ExpenseFormDraft(
      * The total, as typed.
      *
      * **Never read this without checking [conversionRequired] first.** Under a conversion the
-     * total is not typed at all — it is what the amount paid comes to at the rate given — and
+     * total is not typed at all, it is what the amount paid comes to at the rate given, and
      * this field is then stale by design: it holds whatever was last typed or loaded, which is
      * not what will be saved. [amountMinorUnits] is the authoritative total in every case, and
      * a screen binding a text field to this one must disable or ignore it while a conversion is
@@ -140,7 +129,7 @@ public data class ExpenseFormDraft(
     public val isReimbursement: Boolean = false,
     public val notes: String = "",
     /**
-     * The server's own word for how often this repeats — "NONE", "MONTHLY", or whatever an
+     * The server's own word for how often this repeats, "NONE", "MONTHLY", or whatever an
      * instance ahead of this client calls it.
      *
      * Carried as text rather than as a vocabulary of our own, because nothing in `:core`
@@ -160,7 +149,7 @@ public data class ExpenseFormDraft(
      * anything once it differs from it.
      */
     public val originalCurrencyCode: String? = null,
-    /** What was paid, as typed, in [originalCurrencyCode] — **not** in the group's currency. */
+    /** What was paid, as typed, in [originalCurrencyCode], **not** in the group's currency. */
     public val originalAmountText: String = "",
     /**
      * One unit of [originalCurrencyCode] in the group's currency, as typed. A rate, not money:
@@ -173,7 +162,7 @@ public data class ExpenseFormDraft(
      * How many digits the **group's** currency keeps behind the decimal point.
      *
      * Only the total and the [SplitMode.BY_AMOUNT] shares scale with it; share counts and
-     * percentages are ×100 whatever the currency. Asked of the currency rather than assumed —
+     * percentages are ×100 whatever the currency. Asked of the currency rather than assumed -
      * see [MoneyFormatter.minorUnitDigits].
      */
     public val minorUnitDigits: Int get() = MoneyFormatter.minorUnitDigits(groupCurrencyCode)
@@ -205,7 +194,7 @@ public data class ExpenseFormDraft(
      * Whether this expense was paid in a currency the group is not denominated in.
      *
      * Both sides have to be codes the platform knows. A group with only a free-text symbol has
-     * nothing to convert *to* — that is the one case where the feature is unavailable rather
+     * nothing to convert *to*, that is the one case where the feature is unavailable rather
      * than unused.
      */
     public val conversionRequired: Boolean
@@ -249,7 +238,7 @@ public data class ExpenseFormDraft(
     public val includedParticipants: List<ParticipantShareDraft>
         get() = participants.filter { it.isIncluded }
 
-    /** Whether the split covers the whole group — what decides "select all" from "select none". */
+    /** Whether the split covers the whole group, what decides "select all" from "select none". */
     public val allParticipantsIncluded: Boolean
         get() = participants.isNotEmpty() && participants.all { it.isIncluded }
 
@@ -265,7 +254,7 @@ public data class ExpenseFormDraft(
     /**
      * What one included participant's `shares` field should be sent as.
      *
-     * The server stores this verbatim and its meaning changes with [splitMode] — see the table
+     * The server stores this verbatim and its meaning changes with [splitMode], see the table
      * at the top of this file before changing anything here.
      */
     public fun shareValue(participant: ParticipantShareDraft): Long? = when (splitMode) {
@@ -283,7 +272,7 @@ public data class ExpenseFormDraft(
 
     /**
      * For [SplitMode.BY_AMOUNT], how far the shares are from the total; for
-     * [SplitMode.BY_PERCENTAGE], from 100% — in hundredths of a percent, since that is the unit
+     * [SplitMode.BY_PERCENTAGE], from 100%, in hundredths of a percent, since that is the unit
      * the protocol counts percentages in. Positive means there is more to allocate.
      */
     public val unallocated: Long?
@@ -300,18 +289,18 @@ public data class ExpenseFormDraft(
      * What each included participant actually owes, in the group's minor units.
      *
      * **The remainder is apportioned in whole minor units.** A third of 10.00 is 334 / 333 / 333
-     * — not 333.33 three times, which neither adds up nor exists as money. This is the web app's
+     *, not 333.33 three times, which neither adds up nor exists as money. This is the web app's
      * *Shares* change: every share is whole and the sum is exact rather than rounded.
      *
      * **Who pays the extra minor unit is decided, not incidental: the participants earliest in
-     * this list do.** They are in the group's own participant order, which is the server's — so
+     * this list do.** They are in the group's own participant order, which is the server's, so
      * the same expense apportions the same way on every device, every run, and in both apps.
      * That is the entire reason this is a list and the arithmetic indexes into it: apportioning
      * out of a `Map` would be right about the *amounts* and free to hand the extra cent to a
      * different person each time it ran, which is a difference nobody can reproduce and everybody
      * notices.
      *
-     * Empty when the amount or any share is not yet a usable number — there is nothing to show
+     * Empty when the amount or any share is not yet a usable number, there is nothing to show
      * rather than something wrong to show.
      */
     public fun splitAmounts(): List<ParticipantAmount> {
@@ -329,7 +318,7 @@ public data class ExpenseFormDraft(
         val total = amountMinorUnits ?: return emptyList()
         val weights = when (splitMode) {
             // Equal weights, so the largest-remainder rule below degenerates into "the first
-            // few pay the extra unit" — which is exactly the documented rule.
+            // few pay the extra unit", which is exactly the documented rule.
             SplitMode.EVENLY -> included.map { 1L }
             else -> included.map { participant ->
                 shareValue(participant)?.takeIf { it > 0 } ?: return emptyList()
@@ -347,7 +336,7 @@ public data class ExpenseFormDraft(
      *
      * **Keeps the selection**: who the expense was paid for has nothing to do with how it is
      * divided between them, and clearing the list is a screen full of typing to do again. The
-     * share *values* are reseeded for the new mode, so the mode arrives already adding up — a
+     * share *values* are reseeded for the new mode, so the mode arrives already adding up, a
      * by-amount split seeded from the even apportionment sums to the expense, and a percentage
      * one to 100. Rows outside the split keep what they had, so a value typed before an
      * accidental deselection comes back with its owner.
@@ -365,7 +354,7 @@ public data class ExpenseFormDraft(
     /**
      * Puts the whole group in the split, or takes it all out.
      *
-     * Everyone keeps the share they were last given — the rows stay in [participants] either
+     * Everyone keeps the share they were last given, the rows stay in [participants] either
      * way, so an unintended "select none" costs nothing that was typed.
      */
     public fun withAllParticipantsIncluded(isIncluded: Boolean): ExpenseFormDraft =
@@ -438,7 +427,7 @@ public data class ExpenseFormDraft(
     }
 
     /**
-     * One thing the server would refuse, and **which field it belongs to** — a screen has to
+     * One thing the server would refuse, and **which field it belongs to**, a screen has to
      * label the box that is wrong, and a single opaque "invalid" leaves it guessing.
      *
      * The rules follow the web app's `expenseFormSchema` so that the two cannot drift; the
@@ -468,7 +457,7 @@ public data class ExpenseFormDraft(
         }
 
         /**
-         * An expense of minus ten euros is not a correction — it is a balances screen with the
+         * An expense of minus ten euros is not a correction, it is a balances screen with the
          * signs inverted for everybody it was paid for. Worth its own problem because
          * [MoneyFormatter.parseMinorUnits] reads a leading minus deliberately, so this is a
          * value a field can really produce rather than one only a bug could.
@@ -548,7 +537,7 @@ public data class ExpenseFormDraft(
             if (title.trim().length < MIN_TITLE_LENGTH) problems += Problem.TitleTooShort
 
             if (conversionRequired) {
-                // The total is derived from these two, so they are what there is to get wrong —
+                // The total is derived from these two, so they are what there is to get wrong -
                 // and the total is still worth checking afterwards, since a small enough rate
                 // rounds a real payment down to nothing.
                 problems += conversionProblems()
@@ -607,7 +596,7 @@ public data class ExpenseFormDraft(
     public fun problems(participantId: String): List<Problem> =
         problems.filter { it.participantId == participantId }
 
-    // Sign first, then zero, then the ceiling — mutually exclusive, and in the order that names
+    // Sign first, then zero, then the ceiling, mutually exclusive, and in the order that names
     // the value most precisely. The same three, in the same order, guard what was actually paid.
     private fun amountProblems(amount: Long): List<Problem> = buildList {
         when {
@@ -670,7 +659,7 @@ public data class ExpenseFormDraft(
             notes = trimmedNotes.ifEmpty { null },
             recurrenceRule = recurrenceRule,
             // The currency is the field that says an expense was converted, so it is the field
-            // that stops saying so — null, which reaches the wire as an explicit JSON null.
+            // that stops saying so, null, which reaches the wire as an explicit JSON null.
             originalCurrency = if (conversionRequired) isoCode(originalCurrencyCode) else null,
             originalAmount = if (conversionRequired) originalAmountMinorUnits else null,
             conversionRate = if (conversionRequired) conversionRate else null,
@@ -686,7 +675,7 @@ public data class ExpenseFormDraft(
     public data class ExistingExpense(
         public val title: String,
         public val expenseDate: Instant,
-        /** Minor units in the **group's** currency — see [originalAmount] for the other scale. */
+        /** Minor units in the **group's** currency, see [originalAmount] for the other scale. */
         public val amount: Int,
         public val categoryId: Int,
         public val paidById: String,
@@ -722,7 +711,7 @@ public data class ExpenseFormDraft(
         private const val MIN_TITLE_LENGTH = 2
 
         /**
-         * "Payment", in the server's fixed category table — what a settling-up expense is filed
+         * "Payment", in the server's fixed category table, what a settling-up expense is filed
          * under, the same id the web app and the iOS app both use. The table is compiled into
          * every instance rather than per-group, so the id is a constant here and not something
          * to look up in whatever `categories.list` happened to answer.
@@ -743,7 +732,7 @@ public data class ExpenseFormDraft(
          *   stranger.
          * @param defaultSplit what this group remembers about how its expenses divide, if
          *   anything. One naming somebody who has since left is dropped whole rather than
-         *   trimmed — [DefaultSplit.orDefaultFor] — so a stale default can never quietly leave a
+         *   trimmed, [DefaultSplit.orDefaultFor], so a stale default can never quietly leave a
          *   participant out of the expense being written.
          */
         public fun creating(
@@ -760,7 +749,7 @@ public data class ExpenseFormDraft(
                 splitMode = split.splitMode,
                 // DefaultSplit.apply is what decides who is in and what each row starts at,
                 // including the "nothing remembered means everybody" case a blank expense has
-                // always begun from — see DefaultSplit's rule 3.
+                // always begun from, see DefaultSplit's rule 3.
                 participants = split.apply(participants, locale),
                 locale = locale,
                 groupCurrencyCode = groupCurrencyCode,
@@ -773,7 +762,7 @@ public data class ExpenseFormDraft(
          *
          * Spliit has no "mark as paid": a debt is settled by recording the payment as an expense
          * that the payer paid *for the payee alone*, flagged [isReimbursement]. So the split here
-         * is deliberately one-sided — everybody else is out of it — and not a default anybody
+         * is deliberately one-sided, everybody else is out of it, and not a default anybody
          * would want remembered, which [isSplitWorthRemembering] is what says.
          *
          * @param amountMinorUnits the suggested payment, in the **group's** minor units.
@@ -810,8 +799,8 @@ public data class ExpenseFormDraft(
          *
          * **An expense with no [ExistingExpense.originalCurrency] is not converted, whatever the
          * other two fields hold.** One that stopped being converted keeps its stored amount and
-         * rate in the database with nothing reading them — the server has no way to clear those
-         * two columns — so reading them back would resurrect a conversion the user removed.
+         * rate in the database with nothing reading them, the server has no way to clear those
+         * two columns, so reading them back would resurrect a conversion the user removed.
          */
         public fun editing(
             expense: ExistingExpense,
@@ -830,7 +819,7 @@ public data class ExpenseFormDraft(
                 // Filled even under a conversion, where it is *not* the total that will be
                 // saved: it is what the field shows if the user drops the conversion and starts
                 // typing again, and [amountMinorUnits] is what the expense is worth meanwhile.
-                // See [amountText] — the stored amount and the derived one can disagree, and the
+                // See [amountText], the stored amount and the derived one can disagree, and the
                 // derived one wins.
                 amountText = minorUnitsText(MinorUnits.fromWire(expense.amount), groupCurrencyCode, locale),
                 categoryId = expense.categoryId,
@@ -878,8 +867,8 @@ public data class ExpenseFormDraft(
             MoneyFormatter(currencyCode = currencyCode, locale = locale).formatPlain(minorUnits)
 
         /**
-         * A rate is shown at the precision it arrived with, up to six places — enough for the
-         * currencies quoted in thousands to a euro — and never grouped, since the field it lands
+         * A rate is shown at the precision it arrived with, up to six places, enough for the
+         * currencies quoted in thousands to a euro, and never grouped, since the field it lands
          * in is read back as a plain number.
          */
         public fun rateText(rate: BigDecimal, locale: Locale = Locale.getDefault()): String {
@@ -895,14 +884,14 @@ public data class ExpenseFormDraft(
         private fun hundredthsText(shares: Long, locale: Locale): String =
             if (shares % 100L == 0L) (shares / 100L).toString() else minorUnitsText(shares, null, locale)
 
-        /** A stored `shares` value back in the field it came from — see the table up top. */
+        /** A stored `shares` value back in the field it came from, see the table up top. */
         private fun shareText(
             shares: Long,
             splitMode: SplitMode,
             groupCurrencyCode: String?,
             locale: Locale,
         ): String = when (splitMode) {
-            // Already a minor-unit amount, in the group's own currency — so the group's
+            // Already a minor-unit amount, in the group's own currency, so the group's
             // precision, where the other three modes are hundredths whatever the currency.
             SplitMode.BY_AMOUNT -> minorUnitsText(shares, groupCurrencyCode, locale)
             SplitMode.EVENLY, SplitMode.BY_SHARES, SplitMode.BY_PERCENTAGE ->
@@ -911,7 +900,7 @@ public data class ExpenseFormDraft(
 
         /**
          * Apportions [total] across [weights] in whole minor units, largest remainder first and
-         * ties broken by position — see [splitAmounts] for why position is the tiebreak.
+         * ties broken by position, see [splitAmounts] for why position is the tiebreak.
          *
          * Floor division rather than truncation, so the leftover to hand out is never negative
          * and a refund apportions the same way an expense does. The products go through
@@ -948,7 +937,7 @@ public data class ExpenseFormDraft(
          * A currency code worth acting on, canonical and upper case, or null for anything the
          * platform does not know as a currency.
          *
-         * Uppercasing happens inside [isoCurrency], with `Locale.ROOT` — under a Turkish default
+         * Uppercasing happens inside [isoCurrency], with `Locale.ROOT`, under a Turkish default
          * locale `"iqd".uppercase()` is `İQD`, which is not a currency any more.
          */
         private fun isoCode(code: String?): String? = isoCurrency(code)?.currencyCode
@@ -983,7 +972,7 @@ public data class ExpenseSubmission(
 ) {
     public data class PaidFor(
         public val participant: String,
-        /** ×100, or minor units under [SplitMode.BY_AMOUNT] — see `ExpenseFormDraft`. */
+        /** ×100, or minor units under [SplitMode.BY_AMOUNT], see `ExpenseFormDraft`. */
         public val shares: Long,
     )
 
@@ -1000,7 +989,7 @@ public data class ExpenseSubmission(
         notes = notes,
         recurrenceRule = recurrenceRule,
         originalCurrency = originalCurrency,
-        // Null here means "leave the column alone", not "clear it" — see [Wire]. Dropping a
+        // Null here means "leave the column alone", not "clear it", see [Wire]. Dropping a
         // conversion is [originalCurrency] going null and these two going quiet.
         originalAmount = originalAmount?.let(MinorUnits::toWire),
         conversionRate = conversionRate,
@@ -1013,10 +1002,10 @@ public data class ExpenseSubmission(
      * **The three conversion fields do not share one notion of empty**, and the differences were
      * established against a live instance rather than read off the schema:
      *
-     * - [originalCurrency] — a **null**, which `:api` spells as an explicit JSON null. It is the
+     * - [originalCurrency], a **null**, which `:api` spells as an explicit JSON null. It is the
      *   only conversion field whose schema accepts one, and so the only way to stop an expense
      *   being converted.
-     * - [originalAmount] and [conversionRate] — a **null here means omitted**. Both answer 400
+     * - [originalAmount] and [conversionRate], a **null here means omitted**. Both answer 400
      *   to a JSON null and clear with `''`, but neither is cleared: they land on `:api`'s own
      *   defaults, and `encodeDefaults = false` leaves the keys out, so the stored figures stay
      *   in the database untouched and inert. Nothing reads either without [originalCurrency],
@@ -1026,7 +1015,7 @@ public data class ExpenseSubmission(
      * web app, iOS and this app write to **one database**, so the same action has to leave the
      * same state whichever of them performed it: an expense whose conversion was dropped on a
      * phone must look to the browser exactly like one dropped in the browser. It is also the
-     * only spelling `:api` can express — `ExpenseFormValues.originalAmount` is an `Int?` and its
+     * only spelling `:api` can express, `ExpenseFormValues.originalAmount` is an `Int?` and its
      * `conversionRate` a `LenientDecimal?`, and neither can carry a JSON empty string.
      */
     public data class Wire(

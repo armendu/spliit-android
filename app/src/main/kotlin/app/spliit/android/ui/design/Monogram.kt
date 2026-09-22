@@ -20,27 +20,27 @@ import app.spliit.android.ui.theme.SpliitTheme
 /**
  * Picks the colour and the letters for a participant's monogram.
  *
- * Colour is a stable hash of the participant's **ID**, not their position in a list — DESIGN.md
+ * Colour is a stable hash of the participant's **ID**, not their position in a list, DESIGN.md
  * §2: position changes when somebody joins or leaves; the colour a person "is" should not.
  */
 object MonogramPalette {
-    /** How many colours the palette holds — see [app.spliit.android.ui.theme.MonogramColors]. */
+    /** How many colours the palette holds, see [app.spliit.android.ui.theme.MonogramColors]. */
     const val COUNT = 8
 
     /**
-     * FNV-1a, 64-bit — the same offset basis, prime and fold-to-range as the iOS app's
+     * FNV-1a, 64-bit, the same offset basis, prime and fold-to-range as the iOS app's
      * `MonogramPalette.index(for:)`, ported on purpose rather than reinvented: the same
      * participant ID then lands on the same colour index on both platforms, verified against
      * the iOS suite's own checked-in expectations in this file's test.
      *
      * Deliberately not `String.hashCode()`: that is stable only within one JVM run, not across
-     * JVM versions or platforms, so a participant's monogram could reshuffle on a JDK update —
+     * JVM versions or platforms, so a participant's monogram could reshuffle on a JDK update -
      * see CLAUDE.md's list of things that bite silently, and this palette's whole reason to
      * exist is a colour that does *not* move.
      */
     fun colorIndex(participantId: String): Int {
         // Kotlin's hex Long literals are range-checked against the *signed* range, unlike
-        // Java's, so the offset basis — which sets the top bit — has to arrive via an unsigned
+        // Java's, so the offset basis, which sets the top bit, has to arrive via an unsigned
         // literal and a bit-pattern-preserving conversion rather than as a plain `0x...L`.
         var hash = 0xcbf29ce484222325uL.toLong()
         for (byte in participantId.toByteArray(Charsets.UTF_8)) {
@@ -54,7 +54,7 @@ object MonogramPalette {
 
     /**
      * The one or two letters drawn inside the chip: the first letter of up to the first two
-     * words. Empty for a nameless participant — a blank chip is a quieter failure than a
+     * words. Empty for a nameless participant, a blank chip is a quieter failure than a
      * placeholder glyph that reads as an error.
      */
     fun initials(name: String): String =
@@ -76,7 +76,7 @@ object MonogramPalette {
  * @param testTag Applied *inside* [clearAndSetSemantics], not chained onto this [Box] via the
  *   ordinary `Modifier.testTag` extension. `clearAndSetSemantics`'s own contract is that it
  *   clears the semantics of "this modifier or its descendants" and substitutes exactly what its
- *   lambda sets — a tag placed anywhere else on this chain would be discarded along with the
+ *   lambda sets, a tag placed anywhere else on this chain would be discarded along with the
  *   name text's implicit semantics, not merged elsewhere and still reachable. See
  *   [app.spliit.android.ui.TestTags] for where this was found.
  */
@@ -94,7 +94,7 @@ fun Monogram(
         modifier = modifier
             .size(size)
             .background(color, CircleShape)
-            // The name this sits beside already says it in text — see Money's own note on not
+            // The name this sits beside already says it in text, see Money's own note on not
             // splitting a label into two things a screen reader announces separately. Left
             // alone, the initials Text would repeat it a second time.
             .clearAndSetSemantics {

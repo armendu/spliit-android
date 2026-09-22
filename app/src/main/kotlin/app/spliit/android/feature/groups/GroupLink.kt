@@ -3,12 +3,12 @@ package app.spliit.android.feature.groups
 import java.net.URI
 
 /**
- * A group link somebody pasted, parsed into the group it names and — when the link says so — the
+ * A group link somebody pasted, parsed into the group it names and, when the link says so, the
  * instance it lives on.
  *
  * Ported from the iOS app's `GroupLink`. It names two things, not one: a group ID means nothing
  * without the server that issued it, so a link naming an instance is how somebody is let into a
- * group on a server this phone has never talked to — most of what self-hosting is. The shapes
+ * group on a server this phone has never talked to, most of what self-hosting is. The shapes
  * recognised, all naming the same group:
  *
  * ```
@@ -18,7 +18,7 @@ import java.net.URI
  * <id>                                                what people paste out of an address bar
  * ```
  *
- * @param instanceBaseUrl The instance the link names, or null for a bare ID — which names none,
+ * @param instanceBaseUrl The instance the link names, or null for a bare ID, which names none,
  *   and can only mean wherever the app points by default.
  */
 data class GroupLink(val groupId: String, val instanceBaseUrl: String?) {
@@ -31,7 +31,7 @@ data class GroupLink(val groupId: String, val instanceBaseUrl: String?) {
 
             // A link copied out of an address bar often arrives with no scheme, and
             // "spliit.example.com/groups/x" would otherwise parse as a path with no host. Only
-            // assumed for something with a slash in it — "https://" in front of a bare ID would
+            // assumed for something with a slash in it, "https://" in front of a bare ID would
             // make the ID itself the hostname.
             val candidate = if (trimmed.contains("://") || !trimmed.contains("/")) {
                 trimmed

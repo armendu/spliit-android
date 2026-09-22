@@ -5,11 +5,11 @@ import java.net.URI
 
 /**
  * Where a group lives, when nothing else says otherwise: the instance a group is created on, and
- * the one a link that names no server — a bare group ID — is looked up against.
+ * the one a link that names no server, a bare group ID, is looked up against.
  *
  * `https://spliit.app/` matches the iOS app's own default. It is a `BuildConfig` field rather
  * than a literal so a build can be pointed at a throwaway instance with the `spliit.baseUrl`
- * property the Makefile already passes — which is the only way to exercise "paste a bare ID"
+ * property the Makefile already passes, which is the only way to exercise "paste a bare ID"
  * against a server that actually has the group. Settings (Part 13) makes this a stored
  * preference; a screen should read it from the state it is given rather than from here, so that
  * change lands in one place.
@@ -22,13 +22,13 @@ val DEFAULT_INSTANCE_BASE_URL: String = BuildConfig.DEFAULT_INSTANCE_BASE_URL
  *
  * A base URL is compared as a plain string elsewhere in this app (see CLAUDE.md on why
  * `RecentGroup.instanceBaseUrl` is a `String` and not a `java.net.URL`), so the normalisation
- * here — lower-cased scheme and host, a trailing slash — is what keeps two spellings of the same
+ * here, lower-cased scheme and host, a trailing slash, is what keeps two spellings of the same
  * server from quietly becoming two different rows in the groups list.
  */
 object InstanceAddress {
 
     /**
-     * A short label for [baseUrl] — its host and port, without the scheme or a trailing slash —
+     * A short label for [baseUrl], its host and port, without the scheme or a trailing slash -
      * for the one place a row names the server a group is on.
      */
     fun displayName(baseUrl: String): String {
@@ -40,11 +40,11 @@ object InstanceAddress {
     }
 
     /**
-     * Normalises a typed server address — `spliit.example.com`, `10.0.2.2:3009`, or a full URL —
+     * Normalises a typed server address, `spliit.example.com`, `10.0.2.2:3009`, or a full URL -
      * into a base URL, or null when it names no host at all.
      *
      * A scheme is assumed (`https://`) when none was typed, since that is how people actually
-     * type an address out — nobody prefixes a scheme onto a Wi-Fi router label.
+     * type an address out, nobody prefixes a scheme onto a Wi-Fi router label.
      */
     fun normalize(text: String): String? {
         val trimmed = text.trim()

@@ -2,13 +2,13 @@
 //
 // Everything Android lives here. :api and :core are plain JVM libraries and stay that way; this
 // module is the only one that knows what a Context is.
-// AGP 9 brings its own Kotlin support and REJECTS the `org.jetbrains.kotlin.android` plugin —
+// AGP 9 brings its own Kotlin support and REJECTS the `org.jetbrains.kotlin.android` plugin -
 // applying it is a hard error, not a warning. That is why this module's plugin list is shorter
 // than :api's and :core's, which are plain JVM and still need `kotlin-jvm`.
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
-    // Only for the recent-groups DataStore adapter (Part 8) — see
+    // Only for the recent-groups DataStore adapter (Part 8), see
     // data/DataStoreRecentGroupsStore.kt for why JSON is the on-disk shape.
     alias(libs.plugins.kotlin.serialization)
 }
@@ -28,7 +28,7 @@ private fun Project.required(name: String): String =
 android {
     namespace = "app.spliit.android"
 
-    // Android now ships minor platform versions, and the installed platform is android-37.1 —
+    // Android now ships minor platform versions, and the installed platform is android-37.1 -
     // there is no bare android-37. AGP 9 splits that across two properties: the API level and
     // its minor. See CLAUDE.md, "Things that will bite you".
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -41,12 +41,12 @@ android {
         targetSdk = libs.versions.targetSdk.get().toInt()
         // What `connectedDebugAndroidTest` launches the instrumented suite with.
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // Both from the version catalogue, like every other version in this build — see
+        // Both from the version catalogue, like every other version in this build, see
         // CLAUDE.md. The release workflow reads the same two lines to check the git tag agrees.
         versionCode = libs.versions.appVersionCode.get().toInt()
         versionName = libs.versions.appVersionName.get()
 
-        // Where a link that names no server — a bare group ID — is looked up, and what the "add
+        // Where a link that names no server, a bare group ID, is looked up, and what the "add
         // by link" placeholder is built from. `spliit.baseUrl` is the property CLAUDE.md reserves
         // for a test-only base URL and the one `make e2e` already passes, so pointing a build at
         // a throwaway instance needs no second spelling. Settings (Part 13) makes this a stored
@@ -87,7 +87,7 @@ android {
     // is not an absent one: `orNull` hands back "", the branch below is taken, and `file("")`
     // fails the build with "Cannot convert '' to File". GitHub Actions cannot conditionally omit
     // a key from an `env:` block, so the release workflow sets these to "" whenever no keystore
-    // secret is configured — which is the default state of a fresh fork, and which is exactly
+    // secret is configured, which is the default state of a fresh fork, and which is exactly
     // how the first real release build broke. Tested locally by *unsetting* the variable, which
     // is the one case that was never going to reproduce it.
     val keystorePath = providers.environmentVariable("SPLIIT_KEYSTORE_PATH").orNull?.ifBlank { null }
@@ -109,7 +109,7 @@ android {
             // R8 is off for 0.1.0, on purpose rather than by oversight. Compose, kotlinx
             // -serialization and the reflection-free DTOs here would each need their own keep
             // rules, and an APK that shrinks correctly in every screen is something to verify
-            // with the instrumented suite on a device — not to switch on in the same change that
+            // with the instrumented suite on a device, not to switch on in the same change that
             // first makes releases downloadable. The APK is a few megabytes either way.
             isMinifyEnabled = false
             isShrinkResources = false
@@ -127,8 +127,8 @@ android {
     }
 
     // :api and :core run their tests on JUnit 6 / the JUnit Platform (see their own
-    // build.gradle.kts); this module's unit tests — the design-system logic that needs no
-    // Android framework class, such as MonogramPalette's hash or DateBucketText's mapping — use
+    // build.gradle.kts); this module's unit tests, the design-system logic that needs no
+    // Android framework class, such as MonogramPalette's hash or DateBucketText's mapping, use
     // the same runner rather than defaulting to AGP's bundled JUnit 4, so one `useJUnitPlatform`
     // convention covers all three modules instead of two.
     testOptions {
@@ -163,16 +163,16 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Design-system unit tests (MonogramPalette, MoneySign, DateBucketText) plus the ViewModel,
-    // presentation and URL-parsing suites — none of these need Android or a device, only a
+    // presentation and URL-parsing suites, none of these need Android or a device, only a
     // runner. `make test` runs them alongside :api and :core.
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlinx.coroutines.test)
     // A real HTTP server on a loopback port for the ViewModel tests to point a TrpcClient at,
-    // rather than hand-rolling a fake transport — the same reasoning :api's own tests follow.
+    // rather than hand-rolling a fake transport, the same reasoning :api's own tests follow.
     testImplementation(libs.okhttp.mockwebserver)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    // The instrumented suite. On a device, so JUnit4 and AndroidJUnitRunner — `useJUnitPlatform`
+    // The instrumented suite. On a device, so JUnit4 and AndroidJUnitRunner, `useJUnitPlatform`
     // above applies to unit tests only, and Compose's test rules are JUnit4 rules regardless.
     // The BOM versions the two Compose artifacts, same as the implementation ones.
     androidTestImplementation(libs.androidx.test.ext.junit)
@@ -185,7 +185,7 @@ dependencies {
 }
 
 // The same guard :api and :core carry, pointed at AGP's task name. This module's suites ran
-// nowhere at all for several parts — not in `make test`, not in CI — and nothing failed, which
+// nowhere at all for several parts, not in `make test`, not in CI, and nothing failed, which
 // is precisely the failure mode a check on "did anything run" exists to catch.
 val verifyTestsRan by tasks.registering {
     val resultsDir = layout.buildDirectory.dir("test-results/testDebugUnitTest")
@@ -195,7 +195,7 @@ val verifyTestsRan by tasks.registering {
         val reports = resultsDir.get().asFile
             .listFiles { file -> file.name.startsWith("TEST-") && file.extension == "xml" }
             .orEmpty()
-        check(reports.isNotEmpty()) { "$label ran no tests at all — the suite is empty." }
+        check(reports.isNotEmpty()) { "$label ran no tests at all, the suite is empty." }
     }
 }
 

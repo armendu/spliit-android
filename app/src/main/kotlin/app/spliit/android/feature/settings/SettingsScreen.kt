@@ -50,7 +50,7 @@ import app.spliit.core.ThemeMode
 /** DESIGN.md §3: cards are 16dp radius, the same shape GroupsListScreen's rows use. */
 private val CardShape = RoundedCornerShape(16.dp)
 
-/** DESIGN.md §3: text fields are 12dp, distinct from a card's 16dp — same as GroupFormScreen. */
+/** DESIGN.md §3: text fields are 12dp, distinct from a card's 16dp, same as GroupFormScreen. */
 private val FieldShape = RoundedCornerShape(12.dp)
 
 /**
@@ -60,7 +60,7 @@ private val FieldShape = RoundedCornerShape(12.dp)
  * **The theme picker is not on iOS**, and that is deliberate rather than a gap the port left open.
  * iOS's SettingsView carries a comment saying so directly: an app there follows the system by
  * convention, so there is nothing to pick. Android has no equivalent convention, and the person
- * who asked for this screen asked for the choice by name — "specify the theme" — so offering one
+ * who asked for this screen asked for the choice by name, "specify the theme", so offering one
  * here is a documented divergence from the source of truth, not an oversight to reconcile later.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -128,7 +128,7 @@ fun SettingsScreen(
 
             SectionHeader("Feedback")
             FeedbackCard(
-                // Points at the org page, not a repo — there is no spliit-android repository yet.
+                // Points at the org page, not a repo, there is no spliit-android repository yet.
                 // See this part's own report for the follow-up once one exists.
                 onReport = { openUrl(context, "https://github.com/spliit-app") },
             )
@@ -149,7 +149,7 @@ private fun AppearanceCard(themeMode: ThemeMode, onSelect: (ThemeMode) -> Unit) 
             .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
             // Groups the three rows for accessibility services as one radio group, the same
-            // relationship RadioButton implies visually — a real Material selection control, not
+            // relationship RadioButton implies visually, a real Material selection control, not
             // three independently-focusable rows that happen to look related.
             .selectableGroup(),
     ) {
@@ -296,7 +296,7 @@ private fun LinkRow(label: String, onClick: () -> Unit, testTag: String) {
     }
 }
 
-/** More space above a heading than below it — a heading belongs to what follows it, the same rule
+/** More space above a heading than below it, a heading belongs to what follows it, the same rule
  *  GroupFormScreen's own FormSectionHeader follows. */
 @Composable
 private fun SectionHeader(text: String, topSpace: Dp = 24.dp) {

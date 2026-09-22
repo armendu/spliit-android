@@ -18,11 +18,11 @@
 #
 # Applied only when the JBR is actually present, which is what makes this file work unchanged on
 # CI: there is no Android Studio on a Linux runner, so `setup-java`'s JAVA_HOME stands. Note
-# this deliberately OVERRIDES an existing JAVA_HOME rather than deferring to it (`?=`) — the
+# this deliberately OVERRIDES an existing JAVA_HOME rather than deferring to it (`?=`), the
 # whole point is to win against a stale Java 11 left in somebody's shell profile. Point JBR
 # elsewhere if you have a reason to.
 # The test is a shell `test -x` and not make's own $(wildcard …) because "Android Studio.app"
-# contains a space, and $(wildcard) splits its argument on whitespace — it silently matches
+# contains a space, and $(wildcard) splits its argument on whitespace, it silently matches
 # nothing and you get Gradle refusing to run on JVM 11 with no hint as to why.
 JBR ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
 ifneq ($(shell test -x "$(JBR)/bin/java" && echo found),)
@@ -39,7 +39,7 @@ APPLICATION_ID := app.spliit.android
 LAUNCH         := $(APPLICATION_ID)/.MainActivity
 APK            := app/build/outputs/apk/debug/app-debug.apk
 
-# 10.0.2.2 is the host's loopback as seen from inside an Android emulator — `localhost` there is
+# 10.0.2.2 is the host's loopback as seen from inside an Android emulator, `localhost` there is
 # the emulator itself. Seeding runs on this machine and uses localhost; only the app's own base
 # URL needs the translation. See e2e/README.md.
 E2E_URL      ?= http://10.0.2.2:3009/
@@ -55,19 +55,19 @@ help: ## List these targets
 # the transport, money maths and split logic are testable in seconds with nothing booted. If
 # this target ever needs an emulator, a dependency has gone in the wrong module.
 #
-# :app's unit tests are here too. They are JVM tests — ViewModels and pure presentation
-# functions, no Robolectric and no device — but they do pay for AGP's resource and manifest
+# :app's unit tests are here too. They are JVM tests, ViewModels and pure presentation
+# functions, no Robolectric and no device, but they do pay for AGP's resource and manifest
 # tasks, so the target is tens of seconds rather than the seconds :api and :core take. They
 # were written from Part 9 onward and ran nowhere at all until this line existed, which is the
 # kind of gap that only shows up when somebody counts the tests rather than the green ticks.
-test: ## Fast unit tests — every JVM suite, no emulator
+test: ## Fast unit tests, every JVM suite, no emulator
 	@$(GRADLE) :api:test :core:test :app:testDebugUnitTest
 
 build: ## Assemble the debug APK
 	@$(GRADLE) :app:assembleDebug
 
 # The downloadable one. Signed with a real key when the four SPLIIT_KEYSTORE_* variables are in
-# the environment and with the debug key otherwise — app/build.gradle.kts explains the trade. It
+# the environment and with the debug key otherwise, app/build.gradle.kts explains the trade. It
 # is a separate target from `build` because a release build is slower and is not what you want
 # while working; `make run` deliberately keeps installing the debug APK.
 apk-release: ## Assemble the release APK (the one a GitHub release ships)
@@ -79,8 +79,8 @@ lint: ## Android Lint
 
 # The API client against a server that talks back, including writes. Separate from `make test`
 # because it needs something running, and pointed at the host address rather than the
-# emulator's: this runs on the JVM, on this machine. Selects by JUnit5 @Tag("live") — see
-# :api's build.gradle.kts — rather than by class name, so `make test` can exclude the same tag
+# emulator's: this runs on the JVM, on this machine. Selects by JUnit5 @Tag("live"), see
+# :api's build.gradle.kts, rather than by class name, so `make test` can exclude the same tag
 # and never accidentally depend on a server being up.
 test-live: ## API tests against a real server (needs make e2e-up, or BASE_URL=…)
 	@$(GRADLE) :api:testLive -Pspliit.baseUrl=$(or $(BASE_URL),$(E2E_HOST_URL))
@@ -90,12 +90,12 @@ e2e-up: ## Start the shared Spliit instance on :3009, if it isn't already up
 		docker compose -f e2e/compose.yaml up -d --wait; \
 		docker compose -f e2e/compose.yaml run --rm --quiet-pull s3-policy >/dev/null; \
 	}
-	@echo "Spliit is up at $(E2E_HOST_URL) — make e2e-down stops it."
+	@echo "Spliit is up at $(E2E_HOST_URL), make e2e-down stops it."
 
 # The warning is printed rather than left to `make help`, because the person about to discard
 # somebody else's in-flight test data is typing this target, not reading the target list.
 e2e-down: ## Stop it and discard its data
-	@echo "Stopping the shared Spliit instance and discarding its data — the database and the"
+	@echo "Stopping the shared Spliit instance and discarding its data, the database and the"
 	@echo "document bucket are both tmpfs, so anything any run has put there goes with it."
 	@docker compose -f e2e/compose.yaml down -v
 
@@ -108,7 +108,7 @@ fixtures: ## Re-record the API fixtures the unit tests decode
 	@echo "Fixtures refreshed."
 
 # Deliberately leaves the server running. A run that tore it down on its way out would be
-# pulling the floor from under anything else testing at the same time — and the database lives
+# pulling the floor from under anything else testing at the same time, and the database lives
 # in tmpfs, so it would take their data with it. Stopping it is `make e2e-down`, on purpose,
 # when nothing is using it.
 e2e: ## Full end-to-end run: the instrumented suite against the shared server
@@ -116,7 +116,7 @@ e2e: ## Full end-to-end run: the instrumented suite against the shared server
 	@$(GRADLE) :app:connectedDebugAndroidTest -Pspliit.baseUrl=$(E2E_URL)
 
 # Detached, because the emulator holds the terminal for as long as it runs. `adb wait-for-device`
-# returns as soon as adbd answers, which is well before the launcher is up — hence the second
+# returns as soon as adbd answers, which is well before the launcher is up, hence the second
 # wait on sys.boot_completed, which is the one that means the device can install an APK.
 emulator: ## Boot the emulator and wait until it can take an install
 	@pgrep -q qemu-system || $(EMULATOR) -avd $(AVD) -netdelay none -netspeed full >/dev/null 2>&1 &

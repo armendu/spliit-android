@@ -47,7 +47,7 @@ private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
  * Adds a group someone shared, by pasting its link.
  *
  * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device ever
- * learns about a group. The link says which server as well as which group — see [GroupLink] —
+ * learns about a group. The link says which server as well as which group, see [GroupLink] -
  * which is what lets somebody be handed a group on an instance this phone has never talked to.
  *
  * A modal sheet rather than a pushed screen, matching iOS. Pasting a link is a small, cancellable
@@ -116,7 +116,7 @@ fun AddGroupByUrlSheet(
                     autoCorrectEnabled = false,
                     imeAction = ImeAction.Go,
                 ),
-                // Submitting from the keyboard does what the button does — the hands are already
+                // Submitting from the keyboard does what the button does, the hands are already
                 // there, and the alternative is dismissing the keyboard to reach a button.
                 keyboardActions = KeyboardActions(onGo = { viewModel.add() }),
             )
@@ -131,8 +131,8 @@ fun AddGroupByUrlSheet(
             }
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "Paste the link to a group that was shared with you — from spliit.app, " +
-                    "or from any other Spliit server — and it will appear in your list. A group's " +
+                text = "Paste the link to a group that was shared with you, from spliit.app, " +
+                    "or from any other Spliit server, and it will appear in your list. A group's " +
                     "ID on its own works too.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -38,7 +38,7 @@ public class TrpcClient(
      *
      * Parsed lazily rather than in `init`: a malformed [baseUrl] is user input (someone typing a
      * self-hosted address, not a programmer error), so it surfaces as [TrpcClientError] from a
-     * call — the same place every other failure in this client shows up — rather than as a crash
+     * call, the same place every other failure in this client shows up, rather than as a crash
      * at construction time.
      */
     private val baseHttpUrl: HttpUrl? by lazy { baseUrl.toHttpUrlOrNull() }
@@ -47,7 +47,7 @@ public class TrpcClient(
         val request = buildRequest(procedure)
 
         // IOException here is a real network failure (DNS, TLS, a dropped connection, a
-        // timeout) — deliberately caught as IOException rather than a broader Exception, because
+        // timeout), deliberately caught as IOException rather than a broader Exception, because
         // kotlinx.coroutines signals cancellation as a CancellationException that does NOT
         // extend IOException. A wider catch would swallow a cancelled search-field keystroke and
         // report it as the server being unreachable, which is exactly the bug this client must
@@ -70,7 +70,7 @@ public class TrpcClient(
                     SuperJson.decodeResponse(procedure.outputSerializer, body)
                 } catch (cause: SerializationException) {
                     // A 2xx that doesn't decode is most likely a version mismatch against a
-                    // self-hosted instance, not a bug worth crashing over — the same reasoning as
+                    // self-hosted instance, not a bug worth crashing over, the same reasoning as
                     // the iOS client's `.decoding` case.
                     throw TrpcClientError.Decoding(cause.message ?: "malformed response body")
                 }
@@ -94,7 +94,7 @@ public class TrpcClient(
     }
 
     /**
-     * Builds the request without sending it, so a test can assert on the URL and body directly —
+     * Builds the request without sending it, so a test can assert on the URL and body directly -
      * no server, no coroutine, no parsing a response back out.
      */
     internal fun <I, O> buildRequest(procedure: TrpcProcedure<I, O>): Request {
@@ -156,7 +156,7 @@ public class TrpcClient(
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
         // Shared so switching Spliit instances doesn't leak a connection pool (and its threads)
-        // per call — the same reasoning as URLSession.shared on the iOS side.
+        // per call, the same reasoning as URLSession.shared on the iOS side.
         private val SHARED_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
             // URLSession's 60s default read to a person as the app having hung; failing sooner
             // lets the screen offer a retry while the attempt is still something they remember
@@ -166,7 +166,7 @@ public class TrpcClient(
             .cache(null)
             // followRedirects is left at OkHttp's default (true), inherited rather than chosen:
             // a 301/302 turns a POST into a GET per HTTP semantics (URLSession does the same), so
-            // a redirecting proxy can silently drop a mutation's body and still answer 200 — the
+            // a redirecting proxy can silently drop a mutation's body and still answer 200, the
             // caller sees success for a write that never happened. See
             // `TrpcClientTest`'s pinning test for the exact behaviour. Left alone until a real
             // deployment needs disabling it, rather than guessed at here.
@@ -179,7 +179,7 @@ public class TrpcClient(
  * unreserved set `A-Za-z0-9-._~`.
  *
  * [HttpUrl.Builder.encodedQuery] is deliberately not trusted to do this itself: the envelope is
- * JSON, and JSON is full of characters — `+`, `&`, `{`, `"` — that are meaningful in a query
+ * JSON, and JSON is full of characters, `+`, `&`, `{`, `"`, that are meaningful in a query
  * string. `+` is the sharp edge: left alone, a downstream `URLSearchParams`-style decoder (which
  * is what Spliit's Next.js server uses) reads it as a space, silently corrupting the envelope
  * with no error the server can even blame it for.

@@ -54,7 +54,7 @@ import java.time.format.FormatStyle
  *
  * The web app's version of this tab is the note and nothing else. That reads differently on a
  * phone, where a tab is one of four places a thumb can reach and most groups never fill the note
- * in — the tab would be empty for exactly the people who went looking. Naming the participants is
+ * in, the tab would be empty for exactly the people who went looking. Naming the participants is
  * the cheapest thing that earns the slot, and this is the only screen in the app that lists them
  * outside the editor.
  *
@@ -106,7 +106,7 @@ private fun InformationContent(
     onOpenActivity: () -> Unit,
     onIdentify: () -> Unit,
 ) {
-    // The server stores whatever was typed, and a note of three spaces is not a note — it would
+    // The server stores whatever was typed, and a note of three spaces is not a note, it would
     // draw a blank row where the empty state belongs.
     val note = group.information?.trim().orEmpty().takeIf { it.isNotEmpty() }
     val you = group.participants.firstOrNull { it.id == activeParticipantId }
@@ -149,7 +149,7 @@ private fun InformationContent(
                 Text(if (note == null) "Add information" else "Edit information")
             }
             Footnote(
-                "Anything the group should know — where you are staying, how the split works, " +
+                "Anything the group should know, where you are staying, how the split works, " +
                     "a link. Everyone who opens the group sees it.",
             )
             SectionDivider()
@@ -191,7 +191,7 @@ private fun InformationContent(
                 value = createdFormatter.format(group.createdAt.atZone(ZoneId.systemDefault())),
                 testTag = TestTags.INFORMATION_CREATED,
             )
-            // Which server this group is on. A fact about the group rather than about the app —
+            // Which server this group is on. A fact about the group rather than about the app -
             // and the one the share link is built from.
             DetailRow(
                 label = "Server",
@@ -295,7 +295,7 @@ private fun NavigationRow(icon: Int, title: String, onClick: () -> Unit, testTag
 
 private val createdFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
-/** The host, which is what distinguishes one instance from another — a full base URL in a
+/** The host, which is what distinguishes one instance from another, a full base URL in a
  *  right-aligned detail row is mostly scheme and slashes. */
 private fun serverDisplayName(instanceBaseUrl: String): String =
     runCatching { java.net.URI(instanceBaseUrl).host }.getOrNull()?.takeIf { it.isNotBlank() }

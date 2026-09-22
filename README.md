@@ -3,7 +3,7 @@
 Split expenses with friends, without anyone needing an account.
 
 A native Kotlin/Compose client for [Spliit](https://spliit.app), ported from the
-[iOS app](https://github.com/spliit-app/spliit-ios) and talking to the same servers — either
+[iOS app](https://github.com/spliit-app/spliit-ios) and talking to the same servers, either
 `spliit.app` or an instance you host yourself.
 
 There are no logins. A group is reachable by the ID the server gave it and nothing else; your
@@ -46,12 +46,12 @@ find out your toolchain is set up correctly. Run `make` on its own to see everyt
 | `make e2e` | drive the real app on an emulator against that server |
 | `make test-live` | the API client against a real server |
 
-Android Studio is never required — but if you open the project in it, everything works there too.
+Android Studio is never required, but if you open the project in it, everything works there too.
 
 ## Branches
 
 `master` is the released branch. It is the only thing that builds, and a tag on it is what
-publishes a release — so it stays protected and takes changes through pull requests rather than
+publishes a release, so it stays protected and takes changes through pull requests rather than
 direct pushes.
 
 `development` is where work happens. Pushing to it does not spend a CI run; opening the pull
@@ -84,7 +84,7 @@ That runs [`release.yml`](.github/workflows/release.yml), which checks the tag m
 ### Signing
 
 Without a signing key, releases are signed with Android's **debug** key. They install and run
-fine, but Android identifies an app by its signature — so a debug-signed build can't update one
+fine, but Android identifies an app by its signature, so a debug-signed build can't update one
 signed with a different key, and you'd have to uninstall first. The release notes say so on
 every build that is in that state.
 
@@ -104,7 +104,7 @@ base64 -i release.jks | pbcopy       # paste as SPLIIT_KEYSTORE_BASE64
 | `SPLIIT_KEY_PASSWORD` | that key's password |
 
 **Back `release.jks` up and don't lose it.** A new key is a new app as far as every device is
-concerned, and nobody could update their install again. It is never committed — CI writes it to
+concerned, and nobody could update their install again. It is never committed, CI writes it to
 a temporary file and throws it away.
 
 ## How the code is laid out
@@ -117,7 +117,7 @@ e2e/     a disposable Spliit instance for tests
 ```
 
 `api/` and `core/` are plain Kotlin with **no Android dependency at all**, which is what keeps
-the tests fast, and `core/` doesn't depend on `api/` either — the arithmetic is about amounts and
+the tests fast, and `core/` doesn't depend on `api/` either, the arithmetic is about amounts and
 people, not about wire formats. The UI is where the two meet.
 
 ## Testing
@@ -135,14 +135,14 @@ The live server's `groups.get` no longer matches the recorded fixture:
   result.data.json.group.currency: was NUMBER, is now STRING
 ```
 
-Ordinary tests can't catch that — a field declared optional can vanish without anything
+Ordinary tests can't catch that, a field declared optional can vanish without anything
 complaining, which is exactly how an upstream rename slipped through once before. A nightly CI
 job runs this against spliit.app; it is allowed to fail, because a red mark there means "go
 look", not "the build is broken".
 
 ## Contributing
 
-[CLAUDE.md](CLAUDE.md) is the one to read first, especially **Things that will bite you** — a
+[CLAUDE.md](CLAUDE.md) is the one to read first, especially **Things that will bite you**, a
 list of the ways this codebase fails *silently*, most of them about money. (Amounts are integer
 minor units, and minor units are not always hundredths. Never divide by 100.)
 

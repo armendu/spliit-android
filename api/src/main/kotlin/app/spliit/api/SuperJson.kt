@@ -30,12 +30,12 @@ import java.util.UUID
  * The superjson envelope the Spliit API wraps every tRPC payload in.
  *
  * superjson sends `{"json": <value>, "meta": {"values": …}}`, where `meta.values` maps
- * dot-separated key paths to annotations for values plain JSON cannot express — `Date`,
+ * dot-separated key paths to annotations for values plain JSON cannot express, `Date`,
  * `undefined`, `Decimal`.
  *
  * Decoding deliberately ignores `meta.values`. Our models are statically typed, so a field the
  * server annotated as a date is already declared [Instant] here and parses straight from its
- * ISO-8601 string — and `groups.list` builds `createdAt` with `.toISOString()` and sends it with
+ * ISO-8601 string, and `groups.list` builds `createdAt` with `.toISOString()` and sends it with
  * no annotation at all, so trusting the metadata would break exactly that one endpoint. Encoding
  * *does* emit annotations, because the server rebuilds real `Date` instances before its own zod
  * validation runs, and a write that arrives without them is rejected.
@@ -105,8 +105,8 @@ public object SuperJson {
 
     /** Reads `{"error":{"json": …}}`, or null when the body is not a tRPC error at all. */
     public fun decodeError(body: String): TrpcServerError? {
-        // A body that isn't a tRPC error is the normal case here — a proxy's HTML 502, a plain
-        // 404 page — so it answers null rather than throwing over it.
+        // A body that isn't a tRPC error is the normal case here, a proxy's HTML 502, a plain
+        // 404 page, so it answers null rather than throwing over it.
         val envelope = try {
             DECODER.decodeFromString(FailureEnvelope.serializer(), body)
         } catch (_: SerializationException) {
@@ -185,7 +185,7 @@ public object SuperJson {
 }
 
 /**
- * The payload type of a procedure that returns nothing meaningful — `groups.update` answers
+ * The payload type of a procedure that returns nothing meaningful, `groups.update` answers
  * `undefined`, `expenses.delete` answers `{}`. It accepts either.
  */
 @Serializable(with = TrpcVoidSerializer::class)
@@ -222,7 +222,7 @@ private val ISO_8601_WITH_MILLISECONDS: DateTimeFormatter =
  * **Do not name this on a model field.** A property declared
  * `@Serializable(with = InstantSerializer::class) val expenseDate: Instant` encodes to a correct
  * ISO-8601 string with *no* `meta` block at all, because the marking pass in
- * [SuperJson.encodeEnvelope] never sees it — the decoding is fine and the unit tests are green,
+ * [SuperJson.encodeEnvelope] never sees it, the decoding is fine and the unit tests are green,
  * and the write is rejected only by a live server. Declare `@Contextual val expenseDate: Instant`
  * instead and both directions are supplied per call.
  */

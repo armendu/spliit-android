@@ -25,7 +25,7 @@ private fun members(count: Int): List<Participant> =
     (1..count).map { Participant("p$it", "Participant $it") }
 
 /**
- * A draft with everyone in, ready to submit — the state a screen reaches once a title and an
+ * A draft with everyone in, ready to submit, the state a screen reaches once a title and an
  * amount have been typed. Tests change only what they are about.
  */
 private fun draft(
@@ -100,7 +100,7 @@ class ExpenseFormDraftTest {
     }
 
     /**
-     * The one mode whose shares are money. `12.34` in a two-decimal group is 1234 minor units —
+     * The one mode whose shares are money. `12.34` in a two-decimal group is 1234 minor units -
      * not 123_400, which is what scaling it by 100 like the other three modes would send.
      */
     @Test
@@ -181,7 +181,7 @@ class ExpenseFormDraftTest {
     }
 
     /**
-     * Whoever comes first in the group's participant order pays the extra minor unit — see
+     * Whoever comes first in the group's participant order pays the extra minor unit, see
      * [ExpenseFormDraft.splitAmounts]. Pinned because "deterministic" is the whole point: an
      * implementation apportioning out of a map would be right about the *amounts* and free to
      * hand the extra cent to a different person on the next run.
@@ -452,8 +452,8 @@ class ExpenseFormDraftTest {
     /**
      * The stored amount is deliberately **not** what the rate comes to, which is the only way
      * this can tell deriving the total from trusting it. A converted expense's total is what its
-     * amount and rate produce — that is what makes it impossible to save one whose rate does not
-     * come to its own amount — so the stored 999.99 is recomputed to 184.82.
+     * amount and rate produce, that is what makes it impossible to save one whose rate does not
+     * come to its own amount, so the stored 999.99 is recomputed to 184.82.
      */
     @Test
     fun `editing a converted expense derives the total from the rate rather than trusting it`() {
@@ -489,8 +489,8 @@ class ExpenseFormDraftTest {
 
     /**
      * **The currency is what says an expense was converted.** An expense that stopped being
-     * converted keeps the other two columns in the database with nothing reading them — the
-     * server has no way to clear them — so loading one for editing must ignore them.
+     * converted keeps the other two columns in the database with nothing reading them, the
+     * server has no way to clear them, so loading one for editing must ignore them.
      */
     @Test
     fun `editing an expense with no original currency ignores the other two fields`() {
@@ -545,7 +545,7 @@ class ExpenseFormDraftTest {
         )
 
         assertEquals(123_456L, draft.amountMinorUnits)
-        assertTrue(draft.amountText.contains(','), "French writes 1234,56 — found ${draft.amountText}")
+        assertTrue(draft.amountText.contains(','), "French writes 1234,56, found ${draft.amountText}")
     }
 
     // ---- validation --------------------------------------------------------------------
@@ -591,7 +591,7 @@ class ExpenseFormDraftTest {
 
     /**
      * A leading minus is something [MoneyFormatter.parseMinorUnits] deliberately reads, so an
-     * amount can arrive negative — and an expense of minus ten euros is not a correction, it is
+     * amount can arrive negative, and an expense of minus ten euros is not a correction, it is
      * a balances screen with the signs inverted for everybody it was paid for. Per-participant
      * shares have always been guarded; the total was not.
      */
@@ -994,7 +994,7 @@ class ExpenseFormDraftTest {
         assertEquals(listOf(ExpenseSubmission.PaidFor("p1", 100L)), submission.paidFor)
     }
 
-    /** The amount is the group's, at the group's own precision — not the reader's two digits. */
+    /** The amount is the group's, at the group's own precision, not the reader's two digits. */
     @Test
     fun `a settle-up in a zero-decimal currency is not divided by a hundred`() {
         val draft = ExpenseFormDraft.settling(

@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 
 /**
- * A slow, understated opacity breathe — the shape of content about to arrive, not a spinner that
+ * A slow, understated opacity breathe, the shape of content about to arrive, not a spinner that
  * tells the reader nothing about what's coming. Shared by [GroupsListScreen]'s row placeholders
  * and [GroupFormScreen]'s loading state so the one loop lives in one place.
  */

@@ -60,7 +60,7 @@ private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
  *
  * The only view in the app that reads *history* rather than state, and so the only one that
  * shows lines about things which no longer exist. A deleted expense keeps its row, under the
- * title it had at the time, and simply has nowhere to lead — which is the whole reason to keep a
+ * title it had at the time, and simply has nowhere to lead, which is the whole reason to keep a
  * log.
  *
  * **A row can be opened when the server sent an `expense` beside it, not when it has an
@@ -69,12 +69,12 @@ private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
  *
  * iOS pushes this as a screen from its information tab. Here it is a sheet over the group screen
  * for the same reason the expense editor is: a destination would drop the group screen, and its
- * ViewModel — which owns this log, its paging and its invalidation — is scoped to that screen's
+ * ViewModel, which owns this log, its paging and its invalidation, is scoped to that screen's
  * nav entry.
  *
  * Who did what is the server's to know, and it only knows what a client told it. Every mutating
  * procedure takes an optional `participantId` and nothing requires one, so a change made by
- * someone who never said who they were reads "Someone" here — accurately.
+ * someone who never said who they were reads "Someone" here, accurately.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,7 +161,7 @@ internal fun ActivityLogSheet(
     }
 }
 
-/** One bucket's worth of activity, newest bucket first — the same [DateBucket] scheme the
+/** One bucket's worth of activity, newest bucket first, the same [DateBucket] scheme the
  *  expense list uses, which `:core` wrote for both. */
 internal data class ActivitySection(val bucket: DateBucket, val activities: List<Activity>)
 
@@ -236,7 +236,7 @@ private fun ActivityRow(
     participantName: String?,
     onOpenExpense: (String) -> Unit,
 ) {
-    // The expense object beside the row, not the ID — see this file's own header. A row about the
+    // The expense object beside the row, not the ID, see this file's own header. A row about the
     // group's own settings has neither, and is text that stays text.
     val expenseId = activity.expenseId?.takeIf { activity.expenseStillExists }
     val base = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
@@ -286,8 +286,8 @@ private fun glyphOf(type: ActivityType): Int = when (type) {
 /**
  * One line of prose for one recorded change.
  *
- * The title comes from the activity's own `data` column — the expense's title **as it was** when
- * this was recorded — not from the expense as it is now. Renaming an expense leaves the old name
+ * The title comes from the activity's own `data` column, the expense's title **as it was** when
+ * this was recorded, not from the expense as it is now. Renaming an expense leaves the old name
  * on the line describing its creation, which is the point of a log.
  */
 internal fun summaryOf(activity: Activity, participantName: String?): String {

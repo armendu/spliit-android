@@ -35,7 +35,7 @@ class GroupFormViewModelTest {
             recentGroupsStore = store,
         )
 
-        // A blank name and no participants are :core's own rules (GroupFormDraft.problems) — this
+        // A blank name and no participants are :core's own rules (GroupFormDraft.problems), this
         // asserts the ViewModel surfaces exactly them, not a parallel validation of its own.
         val draft = viewModel.state.value.draft
         assertTrue(draft.problems(GroupFormDraft.Field.NAME).contains(GroupFormDraft.Problem.NameRequired))
@@ -112,7 +112,7 @@ class GroupFormViewModelTest {
         viewModel.refreshForEdit()
         assertFalse(viewModel.state.value.isLoading)
         assertEquals(setOf("p1"), viewModel.state.value.draft.participantsWithExpenses)
-        // The draft's own row id is a fresh local UUID, not the server's "p1" — canRemoveParticipant
+        // The draft's own row id is a fresh local UUID, not the server's "p1", canRemoveParticipant
         // and withParticipantRemoved both key off it, per GroupFormDraft.
         val localId = viewModel.state.value.draft.participants.single().id
 
@@ -155,7 +155,7 @@ class GroupFormViewModelTest {
     @Test
     fun `picking a currency sets the symbol with it, so the form never shows two answers`() {
         val viewModel = createViewModel()
-        // The default is a bare "$" with no code behind it — the web app's own.
+        // The default is a bare "$" with no code behind it, the web app's own.
         assertTrue(viewModel.state.value.draft.usesCustomSymbol)
 
         viewModel.setCurrency("EUR")
@@ -191,7 +191,7 @@ class GroupFormViewModelTest {
         viewModel.useCustomSymbol()
 
         val draft = viewModel.state.value.draft
-        // The symbol survives — it is now free text rather than a consequence of the code.
+        // The symbol survives, it is now free text rather than a consequence of the code.
         assertEquals("£", draft.currency)
         assertNull(draft.currencyCode)
         assertTrue(draft.usesCustomSymbol)

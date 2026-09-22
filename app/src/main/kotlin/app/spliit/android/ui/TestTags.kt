@@ -1,38 +1,21 @@
 package app.spliit.android.ui
 
 /**
- * Every Compose `testTag` the app sets, in one place shared with Part 14's instrumented tests —
- * CLAUDE.md's testing table asks for exactly this, added in the same commit as what it tags.
+ * Every Compose `testTag` the app sets, shared with the instrumented tests and added in the same
+ * commit as the screen it tags.
  *
- * Every tag belongs on a **leaf** — the smallest independently addressable widget, such as one
- * `Text` or one [app.spliit.android.ui.design.Monogram] chip — and never on a `Row` / `Column` /
- * `Box` that exists purely to lay several of those out. A test wants to address "the amount in
- * this row" independently of "the row," so the container that arranges them must stay untagged.
+ * Tags go on **leaves**, never on a `Row` / `Column` / `Box` that only lays other things out: a
+ * test wants "the amount in this row" separately from "the row".
  *
- * The iOS version of this file records why the boundary matters there: an identifier on a
- * container stamped every descendant with it and silently replaced the inner ones, so a
- * screen-level identifier erased every button beneath it. Compose's failure modes are different
- * but just as real — both of the following were hit while wiring this part's own components,
- * not assumed from documentation:
+ * Two Compose behaviours here were hit in practice, not read about:
  *
- * 1. **`clearAndSetSemantics { }`** — used by [app.spliit.android.ui.design.Monogram] to hide its
- *    initials from screen readers, since the name it sits beside already says them — does not
- *    merely *merge* a node's semantics elsewhere; per its own KDoc it clears the semantics of
- *    "this modifier or its descendants" and substitutes exactly what its lambda sets. A
- *    `Modifier.testTag(...)` placed anywhere else on the same chain is discarded along with
- *    everything else, not merged away and still reachable — it is simply gone. The only way to
- *    keep a tag on such a node is to set it *inside* that lambda, via the `testTag` property on
- *    `SemanticsPropertyReceiver` (a different `testTag` from the `Modifier.testTag()` extension
- *    used everywhere else), which is what `Monogram` does.
- *
- * 2. **`mergeDescendants = true`** — set implicitly by `Modifier.clickable` and every M3 control
- *    built on it (`Button`, a clickable `Row`, …) — merges a subtree's semantics into one parent
- *    node for accessibility. Compose's test finders (`onNodeWithTag` included) query the *merged*
- *    tree by default, so a tag on a descendant of a clickable container is invisible to them
- *    unless the test opts in with `useUnmergedTree = true`. Part 11's expense row became such a
- *    container in Part 12, when tapping it began
- *    opening the expense, so Part 14 must reach for that flag rather than conclude the tag
- *    "isn't there."
+ * 1. `clearAndSetSemantics { }` clears the semantics of the node *and its descendants* and
+ *    substitutes only what its lambda sets, so a `Modifier.testTag()` elsewhere on the chain is
+ *    gone, not merged. To keep a tag, set it inside that lambda via the `testTag` property on
+ *    `SemanticsPropertyReceiver`. [app.spliit.android.ui.design.Monogram] does this.
+ * 2. `Modifier.clickable` merges descendants into one node, and the test finders query the
+ *    merged tree by default. A tag on a child of a clickable container needs
+ *    `useUnmergedTree = true`, which is why the expense row's inner tags need it.
  */
 object TestTags {
     const val MONEY_AMOUNT = "money_amount"
@@ -61,7 +44,7 @@ object TestTags {
     fun groupsListRowParticipants(groupId: String) = "groups_list_row_participants_$groupId"
     fun groupsListRowCreatedDate(groupId: String) = "groups_list_row_created_$groupId"
     // No `groupsListRowInstance`: the row no longer names the server. It wrapped onto a second
-    // line for the one fact most people never need — the group's own Information tab states it,
+    // line for the one fact most people never need, the group's own Information tab states it,
     // and the create sheet's Advanced section is where it is chosen.
     fun groupsListRowMenuButton(groupId: String) = "groups_list_row_menu_$groupId"
     fun groupsListRowStar(groupId: String) = "groups_list_row_star_$groupId"
@@ -85,7 +68,7 @@ object TestTags {
 
     /**
      * The disclosure that hides the server address when *creating* a group. Absent when editing
-     * one — a group cannot move servers, so that form shows the address outright.
+     * one, a group cannot move servers, so that form shows the address outright.
      */
     const val GROUP_FORM_ADVANCED_TOGGLE = "group_form_advanced_toggle"
     const val GROUP_FORM_SHEET = "group_form_sheet"
@@ -107,7 +90,7 @@ object TestTags {
     /**
      * The same action as [GROUP_DETAIL_ADD_EXPENSE_FAB], as a top-app-bar icon.
      *
-     * Only one of the two is on screen at a time — see
+     * Only one of the two is on screen at a time, see
      * [app.spliit.android.feature.group.GroupDetailLayout]: the bottom-bar layout has no FAB,
      * because M3 dropped the docked-FAB pattern and one floating over a navigation bar covers
      * it. A test that wants "add an expense" has to ask for whichever the current layout draws.
@@ -119,7 +102,7 @@ object TestTags {
     const val GROUP_DETAIL_TAB_INFORMATION = "group_detail_tab_information"
     const val GROUP_DETAIL_BOTTOM_BAR = "group_detail_bottom_bar"
 
-    // Search — an app-bar action that expands into a field, not a fifth tab.
+    // Search, an app-bar action that expands into a field, not a fifth tab.
     const val GROUP_DETAIL_SEARCH_BUTTON = "group_detail_search_button"
     const val GROUP_DETAIL_SEARCH_FIELD = "group_detail_search_field"
     const val GROUP_DETAIL_SEARCH_CLOSE = "group_detail_search_close"
@@ -176,7 +159,7 @@ object TestTags {
     fun expenseRowAmount(expenseId: String) = "expense_row_amount_$expenseId"
     fun expenseRowPaidBy(expenseId: String) = "expense_row_paid_by_$expenseId"
 
-    /** The second metadata line — who the expense was paid *for*. Absent when the server named
+    /** The second metadata line, who the expense was paid *for*. Absent when the server named
      *  nobody, so a test that asserts on it must allow for a row that has none. */
     fun expenseRowPaidFor(expenseId: String) = "expense_row_paid_for_$expenseId"
 
@@ -201,7 +184,7 @@ object TestTags {
     const val EXPENSE_FORM_CONVERSION_RATE_FIELD = "expense_form_conversion_rate_field"
     const val EXPENSE_FORM_CURRENCY_SEARCH_FIELD = "expense_form_currency_search_field"
     const val EXPENSE_FORM_DISCARD_DIALOG = "expense_form_discard_dialog"
-    // Editing is a sheet over the group screen, not a destination — see ExpenseEditSheet.
+    // Editing is a sheet over the group screen, not a destination, see ExpenseEditSheet.
     const val EXPENSE_EDIT_SHEET = "expense_edit_sheet"
     const val EXPENSE_FORM_DISCARD_CONFIRM = "expense_form_discard_confirm"
 

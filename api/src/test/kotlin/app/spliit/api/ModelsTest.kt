@@ -112,7 +112,7 @@ class ModelsTest {
     /**
      * `groups.list` builds `createdAt` with `.toISOString()` and sends it with no entry in
      * `meta.values` at all, unlike every other endpoint. The models are statically typed, so it
-     * decodes anyway — which is what justifies ignoring the metadata rather than consulting it.
+     * decodes anyway, which is what justifies ignoring the metadata rather than consulting it.
      */
     @Test
     fun `a date the server did not annotate still decodes`() {
@@ -215,7 +215,7 @@ class ModelsTest {
         // it in a column called `data`.
         val deleted = activities.single { it.activityType == ActivityType.DeleteExpense }
         assertEquals("Pastéis de Belém", deleted.title)
-        // Deleted, so there is nothing left to open — the whole point of the flag.
+        // Deleted, so there is nothing left to open, the whole point of the flag.
         assertFalse(deleted.expenseStillExists)
         assertNotNull(deleted.expenseId)
 
@@ -293,7 +293,7 @@ class ModelsTest {
     /**
      * The same decision as [ActivityType], and for the same reason turned up one notch: the rule
      * is display-only in cycle 1, so an unreadable one should cost its own row a line of detail.
-     * As an enum it costs the whole screen — the other two expenses here decode perfectly and are
+     * As an enum it costs the whole screen, the other two expenses here decode perfectly and are
      * lost anyway, which is what makes the trade so lopsided.
      */
     @Test
@@ -325,7 +325,7 @@ class ModelsTest {
     /**
      * The opposite decision from [ActivityType] and [RecurrenceRule], on purpose: a split mode
      * this client cannot read is money it would divide wrongly, so it fails loudly rather than
-     * guessing. The contrast with the test above is the point — these are three considered
+     * guessing. The contrast with the test above is the point, these are three considered
      * answers to the same question, not three inconsistent ones.
      */
     @Test
@@ -366,7 +366,7 @@ class ModelsTest {
     @Test
     fun `an amount is carried as minor units, whatever the currency counts in`() {
         // 1234 is 12.34 in a two-decimal currency and ¥1,234 in yen. Nothing in the model may
-        // assume hundredths — formatting is Part 5's job and needs the raw count intact.
+        // assume hundredths, formatting is Part 5's job and needs the raw count intact.
         val body = """{"expense":${convertedExpenseJson(amount = 1234)}}"""
 
         assertEquals(1234, decodeBody(ExpenseResponse.serializer(), body).expense.amount)

@@ -69,8 +69,8 @@ import app.spliit.core.SplitMode
  * The oversized, centred amount entry DESIGN.md §4 asks for: the symbol beside the figure, and
  * nothing else on the line.
  *
- * Under a conversion the total is **not** typed — it is what the amount paid comes to at the rate
- * given — so the field becomes a read-out. Binding an editable field to
+ * Under a conversion the total is **not** typed, it is what the amount paid comes to at the rate
+ * given, so the field becomes a read-out. Binding an editable field to
  * [ExpenseFormDraft.amountText] while a conversion is in force would show a number the expense
  * does not have; that field's own doc says so, and this is the screen that has to honour it.
  */
@@ -88,10 +88,10 @@ internal fun AmountEntry(
         Text(
             text = formatter.currencySymbol.ifBlank { draft.groupCurrencyCode.orEmpty() },
             style = MaterialTheme.typography.headlineMedium,
-            // `primary`, not a muted grey — DESIGN.md §4. Two roles, two colours: the symbol says
+            // `primary`, not a muted grey, DESIGN.md §4. Two roles, two colours: the symbol says
             // *which money this is* and the figure beside it says how much. Drawn in one grey the
             // symbol reads as decoration and the eye skips it, which is wrong on the one screen
-            // where the currency is a real question — a group counted in yen and one counted in
+            // where the currency is a real question, a group counted in yen and one counted in
             // euros differ by nothing else here.
             //
             // The figure itself stays `on-surface`, including in the converted read-out below,
@@ -104,7 +104,7 @@ internal fun AmountEntry(
         if (draft.conversionRequired) {
             val total = draft.amountMinorUnits
             Money(
-                value = if (total == null) "—" else formatter.formatPlain(total),
+                value = if (total == null) "-" else formatter.formatPlain(total),
                 size = MoneySize.HERO,
                 testTag = TestTags.EXPENSE_FORM_CONVERTED_TOTAL,
             )
@@ -120,7 +120,7 @@ internal fun AmountEntry(
                     )
                 },
                 textStyle = MaterialTheme.typography.displaySmall.copy(
-                    // DESIGN.md §2: tabular figures on every amount, the entry field included —
+                    // DESIGN.md §2: tabular figures on every amount, the entry field included -
                     // without them the caret walks as the digits change.
                     fontFeatureSettings = "tnum",
                     fontWeight = FontWeight.Bold,
@@ -172,12 +172,12 @@ internal fun PaidByChips(
 // ---- category --------------------------------------------------------------------------------
 
 /**
- * Every category the server offers, as a horizontally scrolling strip — DESIGN.md §4's chips,
+ * Every category the server offers, as a horizontally scrolling strip, DESIGN.md §4's chips,
  * `surface-container` idle and `primary` / `on-primary` selected.
  *
  * In the order `categories.list` sends them, which is grouped: "Uncategorized", then
  * Entertainment, Food and Drink, and so on. Sorting them alphabetically would scatter each
- * grouping's members across the strip and cost the glyphs — which are keyed by grouping — their
+ * grouping's members across the strip and cost the glyphs, which are keyed by grouping, their
  * only visual grouping.
  */
 @Composable
@@ -247,8 +247,8 @@ private fun SelectableChip(
 /**
  * How the expense divides, and what that comes to for each person.
  *
- * The breakdown is [ExpenseFormDraft.splitAmounts] — which apportions the remainder in whole
- * minor units, and decides *who* gets the extra one by position — so the figures here are the
+ * The breakdown is [ExpenseFormDraft.splitAmounts], which apportions the remainder in whole
+ * minor units, and decides *who* gets the extra one by position, so the figures here are the
  * figures that will be stored, not a display-only approximation of them.
  */
 @Composable
@@ -306,7 +306,7 @@ internal fun SplitSection(
 
     FieldProblems(state, ExpenseFormDraft.Field.PAID_FOR, formatter)
 
-    // Before a save has been attempted this is a running tally rather than a complaint — showing
+    // Before a save has been attempted this is a running tally rather than a complaint, showing
     // what is left to allocate is what stops a refused save being the first news of it.
     val remainder = draft.remainderText(formatter)
     Spacer(Modifier.height(4.dp))
@@ -330,12 +330,12 @@ internal fun SplitSection(
 }
 
 /**
- * Choosing one of four ways to divide the expense — Material's own segmented buttons, which is
+ * Choosing one of four ways to divide the expense, Material's own segmented buttons, which is
  * the control this job belongs to.
  *
  * Not tabs: tabs navigate between views, and nothing here is a view. Four options is inside the
  * two-to-five a segmented button row is designed for, and the labels are kept short enough to
- * survive the largest system font size — shortening a label is the answer to a tight fit, not
+ * survive the largest system font size, shortening a label is the answer to a tight fit, not
  * truncating one or reaching for a different control.
  *
  * Colours are the theme's; DESIGN.md names no override for this.
@@ -439,7 +439,7 @@ private fun ParticipantSplitRow(
 // ---- currency conversion ---------------------------------------------------------------------
 
 /**
- * What the expense was paid in, and — when that is not what the group counts in — what was paid
+ * What the expense was paid in, and, when that is not what the group counts in, what was paid
  * and at what rate.
  *
  * The two amounts here are on **two different scales**: `originalAmount` is in the currency it
@@ -550,8 +550,8 @@ internal fun SwitchRow(
  * How often the expense repeats.
  *
  * Only the four cadences this client has words for are offered. An expense arriving with a fifth
- * from an instance running ahead of us keeps it — [ExpenseFormDraft.recurrenceRule] carries the
- * server's own string — and is shown by that raw name rather than being quietly reset to NONE.
+ * from an instance running ahead of us keeps it, [ExpenseFormDraft.recurrenceRule] carries the
+ * server's own string, and is shown by that raw name rather than being quietly reset to NONE.
  */
 @Composable
 internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
@@ -598,7 +598,7 @@ internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
 /**
  * A label for a control whose meaning comes from what it sits beside rather than from itself.
  *
- * Deliberately `semantics`, not `clearAndSetSemantics` — see TestTags' own note: clearing would
+ * Deliberately `semantics`, not `clearAndSetSemantics`, see TestTags' own note: clearing would
  * take the field's editability, its value and its test tag with it, which is precisely the
  * failure that note records.
  */

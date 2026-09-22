@@ -104,7 +104,7 @@ class SuperJsonTest {
     /**
      * The test this whole part exists to make pass. `groups.list` builds `createdAt` with
      * `.toISOString()`, so unlike every other endpoint it sends the timestamp with *no* entry in
-     * `meta.values` at all. Decoding has to work anyway — which is exactly what justifies
+     * `meta.values` at all. Decoding has to work anyway, which is exactly what justifies
      * ignoring the metadata rather than consulting it.
      */
     @Test
@@ -274,7 +274,7 @@ class SuperJsonTest {
 
     @Test
     fun `a payload string that merely looks like the marker is left alone`() {
-        // The marker carries a per-call UUID so no payload can actually collide with it — but a
+        // The marker carries a per-call UUID so no payload can actually collide with it, but a
         // value shaped like one must not be mistaken for a date either.
         val suspicious = MARKER_PREFIX + "00000000-0000-0000-0000-000000000000:nope"
 
@@ -290,7 +290,7 @@ class SuperJsonTest {
     /**
      * The other half of the rule below, and the mechanism `originalCurrency` depends on: that
      * field's zod schema is the one that accepts an explicit null, and since `explicitNulls` is
-     * off a Kotlin null can no longer say so. A `JsonNull` has to survive to the wire instead —
+     * off a Kotlin null can no longer say so. A `JsonNull` has to survive to the wire instead -
      * flipping the setting back would break clearing a currency with every other test still green.
      */
     @Test

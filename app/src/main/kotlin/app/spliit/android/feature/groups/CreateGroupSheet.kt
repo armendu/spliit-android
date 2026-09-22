@@ -34,8 +34,8 @@ private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 /**
  * Creating a group, as a drawer over the dashboard rather than a screen of its own.
  *
- * It is the same errand as adding a group by link, which is already a sheet beside it — a name,
- * a couple of participants, done — and a full-screen form for that much reads as a trip rather
+ * It is the same errand as adding a group by link, which is already a sheet beside it, a name,
+ * a couple of participants, done, and a full-screen form for that much reads as a trip rather
  * than a task. **Editing** a group keeps the full screen: by then there are participants to add
  * and remove, a note and a currency, and the form has earned the room. Both draw the same
  * [GroupFormBody], so there is one form here, presented two ways.
@@ -46,7 +46,7 @@ private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
  * drag between somebody and the participant they came to add.
  *
  * **The server address is not asked for.** It sits behind the "Advanced" disclosure inside
- * [GroupFormBody], prefilled from the default in Settings — see that function's own note for why
+ * [GroupFormBody], prefilled from the default in Settings, see that function's own note for why
  * it is hidden rather than removed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,7 +68,7 @@ fun CreateGroupSheet(
         sheetState = sheetState,
         shape = SheetShape,
         // Handed to the content instead, where one modifier pads for the navigation bar and the
-        // keyboard together — the sheet consuming the inset leaves the last field under the
+        // keyboard together, the sheet consuming the inset leaves the last field under the
         // gesture handle. Same reasoning as ExpenseEditSheet.
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         modifier = Modifier.testTag(TestTags.GROUP_FORM_SHEET),

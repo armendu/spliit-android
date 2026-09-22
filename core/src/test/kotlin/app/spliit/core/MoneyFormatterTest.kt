@@ -10,7 +10,7 @@ import java.util.Locale
 
 /**
  * Every test here passes an explicit [Locale]. A formatting test that reads the machine's
- * default locale passes here and fails on a runner set to another region — or, worse, passes on
+ * default locale passes here and fails on a runner set to another region, or, worse, passes on
  * both for different reasons. The default locale is never consulted in this file.
  */
 private val AMERICAN = Locale.of("en", "US")
@@ -110,7 +110,7 @@ class MoneyFormatterTest {
     }
 
     /**
-     * The one that costs real money. `1234` in a yen group is ¥1,234 — a hundred times what a
+     * The one that costs real money. `1234` in a yen group is ¥1,234, a hundred times what a
      * `/ 100` would draw, and the same record would then read differently on every client.
      */
     @Test
@@ -175,7 +175,7 @@ class MoneyFormatterTest {
 
     /**
      * A code the JDK cannot name is still what the group is denominated in, so it is shown
-     * rather than silently replaced by the reader's own currency symbol — which is what the
+     * rather than silently replaced by the reader's own currency symbol, which is what the
      * locale's formatter would otherwise supply, and would be a plausible-looking lie.
      */
     @Test
@@ -213,7 +213,7 @@ class MoneyFormatterTest {
 
     /**
      * A French keyboard produces a comma. Reading it as a thousands separator turns 12,50 into
-     * 1250.00 — a hundredfold error from one character, and the web app shipped a fix for it.
+     * 1250.00, a hundredfold error from one character, and the web app shipped a fix for it.
      */
     @Test
     fun `the reader's decimal separator is understood, and so is a plain dot`() {
@@ -331,7 +331,7 @@ class MoneyFormatterTest {
 
     /**
      * Half-up, not half-even and not `Math.round`. `Math.round` is half-*up towards positive
-     * infinity*, so it answers -2 for -2.5 — a rounding that moves a debt in the creditor's
+     * infinity*, so it answers -2 for -2.5, a rounding that moves a debt in the creditor's
      * favour. Half-even would answer 2 for 2.5, which is not what a person reading a receipt
      * expects either. Both are pinned here as the things this must not be.
      */

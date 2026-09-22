@@ -45,28 +45,22 @@ private val SheetShape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
 /**
  * Editing an expense, as a sheet over the group screen rather than a screen of its own.
  *
- * **It opens partially expanded, showing the title and the amount** — the two fields nearly
- * every edit touches — with the save action pinned above them so the common case never needs a
- * drag to finish. Dragging up reveals the rest of the form: payer, split, date, category, notes,
- * reimbursement, recurrence, conversion and delete. The fields are not duplicated here; this
- * draws [ExpenseFormBody], and what a collapsed sheet shows is simply what is at the top of it.
+ * It opens partially expanded on the title and amount, the two fields nearly every edit touches,
+ * with save pinned above them. Dragging up reveals the rest of [ExpenseFormBody].
  *
- * **The point is what does not happen.** The group screen stays composed underneath, so its
- * `LaunchedEffect(Unit) { load() }` does not re-run and `groups.expenses.list` is not read
- * again: the list keeps its scroll position and its paged-in rows, and no skeleton flashes over
- * it. What the caller does with a write is one changed row and a balances recompute — see
- * [app.spliit.android.feature.group.GroupDetailViewModel.expenseSaved].
+ * The point is what does not happen: the group screen stays composed underneath, so its
+ * `LaunchedEffect(Unit) { load() }` does not re-run, the list keeps its scroll and paged-in rows,
+ * and no skeleton flashes.
  *
- * This composable stays around for slightly longer than the sheet does: after a delete the sheet
- * goes but the undo is still on offer, and the undo belongs to this ViewModel. [onDone] is the
- * single signal that the whole errand is over.
+ * It outlives the sheet slightly: after a delete the sheet goes but the undo is still on offer.
+ * [onDone] signals the whole errand is over.
  *
- * @param snackbarHostState the *group screen's* host, not one of this sheet's own — a snackbar
- *   inside a sheet that is on its way out has nowhere to be.
- * @param onSaved a write landed; the expense under this ID is what the list should now show.
- *   Also fires for an undone delete, which comes back under a **new** ID (see [DeletedExpense]).
+ * @param snackbarHostState the *group screen's* host; a snackbar inside a closing sheet has
+ *   nowhere to be.
+ * @param onSaved a write landed. Also fires for an undone delete, which returns under a **new**
+ *   ID (see [DeletedExpense]).
  * @param onDeleted the expense is gone from the server.
- * @param onDone the sheet and its undo window are both finished with.
+ * @param onDone the sheet and its undo window are both finished.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -106,7 +100,7 @@ fun ExpenseEditSheet(
             duration = SnackbarDuration.Long,
         )
         when (result) {
-            // The server has no undelete, so this writes the expense back — under a new ID.
+            // The server has no undelete, so this writes the expense back, under a new ID.
             SnackbarResult.ActionPerformed -> viewModel.undoDelete()
             SnackbarResult.Dismissed -> viewModel.dismissDeleted()
         }
@@ -140,7 +134,7 @@ fun ExpenseEditSheet(
 
     if (isSheetVisible) {
         ModalBottomSheet(
-            // A drag down, a tap on the scrim and the back gesture all arrive here — the sheet's
+            // A drag down, a tap on the scrim and the back gesture all arrive here, the sheet's
             // own back handling calls this too, so the unsaved-changes question is asked once,
             // for all three, rather than hung off a close button that a sheet does not have.
             onDismissRequest = {
@@ -154,7 +148,7 @@ fun ExpenseEditSheet(
             sheetState = sheetState,
             shape = SheetShape,
             // The sheet consumes the navigation-bar inset by default, which leaves the
-            // `navigationBarsPadding()` below with nothing to apply — so the last row of the form
+            // `navigationBarsPadding()` below with nothing to apply, so the last row of the form
             // drew underneath the gesture bar. Insets are handed to the content instead, where
             // one modifier can pad for the bar and the keyboard together.
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
@@ -209,7 +203,7 @@ fun ExpenseEditSheet(
         AlertDialog(
             onDismissRequest = {
                 // Dismissing the question is not answering it, and the sheet has already
-                // animated away underneath — so it comes back rather than the edits going.
+                // animated away underneath, so it comes back rather than the edits going.
                 showDiscardDialog = false
                 scope.launch { sheetState.show() }
             },
@@ -246,7 +240,7 @@ fun ExpenseEditSheet(
  * The one row that never scrolls.
  *
  * Save lives here rather than at the foot of the form because the sheet opens collapsed: an
- * action below the fold would mean the ordinary edit — change the amount, save — needed a drag
+ * action below the fold would mean the ordinary edit, change the amount, save, needed a drag
  * to complete, which is the friction this sheet exists to remove.
  */
 @Composable

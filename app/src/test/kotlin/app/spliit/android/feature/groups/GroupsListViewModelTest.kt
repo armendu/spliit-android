@@ -82,7 +82,7 @@ class GroupsListViewModelTest {
                 ),
             ),
         )
-        // The server only answers for g1 — deleted-group is silently absent, exactly as a real
+        // The server only answers for g1, deleted-group is silently absent, exactly as a real
         // groups.list response omits an id it no longer recognises.
         server.enqueue(
             MockResponse.Builder().code(200)
@@ -279,7 +279,7 @@ class GroupsListViewModelTest {
         )
     }
 
-    /** A port nothing is listening on — a real network failure, the same shape TrpcClientTest
+    /** A port nothing is listening on, a real network failure, the same shape TrpcClientTest
      *  pins for TrpcClientError.Network. */
     private fun deadInstance(): String {
         val deadServer = MockWebServer()

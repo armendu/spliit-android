@@ -15,7 +15,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 /**
- * The pure functions behind the group screen's new surfaces — the share link, the activity log's
+ * The pure functions behind the group screen's new surfaces, the share link, the activity log's
  * prose and bucketing, and the expense row's two metadata lines. None of them needs a server, a
  * `Context` or a composition, which is why they are plain functions in the first place.
  */
@@ -33,7 +33,7 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `a stored base URL with a trailing slash does not double it`() {
-        // Rows are written by several paths — a pasted link, the create form, a seeded fixture —
+        // Rows are written by several paths, a pasted link, the create form, a seeded fixture -
         // and they do not agree about the trailing slash.
         assertEquals(
             "https://spliit.example.com/groups/abc123",

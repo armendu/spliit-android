@@ -17,18 +17,18 @@ import kotlinx.coroutines.launch
 
 /**
  * What the Settings screen draws for the "default instance" section. The theme section has no
- * field of its own to spare — [themeMode] is read directly, and choosing an option applies
+ * field of its own to spare, [themeMode] is read directly, and choosing an option applies
  * immediately with nothing left to confirm.
  */
 data class SettingsUiState(
     val themeMode: ThemeMode,
-    /** What the server-address field shows, exactly as typed — kept separate from what is stored
+    /** What the server-address field shows, exactly as typed, kept separate from what is stored
      *  until [SettingsViewModel.saveInstanceAddress] commits it, the same draft/valid split
      *  GroupFormScreen's own server field keeps. */
     val instanceAddressText: String,
     val hasAttemptedSaveInstance: Boolean = false,
     val instanceIsValid: Boolean = true,
-    /** Whether the *stored* override is unset — independent of whether the typed text happens to
+    /** Whether the *stored* override is unset, independent of whether the typed text happens to
      *  match the build default mid-edit. Drives whether "Reset to default" has anything to do. */
     val isUsingBuildDefault: Boolean,
 )
@@ -38,7 +38,7 @@ data class SettingsUiState(
  *
  * Seeds its starting values from [AppSettingsHolder] rather than loading [settingsStore] again.
  * This screen is reachable only once the app is already running, and `MainActivity` has always
- * already loaded the store into that holder by then (see its own doc) — a second, asynchronous
+ * already loaded the store into that holder by then (see its own doc), a second, asynchronous
  * load here would only add a frame where this screen's own radio selection is wrong before
  * snapping to the true one, which is the flash this part exists to avoid, just narrowed to one
  * screen instead of the whole app.
@@ -53,7 +53,7 @@ class SettingsViewModel(
     val versionName: String = BuildConfig.VERSION_NAME,
     val versionCode: Int = BuildConfig.VERSION_CODE,
     /**
-     * Applies a change app-wide, immediately — not only once it round-trips through
+     * Applies a change app-wide, immediately, not only once it round-trips through
      * [settingsStore]. The default writes [AppSettingsHolder], which `MainActivity` reads at
      * composition: without this, switching the theme would only take effect on the *next*
      * launch, not the moment someone taps it. Injected, the same shape as every ViewModel's own
@@ -66,7 +66,7 @@ class SettingsViewModel(
     },
 ) : ViewModel() {
 
-    /** The last settings known to be persisted — the base every edit reads and writes back, so
+    /** The last settings known to be persisted, the base every edit reads and writes back, so
      *  setting the theme does not clobber an instance override saved a moment earlier. */
     private var current: AppSettings = initial
 
@@ -77,7 +77,7 @@ class SettingsViewModel(
         viewModelScope.launch { updateThemeMode(mode) }
     }
 
-    /** The actual work, as a plain suspend function — called through [setThemeMode] in
+    /** The actual work, as a plain suspend function, called through [setThemeMode] in
      *  production (on [viewModelScope], `Main.immediate`, so [applySettings] still runs
      *  synchronously within the click that triggered it), and called directly in tests, the same
      *  split [app.spliit.android.feature.groups.GroupsListViewModel.refresh] documents. */
@@ -98,7 +98,7 @@ class SettingsViewModel(
      * Validates and commits the typed address. [InstanceAddress.normalize] is the same check
      * GroupFormScreen's own server field uses, so "what counts as a usable address" has one
      * definition in this app. An invalid address is refused rather than silently kept as the
-     * previous value — a save action that quietly does nothing is indistinguishable from one that
+     * previous value, a save action that quietly does nothing is indistinguishable from one that
      * worked.
      */
     internal suspend fun commitInstanceAddress() {
@@ -123,7 +123,7 @@ class SettingsViewModel(
     /**
      * The way back to the build default. Clears the stored override rather than merely typing the
      * default text into the field, so this is a real action rather than a save waiting to happen.
-     * Touches nothing about a group already on the list — every recent-group row stores its own
+     * Touches nothing about a group already on the list, every recent-group row stores its own
      * instance and never reads this one, so changing or resetting the default cannot strand it.
      */
     internal suspend fun commitInstanceReset() {

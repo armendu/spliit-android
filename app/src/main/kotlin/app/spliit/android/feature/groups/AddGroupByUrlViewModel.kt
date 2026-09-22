@@ -20,10 +20,10 @@ data class AddGroupByUrlState(
     val urlText: String = "",
     val isChecking: Boolean = false,
     val problem: String? = null,
-    /** Set once the group has actually been stored — the screen's cue to leave. */
+    /** Set once the group has actually been stored, the screen's cue to leave. */
     val addedGroupId: String? = null,
     /**
-     * Where a link that names no server is looked up — and what the field's placeholder is built
+     * Where a link that names no server is looked up, and what the field's placeholder is built
      * from, so somebody running their own instance is shown their own address rather than
      * spliit.app's. Carried on the state rather than read from a constant by the screen: once
      * Settings (Part 13) can change it, the screen is already reading the right thing.
@@ -35,13 +35,13 @@ data class AddGroupByUrlState(
  * Adds a group someone shared, by pasting its URL.
  *
  * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device ever
- * learns about a group. The link says which server as well as which group — see [GroupLink] —
+ * learns about a group. The link says which server as well as which group, see [GroupLink] -
  * which is what lets somebody be handed a group on an instance this phone has never talked to.
  */
 class AddGroupByUrlViewModel(
     private val recentGroupsStore: RecentGroupsStore,
     /**
-     * A provider, not a plain `String` — this ViewModel is scoped to the dashboard's nav entry, so
+     * A provider, not a plain `String`, this ViewModel is scoped to the dashboard's nav entry, so
      * it is constructed once and lives for the whole app session. A value captured at that one
      * moment would go stale the instant Settings changed the default instance without an app
      * restart; reading it fresh on every [reset] and every [submit] is what keeps a long-lived
@@ -64,8 +64,8 @@ class AddGroupByUrlViewModel(
     /**
      * Empties the field, the error and the "added" flag.
      *
-     * The sheet this drives is opened and dismissed repeatedly against one ViewModel — it is
-     * scoped to the dashboard's nav entry, not to the sheet — so without this, reopening it shows
+     * The sheet this drives is opened and dismissed repeatedly against one ViewModel, it is
+     * scoped to the dashboard's nav entry, not to the sheet, so without this, reopening it shows
      * the last paste and the last error, and [AddGroupByUrlState.addedGroupId] would still be set
      * from the previous success and close the sheet the moment it appeared. Re-reading
      * [defaultInstanceBaseUrl] here as well as in [submit] is what makes a Settings change visible
@@ -79,7 +79,7 @@ class AddGroupByUrlViewModel(
         viewModelScope.launch { submit() }
     }
 
-    /** The actual work, as a plain suspend function — see [GroupsListViewModel.refresh] for why
+    /** The actual work, as a plain suspend function, see [GroupsListViewModel.refresh] for why
      *  tests call this directly rather than [add]. */
     suspend fun submit(): Boolean {
         if (_state.value.isChecking) return false
@@ -90,7 +90,7 @@ class AddGroupByUrlViewModel(
             return false
         }
         // A bare ID names no server, and the one this phone would otherwise create a group on is
-        // the only reasonable guess — read fresh, not from the state's own snapshot, so a Settings
+        // the only reasonable guess, read fresh, not from the state's own snapshot, so a Settings
         // change made after this sheet was last opened still lands correctly.
         val instanceBaseUrl = link.instanceBaseUrl ?: defaultInstanceBaseUrl()
 

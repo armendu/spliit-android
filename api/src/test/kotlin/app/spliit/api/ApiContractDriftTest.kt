@@ -11,7 +11,7 @@ import java.time.Instant
 /**
  * What changed, when the server changes underneath us.
  *
- * The decode tests next door answer "does the response still fit our models" — a yes/no that
+ * The decode tests next door answer "does the response still fit our models", a yes/no that
  * says nothing useful when the answer is no, and that stays green for the most dangerous kind of
  * change there is: a field that quietly disappears from a response our models declare optional.
  * `groups.stats.get` becoming `groups.stats.overview` is the version of this that already
@@ -23,7 +23,7 @@ import java.time.Instant
  * are about how much data exists rather than about the contract.
  *
  * It is `@Tag("live")`, so `make test` never runs it. `make test-live` does, and CI's nightly
- * `upstream-drift` job points that at spliit.app — which is the only place this can catch
+ * `upstream-drift` job points that at spliit.app, which is the only place this can catch
  * anything, since the job that builds pull requests pins the server image on purpose.
  *
  * **A failure here is not a broken build.** It is a list of things to go and look at. If the
@@ -121,7 +121,7 @@ class ApiContractDriftTest {
      *
      * A rename shows up here as an error rather than as a shape difference, because the request
      * never gets a payload to compare. `groups.stats.get` is the one this repo has already been
-     * bitten by, and it is *expected* to be gone on a current server — so this asserts only that
+     * bitten by, and it is *expected* to be gone on a current server, so this asserts only that
      * asking produces a clear answer either way, and prints which.
      */
     @Test
@@ -149,7 +149,7 @@ class ApiContractDriftTest {
         assertTrue(names.isNotEmpty()) {
             "Neither groups.stats.overview nor groups.stats.get answered. If upstream has " +
                 "renamed the procedure again, SpliitEndpoints needs the new name adding to the " +
-                "fallback — see CLAUDE.md on why asking only one name is how this broke before."
+                "fallback, see CLAUDE.md on why asking only one name is how this broke before."
         }
     }
 }
