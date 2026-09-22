@@ -1,6 +1,5 @@
 package app.spliit.android.feature.group
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -194,27 +193,7 @@ private fun InformationContent(
 
         item(key = "you") {
             SectionHeader("You")
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .clickable(onClick = onIdentify)
-                    .testTag(TestTags.INFORMATION_YOU_BUTTON)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (you != null) {
-                    Monogram(name = you.name, participantId = you.id, size = 28.dp)
-                    Spacer(Modifier.width(12.dp))
-                }
-                Text(
-                    text = you?.name ?: "Not set",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            IdentityRow(you = you, testTag = TestTags.INFORMATION_YOU_BUTTON, onIdentify = onIdentify)
             Footnote(
                 "Which participant you are, on this phone. It decides whose balance the " +
                     "balances tab leads with, and who a new expense is paid by.",

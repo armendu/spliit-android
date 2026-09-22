@@ -192,27 +192,7 @@ private fun YouSection(you: Participant?, yourBalance: Long?, formatter: MoneyFo
             Spacer(Modifier.height(8.dp))
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .clickable(onClick = onIdentify)
-                .testTag(TestTags.GROUP_DETAIL_YOU_BUTTON)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (you != null) {
-                Monogram(name = you.name, participantId = you.id, size = 28.dp)
-                Spacer(Modifier.width(12.dp))
-            }
-            Text(
-                text = you?.name ?: "Say who you are",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        IdentityRow(you = you, testTag = TestTags.GROUP_DETAIL_YOU_BUTTON, onIdentify = onIdentify)
         if (you == null) {
             Spacer(Modifier.height(6.dp))
             Text(

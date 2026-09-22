@@ -1,7 +1,6 @@
 package app.spliit.android.feature.group
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,7 +32,6 @@ import app.spliit.android.ui.design.CategoryIcon
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySize
-import app.spliit.android.ui.design.Monogram
 import app.spliit.api.Participant
 import app.spliit.api.SpliitEndpoints
 import app.spliit.core.LoadState
@@ -169,7 +166,12 @@ private fun TotalsContent(
             }
         }
         item(key = "you_button") {
-            IdentityRow(you = you, onIdentify = onIdentify)
+            IdentityRow(
+                you = you,
+                testTag = TestTags.TOTALS_YOU_BUTTON,
+                onIdentify = onIdentify,
+                modifier = Modifier.padding(top = 8.dp),
+            )
             Footnote(
                 if (you == null) {
                     "Pick yourself and this tab also says what you have paid, and what your " +
@@ -291,33 +293,6 @@ private fun SummaryLine(label: String, value: String?) {
     }
 }
 
-/** The row that opens the picker, saying what it would be changing, the same three states as on
- *  the balances tab, worded the same way. */
-@Composable
-private fun IdentityRow(you: Participant?, onIdentify: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onIdentify)
-            .testTag(TestTags.TOTALS_YOU_BUTTON)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (you != null) {
-            Monogram(name = you.name, participantId = you.id, size = 28.dp)
-            Spacer(Modifier.width(12.dp))
-        }
-        Text(
-            text = you?.name ?: "Say who you are",
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
 
 /**
  * One category, its spend, and how much of the group that is. Laid out like a balance row,
