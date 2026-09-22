@@ -12,7 +12,6 @@ import app.spliit.core.ThemeMode
 import java.io.IOException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /** A separate file from `recentGroupsDataStore`, one row of app-wide settings has nothing to do
  *  with the list of groups, and giving it its own file means a corrupt or downgraded settings blob
@@ -24,26 +23,15 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 
 private val SETTINGS_KEY = stringPreferencesKey("settings")
 
-private val JSON = Json {
-    ignoreUnknownKeys = true
-    encodeDefaults = true
-}
-
 /**
- * The AndroidX DataStore–backed [SettingsStore], a thin JSON adapter, the same shape as
- * [DataStoreRecentGroupsStore] and for the same reasons documented there: `ignoreUnknownKeys` plus
- * defaults on every field of [StoredSettings] is what lets a later part grow [AppSettings] without
- * breaking an install that already has a file on disk, and this class's only job is turning that
- * shape into bytes and back.
+ * The AndroidX DataStore–backed [SettingsStore].
  *
- * One difference from [DataStoreRecentGroupsStore]: a row here that fails to decode falls back to
- * per-field defaults inside [StoredSettings.toCore] rather than degrading the *whole* blob to
- * [AppSettings()][AppSettings] the way an unreadable groups snapshot does. There is no compound
- * structure to protect, an unrecognised [ThemeMode] name has no reason to also discard a
- * perfectly good [AppSettings.instanceBaseUrlOverride] sitting right next to it in the same row.
+ * Unlike [DataStoreRecentGroupsStore], a row that fails to decode falls back per field rather
+ * than discarding the whole blob: an unrecognised [ThemeMode] has no reason to take a perfectly
+ * good [AppSettings.instanceBaseUrlOverride] with it.
  *
- * @param dataStore Usually `context.settingsDataStore`; taken as a parameter rather than a
- *   [Context] directly so this class touches nothing Android beyond the DataStore type itself.
+ * @param dataStore Usually `context.settingsDataStore`, taken as a parameter so this class
+ *   touches nothing Android beyond the DataStore type.
  */
 public class DataStoreSettingsStore(
     private val dataStore: DataStore<Preferences>,
@@ -59,7 +47,7 @@ public class DataStoreSettingsStore(
             return AppSettings()
         } ?: return AppSettings()
         return try {
-            JSON.decodeFromString(StoredSettings.serializer(), json).toCore()
+            StoredJson.decodeFromString(StoredSettings.serializer(), json).toCore()
         } catch (_: Exception) {
             // A blob this device itself wrote but can no longer parse. Falling back to the
             // defaults, follow the system, use the build's own instance, is the same choice
@@ -72,7 +60,7 @@ public class DataStoreSettingsStore(
     /** Silently no-ops on an I/O failure: a theme that did not persist is worth less than the
      *  crash that reporting it from `viewModelScope` would otherwise cause. */
     override suspend fun save(settings: AppSettings) {
-        val json = JSON.encodeToString(StoredSettings.serializer(), StoredSettings.from(settings))
+        val json = StoredJson.encodeToString(StoredSettings.serializer(), StoredSettings.from(settings))
         try {
             dataStore.edit { prefs -> prefs[SETTINGS_KEY] = json }
         } catch (_: IOException) {

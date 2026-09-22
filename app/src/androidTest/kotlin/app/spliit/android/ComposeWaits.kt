@@ -8,6 +8,7 @@ import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import app.spliit.android.ui.TestTags
 
 /**
  * Bounded waits, because every wait in a UI suite has to be one.
@@ -87,14 +88,26 @@ internal fun SemanticsNodeInteractionsProvider.exists(tag: String): Boolean =
  * `Text` inside the clickable row, and clicking the node that matches the text does not dispatch
  * to the row's own click handler.
  */
-internal fun isGroupRow(): SemanticsMatcher {
-    val prefix = "groups_list_row_"
-    val parts = listOf("name_", "participants_", "created_", "menu_", "star_", "archive_", "remove_")
-    return SemanticsMatcher("is a groups-list row") { node ->
-        val tag = node.config.getOrNull(SemanticsProperties.TestTag)
-        tag != null && tag.startsWith(prefix) && parts.none { tag.startsWith(prefix + it) }
-    }
+internal fun isGroupRow(): SemanticsMatcher = SemanticsMatcher("is a groups-list row") { node ->
+    val tag = node.config.getOrNull(SemanticsProperties.TestTag)
+    tag != null &&
+        tag.startsWith(GROUP_ROW_PREFIX) &&
+        GROUP_ROW_PART_PREFIXES.none { tag.startsWith(it) }
 }
+
+// The prefixes are taken from the generators rather than written out again: a renamed tag would
+// otherwise leave this matching nothing, which shows up as a timeout rather than as a rename.
+private const val ANY_ID = "id"
+private val GROUP_ROW_PREFIX = TestTags.groupsListRow(ANY_ID).removeSuffix(ANY_ID)
+private val GROUP_ROW_PART_PREFIXES: List<String> = listOf(
+    TestTags.groupsListRowName(ANY_ID),
+    TestTags.groupsListRowParticipants(ANY_ID),
+    TestTags.groupsListRowCreatedDate(ANY_ID),
+    TestTags.groupsListRowMenuButton(ANY_ID),
+    TestTags.groupsListRowStar(ANY_ID),
+    TestTags.groupsListRowArchive(ANY_ID),
+    TestTags.groupsListRowRemove(ANY_ID),
+).map { it.removeSuffix(ANY_ID) }
 
 /**
  * Waits for a node to go away, the sheet closing, a spinner clearing.
@@ -121,7 +134,7 @@ internal fun ComposeTestRule.waitUntilGone(tag: String, timeoutMillis: Long = DE
  * still-blank participant failed validation. Hence addressing the row by what is *in* it.
  */
 internal fun ComposeTestRule.blankParticipantFieldTag(): String {
-    val prefix = "group_form_participant_field_"
+    val prefix = TestTags.groupFormParticipantField(0).removeSuffix("0")
     val match = SemanticsMatcher("is a participant field") { node ->
         node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true
     }

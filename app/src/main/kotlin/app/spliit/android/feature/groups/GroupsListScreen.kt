@@ -74,6 +74,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import app.spliit.android.ui.design.CardShape
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.SkeletonBlock
 
 /** DESIGN.md §3: "Cards and surfaces" are 16dp radius, `surface-container-lowest` with a 1dp
  *  `border-subtle` (M3's `outline`) hairline, Level 1, the one step up from the bare canvas. */

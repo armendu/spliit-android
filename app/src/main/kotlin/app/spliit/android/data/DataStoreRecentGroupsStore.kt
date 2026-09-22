@@ -14,7 +14,6 @@ import app.spliit.core.SplitMode
 import java.io.IOException
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.time.Instant
 
 // A thin DataStore adapter for RecentGroupsSnapshot. Thin is load-bearing: every rule about what
@@ -22,7 +21,7 @@ import java.time.Instant
 // `:core` and is tested there on the JVM. This class turns a snapshot into bytes and back. An
 // `if` here that decides something rather than translating it belongs in `:core`.
 //
-// JSON via kotlinx.serialization, with `ignoreUnknownKeys = true` and every DTO field defaulted.
+// StoredJson via kotlinx.serialization, with `ignoreUnknownKeys = true` and every DTO field defaulted.
 // That pair is what lets the schema gain a field without breaking an install that already has
 // data: an older file decodes missing fields to defaults, and a newer file's extra fields are
 // dropped by an older APK rather than failing to parse. This is unrecoverable data, there is no
@@ -39,13 +38,8 @@ private val Context.recentGroupsDataStore: DataStore<Preferences> by preferences
     name = "recent_groups",
 )
 
-/** The single key: the whole snapshot is one JSON blob, not one Preferences entry per field. */
+/** The single key: the whole snapshot is one StoredJson blob, not one Preferences entry per field. */
 private val SNAPSHOT_KEY = stringPreferencesKey("snapshot")
-
-private val JSON = Json {
-    ignoreUnknownKeys = true
-    encodeDefaults = true
-}
 
 /**
  * The AndroidX DataStore–backed [RecentGroupsStore].
@@ -72,10 +66,10 @@ public class DataStoreRecentGroupsStore(
         } ?: return RecentGroupsSnapshot()
         return try {
             // Decoding and converting are one attempt, not two: a row this build cannot make
-            // sense of, malformed JSON, or a `SplitMode` name written by a newer version this
+            // sense of, malformed StoredJson, or a `SplitMode` name written by a newer version this
             // install has never heard of (see [StoredSplit]), must degrade the same way either
             // failure happens to surface.
-            JSON.decodeFromString(StoredSnapshot.serializer(), json).toCore()
+            StoredJson.decodeFromString(StoredSnapshot.serializer(), json).toCore()
         } catch (_: Exception) {
             // A blob this device itself wrote but can no longer parse, corrupted storage, or a
             // downgrade past a format this build doesn't understand, is worse to crash the app
@@ -91,7 +85,7 @@ public class DataStoreRecentGroupsStore(
      * file does not is unreachable for good.
      */
     override suspend fun save(snapshot: RecentGroupsSnapshot): Boolean {
-        val json = JSON.encodeToString(StoredSnapshot.serializer(), StoredSnapshot.from(snapshot))
+        val json = StoredJson.encodeToString(StoredSnapshot.serializer(), StoredSnapshot.from(snapshot))
         return try {
             dataStore.edit { prefs -> prefs[SNAPSHOT_KEY] = json }
             true

@@ -1,4 +1,4 @@
-package app.spliit.android.feature.groups
+package app.spliit.android.ui.design
 
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.RepeatMode

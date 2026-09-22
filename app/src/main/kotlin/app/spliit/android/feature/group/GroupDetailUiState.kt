@@ -54,11 +54,25 @@ fun groupInfoOf(group: app.spliit.api.Group, instanceBaseUrl: String): GroupInfo
 )
 
 
+/**
+ * One page of a list the server pages by offset cursor.
+ *
+ * Both lists here can be written to between pages, so a page can repeat a row already held;
+ * [items] is what the de-duplication in `loadNextPage` reads.
+ */
+interface CursorPage<T> {
+    val items: List<T>
+    val hasMore: Boolean
+    val nextCursor: Int
+}
+
 data class ExpensesPage(
     val expenses: List<ExpenseListItem>,
-    val hasMore: Boolean,
-    val nextCursor: Int,
-)
+    override val hasMore: Boolean,
+    override val nextCursor: Int,
+) : CursorPage<ExpenseListItem> {
+    override val items: List<ExpenseListItem> get() = expenses
+}
 
 /**
  * The balances tab's answer, with `paid`/`paidFor` discarded. They are derived from the
@@ -92,9 +106,11 @@ data class StatsInfo(
 /** One page of the activity log, newest first, the same offset-cursor shape as [ExpensesPage]. */
 data class ActivitiesPage(
     val activities: List<Activity>,
-    val hasMore: Boolean,
-    val nextCursor: Int,
-)
+    override val hasMore: Boolean,
+    override val nextCursor: Int,
+) : CursorPage<Activity> {
+    override val items: List<Activity> get() = activities
+}
 
 /**
  * The search field's state, kept beside the expense list rather than narrowing it. The server

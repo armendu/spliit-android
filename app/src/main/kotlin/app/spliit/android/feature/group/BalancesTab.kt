@@ -25,7 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySign

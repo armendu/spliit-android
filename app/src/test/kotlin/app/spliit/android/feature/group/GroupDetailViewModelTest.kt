@@ -144,6 +144,84 @@ class GroupDetailViewModelTest {
         assertTrue(sentCursor?.contains("\"cursor\":20") == true, "expected cursor 20 in $sentCursor")
     }
 
+    /**
+     * Both paged lists go through one helper now, and these are the two things it does beyond
+     * appending: drop a row the fetched page repeats, and clear the loading flag on the way out
+     * of a failure. Neither was covered before, and both are invisible when wrong, a duplicated
+     * row reads as a real second expense, and a stuck flag is a footer spinner that never stops.
+     */
+    @Test
+    fun `a page that repeats a row does not duplicate it`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson(
+                    expenseJson("e1", "Taxi", 1000, "2025-06-01T00:00:00.000Z"),
+                    hasMore = true,
+                    nextCursor = 20,
+                ),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        // What the server sends when an expense was added at the top while somebody was paging:
+        // the window slides, and e1 arrives a second time.
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse.Builder().code(200).body(
+                    okBody(
+                        expensesListJson(
+                            expenseJson("e1", "Taxi", 1000, "2025-06-01T00:00:00.000Z") + "," +
+                                expenseJson("e2", "Dinner", 2000, "2025-05-30T00:00:00.000Z"),
+                            hasMore = false,
+                            nextCursor = 40,
+                        ),
+                    ),
+                ).build()
+        }
+
+        viewModel.loadNextExpensesPage()
+
+        val page = (viewModel.state.value.expenses as LoadState.Loaded).value
+        assertEquals(listOf("e1", "e2"), page.expenses.map { it.id })
+        assertFalse(viewModel.state.value.isLoadingMoreExpenses)
+    }
+
+    @Test
+    fun `a failed page keeps the rows already drawn and stops the spinner`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson(
+                    expenseJson("e1", "Taxi", 1000, "2025-06-01T00:00:00.000Z"),
+                    hasMore = true,
+                    nextCursor = 20,
+                ),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse =
+                MockResponse.Builder().code(500).body("""{"error":{"json":{"message":"boom","code":-32603}}}""").build()
+        }
+
+        viewModel.loadNextExpensesPage()
+
+        val page = (viewModel.state.value.expenses as LoadState.Loaded).value
+        assertEquals(listOf("e1"), page.expenses.map { it.id }, "a failed page must not blank the list")
+        assertTrue(page.hasMore, "the cursor is untouched, so the row can try again")
+        assertFalse(viewModel.state.value.isLoadingMoreExpenses, "a stuck flag is a spinner that never stops")
+    }
+
     @Test
     fun `saving an edit reads one expense and the balances, never the expense list again`() =
         runBlocking {
@@ -685,6 +763,47 @@ class GroupDetailViewModelTest {
         assertFalse(page.activities[1].expenseStillExists)
     }
 
+    @Test
+    fun `the activity log pages, and de-duplicates rows the log grew past`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        var cursor: String? = null
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.url.encodedPath
+                val body = when {
+                    path.endsWith("groups.get") ->
+                        """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}"""
+                    path.endsWith("groups.expenses.list") -> expensesListJson("", hasMore = false, nextCursor = 0)
+                    path.endsWith("groups.balances.list") -> balancesListJson("")
+                    path.endsWith("groups.activities.list") -> {
+                        val input = request.url.queryParameter("input")
+                        if (input?.contains("\"cursor\":2") == true) {
+                            cursor = input
+                            // a1 again, because the log grows at the top.
+                            activityRowsJson("a1", "a3", hasMore = false, nextCursor = 4)
+                        } else {
+                            activityRowsJson("a1", "a2", hasMore = true, nextCursor = 2)
+                        }
+                    }
+                    else -> return MockResponse.Builder().code(404).body("no fixture for $path").build()
+                }
+                return MockResponse.Builder().code(200).body(okBody(body)).build()
+            }
+        }
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+        viewModel.loadFirstActivitiesPage(app.spliit.api.TrpcClient(instance))
+
+        viewModel.loadNextActivitiesPage()
+
+        val page = (viewModel.state.value.activities as LoadState.Loaded).value
+        assertEquals(listOf("a1", "a2", "a3"), page.activities.map { it.id })
+        assertFalse(page.hasMore)
+        assertFalse(viewModel.state.value.isLoadingMoreActivities)
+        assertTrue(cursor?.contains("\"cursor\":2") == true, "expected the offset cursor, got $cursor")
+    }
+
     // ---- rate limiting ------------------------------------------------------------------
 
     /** A clock the test moves by hand, so none of this waits for real time to pass. */
@@ -787,6 +906,14 @@ private val activitiesJson = """
        "participantId":null,"expenseId":"e9","data":"Dinner","expense":null}
     ],"hasMore":false,"nextCursor":2}
 """.trimIndent()
+
+private fun activityRowsJson(vararg ids: String, hasMore: Boolean, nextCursor: Int): String {
+    val rows = ids.joinToString(",") { id ->
+        """{"id":"$id","groupId":"g1","time":"2025-06-02T10:00:00.000Z","activityType":"CREATE_EXPENSE",
+           "participantId":"p1","expenseId":"e$id","data":"Taxi","expense":null}"""
+    }
+    return """{"activities":[$rows],"hasMore":$hasMore,"nextCursor":$nextCursor}"""
+}
 
 // ExpenseListItem's trailing `_count` field is a private property, Prisma's aggregate, per its
 // own doc, so it (and everything after it) must be supplied positionally rather than by name.

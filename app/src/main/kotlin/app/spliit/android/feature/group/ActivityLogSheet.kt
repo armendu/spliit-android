@@ -37,7 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
-import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.DateHeader
 import app.spliit.android.ui.design.EmptyState

@@ -54,7 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
-import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.CurrencyPickerSheet
 import app.spliit.core.Currencies
