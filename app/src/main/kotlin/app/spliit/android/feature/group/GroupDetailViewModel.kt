@@ -462,25 +462,30 @@ class GroupDetailViewModel(
      * activity log can name anybody with.
      */
     fun selectActiveParticipant(participantId: String?) {
-        viewModelScope.launch {
-            val snapshot = try {
-                recentGroupsStore.load()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                return@launch
-            }
-            val updated = snapshot.settingParticipantId(groupId, participantId)
-            recentGroupsStore.save(updated)
+        viewModelScope.launch { applyActiveParticipant(participantId) }
+    }
 
-            val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
-            val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
-            _state.update { it.copy(activeParticipantId = actorId) }
-
-            // Two of the totals are this participant's, so the answer changes with them.
-            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
-            if (statsRequested) loadStats(clientFactory(baseUrl), actorId)
+    /** The work behind [selectActiveParticipant]. Public for the same reason the other suspend
+     *  functions here are: `viewModelScope` dispatches on Main, which the JVM suites do not
+     *  install, so anything inside the launcher is beyond a test's reach. */
+    suspend fun applyActiveParticipant(participantId: String?) {
+        val snapshot = try {
+            recentGroupsStore.load()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return
         }
+        val updated = snapshot.settingParticipantId(groupId, participantId)
+        recentGroupsStore.save(updated)
+
+        val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
+        val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
+        _state.update { it.copy(activeParticipantId = actorId) }
+
+        // Two of the totals are this participant's, so the answer changes with them.
+        val baseUrl = resolvedInstanceBaseUrl ?: return
+        if (statsRequested) loadStats(clientFactory(baseUrl), actorId)
     }
 
     // ---- the totals tab ----------------------------------------------------------------------

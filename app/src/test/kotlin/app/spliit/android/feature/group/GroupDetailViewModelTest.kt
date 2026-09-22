@@ -804,6 +804,58 @@ class GroupDetailViewModelTest {
         assertTrue(cursor?.contains("\"cursor\":2") == true, "expected the offset cursor, got $cursor")
     }
 
+    // ---- who you are in this group -------------------------------------------------------
+
+    /**
+     * The participant answer is what every later write carries, and the only thing the activity
+     * log can name anybody with, so it has to reach the store rather than only the screen.
+     */
+    @Test
+    fun `saying who you are reaches the store, which is what later writes read`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+        assertNull(viewModel.state.value.activeParticipantId, "nobody has answered yet")
+
+        viewModel.applyActiveParticipant("p1")
+
+        assertEquals("p1", viewModel.state.value.activeParticipantId)
+        assertEquals("p1", store.load().groups.single().participantId, "the answer has to survive the screen")
+    }
+
+    @Test
+    fun `a remembered participant who has left the group stops being the answer`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(
+            RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance, participantId = "pGone"))),
+        )
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        // The row still names pGone, but the group does not, so nothing should claim to be them.
+        assertNull(viewModel.state.value.activeParticipantId)
+
+        viewModel.applyActiveParticipant(null)
+
+        assertNull(viewModel.state.value.activeParticipantId)
+        assertNull(store.load().groups.single().participantId, "clearing has to be written, not just shown")
+    }
+
     // ---- rate limiting ------------------------------------------------------------------
 
     /** A clock the test moves by hand, so none of this waits for real time to pass. */

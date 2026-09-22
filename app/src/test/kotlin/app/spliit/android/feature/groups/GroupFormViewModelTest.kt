@@ -89,6 +89,53 @@ class GroupFormViewModelTest {
         assertEquals(instance, stored.instanceBaseUrl)
     }
 
+    /**
+     * One ViewModel serves every open of the create sheet, so a second one would otherwise
+     * inherit the first's ending. `savedGroupId` is the one that bites: the sheet closes on it,
+     * so reopening would dismiss instantly and look like a tap that did nothing.
+     */
+    @Test
+    fun `a second create starts blank rather than where the first one ended`() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"groupId":"new-group"}""")).build())
+        val store = FakeRecentGroupsStore()
+        val instance = server.url("/").toString()
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.CREATE,
+            groupId = null,
+            instanceBaseUrl = instance,
+            recentGroupsStore = store,
+        )
+        viewModel.setName("Weekend in Lisbon")
+        viewModel.addParticipant()
+        viewModel.renameParticipant(viewModel.state.value.draft.participants.single().id, "Ana")
+        viewModel.submit()
+        assertEquals("new-group", viewModel.state.value.savedGroupId)
+
+        viewModel.resetForCreate(instance)
+
+        assertNull(viewModel.state.value.savedGroupId, "a set id closes the sheet the moment it opens")
+        assertEquals("", viewModel.state.value.draft.name)
+        assertTrue(viewModel.state.value.draft.participants.isEmpty())
+        assertFalse(viewModel.state.value.hasAttemptedSave)
+        assertNull(viewModel.state.value.saveError)
+    }
+
+    @Test
+    fun `resetting re-reads the instance, which Settings can have changed since launch`() {
+        val store = FakeRecentGroupsStore()
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.CREATE,
+            groupId = null,
+            instanceBaseUrl = "https://spliit.app/",
+            recentGroupsStore = store,
+        )
+
+        viewModel.resetForCreate("https://home.example.com/")
+
+        assertEquals("https://home.example.com/", viewModel.state.value.instanceAddressText)
+        assertEquals("https://home.example.com/", viewModel.state.value.resolvedInstanceBaseUrl)
+    }
+
     // ---- refused participant removal ---------------------------------------------------------
 
     @Test
