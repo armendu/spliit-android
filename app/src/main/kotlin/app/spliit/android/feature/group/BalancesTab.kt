@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -32,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
-import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySign
 import app.spliit.android.ui.design.MoneySize
@@ -43,6 +41,7 @@ import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
 import kotlin.math.abs
 import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * The balances tab: the active participant's own standing leads, then every participant's
@@ -71,15 +70,12 @@ internal fun BalancesTab(
             val message = (groupState as? LoadState.Failed)?.message
                 ?: (balancesState as? LoadState.Failed)?.message
             CenteredScroll {
-                EmptyState(
-                    icon = "!",
+                LoadFailure(
                     title = "Couldn't load the balances",
-                    description = message ?: "Check your connection and try again.",
-                ) {
-                    Button(onClick = onRetry, modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON)) {
-                        Text("Retry")
-                    }
-                }
+                    message = message,
+                    retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                    onRetry = onRetry,
+                )
             }
         }
 

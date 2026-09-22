@@ -22,6 +22,7 @@ import app.spliit.android.ui.design.EmptyState
 import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * What the search field is currently answering, in place of the expense list.
@@ -63,11 +64,8 @@ internal fun SearchResults(
         }
 
         results is LoadState.Failed -> Centered {
-            EmptyState(
-                icon = "!",
-                title = "Couldn't search",
-                description = results.message ?: "Check your connection and try again.",
-            )
+            // No retry: the next keystroke re-runs the search anyway.
+            LoadFailure(title = "Couldn't search", message = results.message)
         }
 
         results is LoadState.Loaded && results.value.isEmpty() -> Centered {

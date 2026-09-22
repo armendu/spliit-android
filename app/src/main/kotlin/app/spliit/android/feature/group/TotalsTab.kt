@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +48,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.abs
 import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * What the group has spent, and how much of it is yours.
@@ -96,19 +96,13 @@ internal fun TotalsTab(
             val message = (groupState as? LoadState.Failed)?.message
                 ?: (state.stats as? LoadState.Failed)?.message
             CenteredScroll {
-                EmptyState(
-                    icon = "!",
+                LoadFailure(
                     // The group can arrive and its totals still fail, so name whichever is missing.
                     title = if (groupFailed) "Couldn't load this group" else "Couldn't load the totals",
-                    description = message ?: "Check your connection and try again.",
-                ) {
-                    Button(
-                        onClick = if (groupFailed) onRetry else onRetryStats,
-                        modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON),
-                    ) {
-                        Text("Retry")
-                    }
-                }
+                    message = message,
+                    retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                    onRetry = if (groupFailed) onRetry else onRetryStats,
+                )
             }
         }
 

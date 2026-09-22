@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +48,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * The expenses tab: everything `groups.expenses.list` has answered so far, under date-bucket
@@ -77,15 +77,12 @@ internal fun ExpensesTab(
             val message = (groupState as? LoadState.Failed)?.message
                 ?: (expensesState as? LoadState.Failed)?.message
             CenteredScroll {
-                EmptyState(
-                    icon = "!",
+                LoadFailure(
                     title = "Couldn't load the expenses",
-                    description = message ?: "Check your connection and try again.",
-                ) {
-                    Button(onClick = onRetry, modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON)) {
-                        Text("Retry")
-                    }
-                }
+                    message = message,
+                    retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                    onRetry = onRetry,
+                )
             }
         }
 

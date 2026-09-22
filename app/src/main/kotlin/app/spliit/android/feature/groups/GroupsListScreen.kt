@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -73,10 +72,11 @@ import app.spliit.core.LoadState
 import app.spliit.android.ui.design.CenteredScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import app.spliit.android.ui.design.CardShape
+import app.spliit.android.ui.design.LoadFailure
 
 /** DESIGN.md §3: "Cards and surfaces" are 16dp radius, `surface-container-lowest` with a 1dp
  *  `border-subtle` (M3's `outline`) hairline, Level 1, the one step up from the bare canvas. */
-private val CardShape = RoundedCornerShape(16.dp)
 
 /**
  * The home screen: the groups this phone remembers, in three sections, with participant counts
@@ -221,18 +221,12 @@ fun GroupsListScreen(
                 is LoadState.Loading -> GroupsListSkeleton()
 
                 is LoadState.Failed -> CenteredScroll {
-                    EmptyState(
-                        icon = "!",
+                    LoadFailure(
                         title = "Couldn't load your groups",
-                        description = current.message ?: "Check your connection and try again.",
-                    ) {
-                        Button(
-                            onClick = viewModel::retry,
-                            modifier = Modifier.testTag(TestTags.GROUPS_LIST_RETRY_BUTTON),
-                        ) {
-                            Text("Retry")
-                        }
-                    }
+                        message = current.message,
+                        retryTestTag = TestTags.GROUPS_LIST_RETRY_BUTTON,
+                        onRetry = viewModel::retry,
+                    )
                 }
 
                 is LoadState.Loaded -> if (current.value.isEmpty) {

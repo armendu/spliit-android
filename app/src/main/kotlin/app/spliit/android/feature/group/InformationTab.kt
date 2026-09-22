@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,13 +34,13 @@ import app.spliit.android.R
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
-import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.Monogram
 import app.spliit.core.LoadState
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.spliit.android.ui.design.CenteredScroll
+import app.spliit.android.ui.design.LoadFailure
 
 /**
  * What a group *is*, beside what it costs: the note it keeps for its participants, who those
@@ -73,15 +72,12 @@ internal fun InformationTab(
         is LoadState.Loading -> InformationSkeleton()
 
         is LoadState.Failed -> CenteredScroll {
-            EmptyState(
-                icon = "!",
+            LoadFailure(
                 title = "Couldn't load this group",
-                description = groupState.message ?: "Check your connection and try again.",
-            ) {
-                Button(onClick = onRetry, modifier = Modifier.testTag(TestTags.GROUP_DETAIL_RETRY_BUTTON)) {
-                    Text("Retry")
-                }
-            }
+                message = groupState.message,
+                retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
+                onRetry = onRetry,
+            )
         }
 
         is LoadState.Loaded -> InformationContent(

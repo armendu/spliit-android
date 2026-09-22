@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -47,9 +46,8 @@ import java.util.Currency
 import app.spliit.android.ui.design.CurrencyPickerSheet
 import app.spliit.core.Currencies
 import app.spliit.core.GroupFormDraft
+import app.spliit.android.ui.design.FieldShape
 
-/** DESIGN.md §3: text fields are 12dp radius, distinct from a card's 16dp. */
-private val FieldShape = RoundedCornerShape(12.dp)
 
 /**
  * The group editor as a full screen, "Group settings", reached from the group's own overflow
