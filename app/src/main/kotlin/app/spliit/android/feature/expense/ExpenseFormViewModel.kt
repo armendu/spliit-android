@@ -144,14 +144,9 @@ class ExpenseFormViewModel(
     }
 
     /**
-     * Re-arms the form for another open of the same expense.
-     *
-     * This ViewModel outlives the sheet, so the undo after a delete is still its to offer. The
-     * cost is that a second open would inherit the first one's ending: a set [savedExpenseId]
-     * closes the sheet instantly, and a discarded draft comes back as if it had not been.
-     *
-     * So the state resets and the expense is read again, one `groups.expenses.get` for the
-     * notes, shares and conversion a list row does not carry.
+     * Re-arms the form for another open of the same expense. This ViewModel outlives the sheet,
+     * so a second open would otherwise inherit the first one's ending: a set [savedExpenseId]
+     * closes the sheet instantly. The state resets and the expense is read again.
      */
     fun reopen() {
         rearm()
@@ -397,10 +392,9 @@ class ExpenseFormViewModel(
         try {
             val client = clientFactory(baseUrl)
             client.call(SpliitEndpoints.expensesDelete(groupId, mode.expenseId, actorId(group)))
-            // Built from the draft as it stands rather than from what was loaded: an edit the
-            // user made and then deleted should come back the way they left it. A draft too
-            // incomplete to submit leaves nothing to undo with, which the screen reads as a
-            // delete with no undo rather than as a failure.
+            // From the draft as it stands, not what was loaded: an edit made and then deleted
+            // comes back the way they left it. Too incomplete to submit means no undo, which the
+            // screen reads as a delete without one rather than as a failure.
             val restorable = draft.submission()?.let { formValues(it) }
             _state.update {
                 it.copy(
@@ -531,11 +525,8 @@ class ExpenseFormViewModel(
 
 }
 
-// ---- the two enumerations `:core` and `:api` each have their own of ---------------------------
-//
-// `:core` deliberately does not depend on `:api` (CLAUDE.md), so the split mode exists twice and
-// `:app` is where they meet. A `when` over four entries the compiler checks, rather than a name
-// comparison that would go quietly wrong if either side ever renamed one.
+// `:core` does not depend on `:api`, so the split mode exists twice and `:app` is where they
+// meet. A `when` the compiler checks, not a name comparison that a rename breaks quietly.
 
 internal fun SplitMode.toApi(): ApiSplitMode = when (this) {
     SplitMode.EVENLY -> ApiSplitMode.EVENLY

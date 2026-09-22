@@ -28,15 +28,9 @@ object MonogramPalette {
     const val COUNT = 8
 
     /**
-     * FNV-1a, 64-bit, the same offset basis, prime and fold-to-range as the iOS app's
-     * `MonogramPalette.index(for:)`, ported on purpose rather than reinvented: the same
-     * participant ID then lands on the same colour index on both platforms, verified against
-     * the iOS suite's own checked-in expectations in this file's test.
-     *
-     * Deliberately not `String.hashCode()`: that is stable only within one JVM run, not across
-     * JVM versions or platforms, so a participant's monogram could reshuffle on a JDK update -
-     * see CLAUDE.md's list of things that bite silently, and this palette's whole reason to
-     * exist is a colour that does *not* move.
+     * FNV-1a, 64-bit, the same basis and prime as the iOS app's `MonogramPalette.index(for:)`, so
+     * a participant lands on the same colour on both platforms. Not `String.hashCode()`, which is
+     * stable only within one JVM run: a monogram could reshuffle on a JDK update.
      */
     fun colorIndex(participantId: String): Int {
         // Kotlin's hex Long literals are range-checked against the *signed* range, unlike
@@ -67,18 +61,11 @@ object MonogramPalette {
 }
 
 /**
- * Someone's initials, on a colour that is theirs.
+ * Someone's initials, on a colour that is theirs. Spliit has no avatars, so a monogram is what
+ * makes the same person read as the same colour across every screen and device.
  *
- * Spliit has no accounts and no avatars, so a participant has only ever been a name in a row. A
- * monogram gives the eye something to find: the same person reads as the same colour in the
- * balances, the expense list and a suggested payment, on every device.
- *
- * @param testTag Applied *inside* [clearAndSetSemantics], not chained onto this [Box] via the
- *   ordinary `Modifier.testTag` extension. `clearAndSetSemantics`'s own contract is that it
- *   clears the semantics of "this modifier or its descendants" and substitutes exactly what its
- *   lambda sets, a tag placed anywhere else on this chain would be discarded along with the
- *   name text's implicit semantics, not merged elsewhere and still reachable. See
- *   [app.spliit.android.ui.TestTags] for where this was found.
+ * @param testTag Applied *inside* [clearAndSetSemantics], which discards anything set elsewhere
+ *   on this chain rather than merging it.
  */
 @Composable
 fun Monogram(

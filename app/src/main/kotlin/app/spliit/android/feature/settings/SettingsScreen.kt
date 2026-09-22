@@ -37,28 +37,24 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.core.ThemeMode
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.CardShape
+import app.spliit.android.ui.design.FormSectionHeader
+import app.spliit.android.ui.design.FieldError
 
 
 
 /**
- * Settings: appearance, the default instance, and the static About/Feedback/Version rows that
- * mirror the iOS app's own SettingsView.
+ * Settings: appearance, the default instance, and the static About/Feedback/Version rows.
  *
- * **The theme picker is not on iOS**, and that is deliberate rather than a gap the port left open.
- * iOS's SettingsView carries a comment saying so directly: an app there follows the system by
- * convention, so there is nothing to pick. Android has no equivalent convention, and the person
- * who asked for this screen asked for the choice by name, "specify the theme", so offering one
- * here is a documented divergence from the source of truth, not an oversight to reconcile later.
+ * **The theme picker is not on iOS**, where an app follows the system by convention. Android has
+ * no equivalent convention and the choice was asked for by name, so this is a documented
+ * divergence rather than an oversight to reconcile later.
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -91,10 +87,10 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            SectionHeader("Appearance", topSpace = 0.dp)
+            FormSectionHeader("Appearance", topSpace = 0.dp)
             AppearanceCard(themeMode = state.themeMode, onSelect = viewModel::setThemeMode)
 
-            SectionHeader("Default instance")
+            FormSectionHeader("Default instance")
             InstanceCard(
                 state = state,
                 onTextChange = viewModel::setInstanceAddressText,
@@ -110,7 +106,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionHeader("About")
+            FormSectionHeader("About")
             AboutCard(
                 onVisit = { openUrl(context, "https://spliit.app/?ref=android-app") },
                 onGitHub = { openUrl(context, "https://github.com/spliit-app") },
@@ -123,14 +119,14 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionHeader("Feedback")
+            FormSectionHeader("Feedback")
             FeedbackCard(
                 // Points at the org page, not a repo, there is no spliit-android repository yet.
                 // See this part's own report for the follow-up once one exists.
                 onReport = { openUrl(context, "https://github.com/spliit-app") },
             )
 
-            SectionHeader("Version")
+            FormSectionHeader("Version")
             VersionCard(name = viewModel.versionName, code = viewModel.versionCode)
 
             Spacer(Modifier.height(24.dp))
@@ -205,11 +201,9 @@ private fun InstanceCard(
         )
         if (state.hasAttemptedSaveInstance && !state.instanceIsValid) {
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = "That doesn't look like a web address. Try something like spliit.example.com.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag(TestTags.SETTINGS_INSTANCE_ERROR),
+            FieldError(
+                message = "That doesn't look like a web address. Try something like spliit.example.com.",
+                testTag = TestTags.SETTINGS_INSTANCE_ERROR,
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -291,21 +285,6 @@ private fun LinkRow(label: String, onClick: () -> Unit, testTag: String) {
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
     }
-}
-
-/** More space above a heading than below it, a heading belongs to what follows it, the same rule
- *  GroupFormScreen's own FormSectionHeader follows. */
-@Composable
-private fun SectionHeader(text: String, topSpace: Dp = 24.dp) {
-    Spacer(Modifier.height(topSpace))
-    Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.9.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(8.dp))
 }
 
 /** Best-effort: a device with literally no browser would otherwise crash the app for tapping a

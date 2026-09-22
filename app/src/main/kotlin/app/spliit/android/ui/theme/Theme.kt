@@ -11,18 +11,13 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
- * The tokens DESIGN.md defines that `ColorScheme` has no slot for, see Color.kt. `ColorScheme`
- * has no meaning for "this number is a debt," so these live beside it instead of inside it, and
- * are resolved once per theme change rather than having every use site branch on
- * [isSystemInDarkTheme] for itself, a branch at the use site is a branch somebody will
- * eventually forget (DESIGN.md §3).
+ * The tokens DESIGN.md defines that `ColorScheme` has no slot for, such as "this number is a
+ * debt". Resolved once per theme change rather than branched on [isSystemInDarkTheme] at each
+ * use site, which is a branch somebody eventually forgets.
  *
- * @property moneyPositiveLarge,[moneyNegativeLarge] The bright ledger tier, DESIGN.md §1:
- *   "large text and non-text only" (>=24px, dots, bars, icons). Never body or label text; see
- *   [moneyPositiveText]/[moneyNegativeText] for why.
- * @property moneyPositiveText,[moneyNegativeText] The darker ledger tier, for a balance drawn at
- *   body or label size, the bright tier measures under the 4.5:1 body threshold (DESIGN.md §1),
- *   so a row- or caption-sized amount in it is a contrast bug, not a style choice.
+ * @property moneyPositiveLarge,[moneyNegativeLarge] The bright ledger tier, >=24px and non-text
+ *   marks only. Never body or label text.
+ * @property moneyPositiveText,[moneyNegativeText] The darker tier, for a balance at body size.
  */
 @Immutable
 data class SpliitExtendedColors(
@@ -35,12 +30,9 @@ data class SpliitExtendedColors(
     val brandAccentSoft: Color,
     val monogramPalette: List<Color>,
     /**
-     * A tint per category grouping, DESIGN.md §5. Resolved here, with everything else, rather
-     * than branched on [isSystemInDarkTheme] at the call site: the light and dark values of one
-     * hue are deliberately different colours (the bolt's amber/yellow split), so a use site that
-     * picked between them itself would be a second place for that reasoning to go missing.
-     * Unknown groupings are absent, and [app.spliit.android.ui.design.CategoryIcon] falls back to
-     * the row's own colour for them.
+     * A tint per category grouping. Resolved here rather than at the call site because the light
+     * and dark values of one hue are deliberately different colours. Unknown groupings are
+     * absent, and [app.spliit.android.ui.design.CategoryIcon] falls back to the row's colour.
      */
     val categoryGlyphs: Map<String, Color>,
 )
@@ -130,13 +122,10 @@ object SpliitTheme {
 }
 
 /**
- * The app's Material 3 theme, in light and dark, DESIGN.md's "Emerald Ledger".
+ * The app's Material 3 theme, DESIGN.md's "Emerald Ledger".
  *
- * Deliberately offers no dynamic-colour (Android 12+ wallpaper-derived) option. Two independent
- * reasons, both from DESIGN.md §1: `primary` is chosen for a specific measured contrast against
- * white label text (6.74:1, distinct from the logo's own green precisely so that holds), which a
- * wallpaper seed cannot promise; and the ledger axis's AA tuning is pinned to these exact hexes,
- * not to whatever primary a photo produces. Static schemes only.
+ * No dynamic colour, deliberately: `primary` is chosen for a measured 6.74:1 against white label
+ * text, and the ledger axis is tuned to these exact hexes. A wallpaper seed promises neither.
  */
 @Composable
 fun SpliitTheme(

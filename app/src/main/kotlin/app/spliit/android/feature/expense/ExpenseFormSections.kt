@@ -62,6 +62,7 @@ import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.MoneyFormatter
 import app.spliit.core.SplitMode
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.FieldError
 
 /**
  * The oversized, centred amount entry from DESIGN.md §4. Under a conversion the total is not
@@ -82,9 +83,8 @@ internal fun AmountEntry(
         Text(
             text = formatter.currencySymbol.ifBlank { draft.groupCurrencyCode.orEmpty() },
             style = MaterialTheme.typography.headlineMedium,
-            // `primary`, not grey (DESIGN.md §4): the symbol says which money this is and the
-            // figure says how much. In one grey the symbol reads as decoration and gets skipped,
-            // on the one screen where the currency is a real question.
+            // `primary`, not grey: the symbol says which money this is. In grey it reads as
+            // decoration and gets skipped, on the screen where the currency is a real question.
             //
             // The figure stays `on-surface`. An expense *row*'s amount takes `primary` and this
             // one does not: a tinted value being edited reads as a state, not a value.
@@ -402,12 +402,7 @@ private fun ParticipantSplitRow(
             }
         }
         for (problem in problems) {
-            Text(
-                text = problem.message(formatter),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(start = 48.dp),
-            )
+            FieldError(problem.message(formatter), modifier = Modifier.padding(start = 48.dp))
         }
     }
 }
@@ -427,7 +422,7 @@ internal fun CurrencySection(
     onOriginalAmount: (String) -> Unit,
     onRate: (String) -> Unit,
 ) {
-    SectionHeader("Currency")
+    ExpenseSectionHeader("Currency")
     val paidIn = draft.originalCurrencyCode?.let { Currencies.named(it) }
     Row(
         modifier = Modifier

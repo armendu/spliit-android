@@ -27,15 +27,11 @@ import app.spliit.android.ui.design.LoadFailure
 /**
  * What the search field is currently answering, in place of the expense list.
  *
- * The results are their own list rather than a filter over the loaded pages: the server does the
- * matching, `groups.expenses.list` takes a case-insensitive `filter` on the title, so a search
- * covers the whole group, not only what has been paged in. They sit in the same date buckets the
- * expense list uses, so a result appears under the heading it would have had in the list it came
- * from.
+ * Their own list rather than a filter over the loaded pages: the server matches, so a search
+ * covers the whole group and not only what has been paged in.
  *
- * Three empty-ish states, and they are three different sentences: nothing typed yet, nothing
- * matched, and the request failed. Collapsing the first two is how "no expenses" ends up on
- * screen before anybody has asked anything.
+ * Three empty-ish states and three different sentences: nothing typed, nothing matched, and the
+ * request failed. Collapsing the first two puts "no expenses" up before anybody has asked.
  */
 @Composable
 internal fun SearchResults(

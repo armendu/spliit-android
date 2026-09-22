@@ -6,13 +6,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.Currency as IsoCurrency
 
 /**
- * An ISO 4217 currency, as the JDK already knows it.
- *
- * The list, the names, the symbols and the precision all come from the platform, so the picker
- * is translated wherever Android is and there is **no currency table in this repo to keep up to
- * date**. The web app ships a generated JSON for exactly this and has to regenerate it; the
- * iOS app deliberately keeps none, and neither do we, a 159-row file of translated names is
- * precisely the kind of thing that rots between releases while looking fine.
+ * An ISO 4217 currency, as the JDK already knows it. Names, symbols and precision come from the
+ * platform, so there is no currency table in this repo to keep up to date.
  */
 public data class Currency(
     /** ISO 4217, upper case, "CHF". */
@@ -33,14 +28,9 @@ public data class Currency(
 )
 
 /**
- * Orders text the way the reader's language orders words, rather than the way Unicode numbers
- * its code points.
- *
- * `String.compareTo` compares code points, which puts every accented initial after every plain
- * one and every lower-case word after every upper-case one: a French reader sorting that way
- * finds "Épicerie" below "Vêtements", and one capitalised name stranded above a list that is
- * otherwise alphabetical. Anything a person reads down, the currency picker, a participant
- * list, is sorted with this.
+ * Orders text the way the reader's language does. `String.compareTo` compares code points, which
+ * files every accent and every capital apart from the rest: a French reader sorting that way
+ * finds "Épicerie" below "Vêtements". Anything a person reads down is sorted with this.
  */
 public fun localizedOrder(locale: Locale = Locale.getDefault()): Comparator<String> {
     val collator = Collator.getInstance(locale)
@@ -59,22 +49,16 @@ public object Currencies {
     private val lists = ConcurrentHashMap<String, List<Currency>>()
 
     /**
-     * Every currency a country is currently counted in, named and ordered for the reader.
-     *
-     * Derived from the countries rather than from `Currency.getAvailableCurrencies()`, which is
-     * the wrong list twice over: it carries currencies no longer in use, and pseudo-currencies
-     * that are not money at all, gold, palladium, special drawing rights, the test code XTS.
-     * A picker offering someone "Gold" as their group's currency is offering a mistake.
+     * Every currency a country is currently counted in. Derived from the countries, not from
+     * `Currency.getAvailableCurrencies()`, which also carries retired currencies and things that
+     * are not money: gold, palladium, drawing rights, the test code XTS.
      */
     public fun all(locale: Locale = Locale.getDefault()): List<Currency> =
         lists.computeIfAbsent(locale.toLanguageTag()) { build(locale) }
 
     /**
-     * One currency by code, or null if the JDK cannot name one, an instance that stored
-     * something which is not a currency must not be presented as one.
-     *
-     * Not restricted to [all]: a group is free to hold a code outside the offered list, and a
-     * code we decline to offer is still a code we have to draw.
+     * One currency by code, or null if the JDK cannot name one. Not restricted to [all]: a code
+     * we decline to offer is still a code an existing group can hold, and we have to draw it.
      */
     public fun named(code: String, locale: Locale = Locale.getDefault()): Currency? =
         isoCurrency(code)?.toCurrency(locale)

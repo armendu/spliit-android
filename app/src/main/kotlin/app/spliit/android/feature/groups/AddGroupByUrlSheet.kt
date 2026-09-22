@@ -37,20 +37,16 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.FieldError
 
 
 
 /**
  * Adds a group someone shared, by pasting its link.
  *
- * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device ever
- * learns about a group. The link says which server as well as which group, see [GroupLink] -
- * which is what lets somebody be handed a group on an instance this phone has never talked to.
- *
- * A modal sheet rather than a pushed screen, matching iOS. Pasting a link is a small, cancellable
- * errand that ends where it started; a push says "you are now somewhere else" and asks for a
- * navigation gesture to undo something that was never a journey. The dashboard stays visible
- * behind it, which is also where the added group appears.
+ * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device learns
+ * about a group. The link names the server as well as the group, which is what lets somebody be
+ * handed one on an instance this phone has never talked to.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,14 +113,10 @@ fun AddGroupByUrlSheet(
                 // there, and the alternative is dismissing the keyboard to reach a button.
                 keyboardActions = KeyboardActions(onGo = { viewModel.add() }),
             )
-            if (state.problem != null) {
+            val problem = state.problem
+            if (problem != null) {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    text = state.problem.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.testTag(TestTags.ADD_GROUP_URL_ERROR),
-                )
+                FieldError(problem, testTag = TestTags.ADD_GROUP_URL_ERROR)
             }
             Spacer(Modifier.height(12.dp))
             Text(

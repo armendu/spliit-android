@@ -37,9 +37,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import java.util.Currency
@@ -47,18 +45,17 @@ import app.spliit.android.ui.design.CurrencyPickerSheet
 import app.spliit.core.Currencies
 import app.spliit.core.GroupFormDraft
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.FieldError
+import app.spliit.android.ui.design.FormSectionHeader
+import app.spliit.android.ui.design.SkeletonBlock
 
 
 /**
- * The group editor as a full screen, "Group settings", reached from the group's own overflow
- * menu. Every rule about what makes a group valid comes from [GroupFormDraft.problems]; this
- * screen only renders it.
+ * The group editor as a full screen, "Group settings". Every rule about what makes a group valid
+ * comes from [GroupFormDraft.problems]; this only renders it.
  *
- * **Creating a group does not come through here.** It is a bottom sheet, [CreateGroupSheet] -
- * over the dashboard, because creating one is short (a name and a participant or two) and a
- * full-screen form for that much is a trip rather than a task. Editing keeps the screen: by then
- * there are participants to add and remove, a note, a currency, and the errand is long enough to
- * deserve the room. Both draw the same [GroupFormBody].
+ * **Creating a group does not come through here**, it is [CreateGroupSheet] over the dashboard.
+ * Both draw the same [GroupFormBody].
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -134,11 +131,9 @@ internal fun GroupFormBody(
     modifier: Modifier = Modifier,
 ) {
     val draft = state.draft
-    // The picker is a sheet the form opens over itself rather than a route it navigates to.
-    // Navigating was what the full screen used to do, and it left the create *sheet* with no way
-    // to reach a currency at all, a sheet has no NavController to push onto, so the row there
-    // was wired to `{}` and silently did nothing. Owning it here is what makes one row behave
-    // the same in both presentations.
+    // A sheet the form opens over itself, not a route. Navigating left the create *sheet* with
+    // no way to reach a currency at all, since it has no NavController to push onto, so that row
+    // was wired to `{}` and silently did nothing.
     var showCurrencyPicker by rememberSaveable { mutableStateOf(false) }
     // Collapsed by default and remembered across a rotation but not across the sheet closing:
     // somebody who opened Advanced for one group has not said anything about the next.
@@ -153,191 +148,181 @@ internal fun GroupFormBody(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-                if (state.loadError != null) {
-                    Text(
-                        text = state.loadError.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    Spacer(Modifier.height(16.dp))
-                }
+        val loadError = state.loadError
+        if (loadError != null) {
+            FieldError(loadError)
+            Spacer(Modifier.height(16.dp))
+        }
 
-                FormSectionHeader("Group information", topSpace = 0.dp)
+        FormSectionHeader("Group information", topSpace = 0.dp)
 
-                OutlinedTextField(
-                    value = draft.name,
-                    onValueChange = viewModel::setName,
-                    label = { Text("Group name") },
-                    singleLine = true,
-                    isError = state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_NAME_FIELD),
-                    shape = FieldShape,
-                )
-                if (state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty()) {
-                    FieldError("A group needs a name.", TestTags.GROUP_FORM_NAME_ERROR)
-                }
+        OutlinedTextField(
+            value = draft.name,
+            onValueChange = viewModel::setName,
+            label = { Text("Group name") },
+            singleLine = true,
+            isError = state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_NAME_FIELD),
+            shape = FieldShape,
+        )
+        if (state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty()) {
+            FieldError("A group needs a name.", testTag = TestTags.GROUP_FORM_NAME_ERROR)
+        }
 
-                Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(12.dp))
 
-                Row(
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showCurrencyPicker = true }
+                .testTag(TestTags.GROUP_FORM_CURRENCY_ROW)
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Currency", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = currencySummary(draft),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (draft.usesCustomSymbol) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = draft.currency,
+                onValueChange = viewModel::setCustomSymbol,
+                label = { Text("Currency symbol") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_CUSTOM_SYMBOL_FIELD),
+                shape = FieldShape,
+            )
+        }
+
+        // Hidden, not removed: somebody creating a group on spliit.app should never see this
+        // field, but self-hosting is a first-class use case and needs a way to it without a
+        // detour through Settings. Create only, since a group cannot move servers.
+        if (state.mode == GroupFormMode.CREATE) {
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showAdvanced = !showAdvanced }
+                    .testTag(TestTags.GROUP_FORM_ADVANCED_TOGGLE)
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_chevron_right),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showCurrencyPicker = true }
-                        .testTag(TestTags.GROUP_FORM_CURRENCY_ROW)
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Currency", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        text = currencySummary(draft),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (draft.usesCustomSymbol) {
-                    Spacer(Modifier.height(8.dp))
+                        .size(18.dp)
+                        // The same glyph in both states, turned, one drawable, and the
+                        // rotation animates where a swap between two would pop.
+                        .rotate(advancedChevronRotation),
+                )
+                Text(
+                    text = "Advanced",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            AnimatedVisibility(visible = showAdvanced) {
+                Column {
                     OutlinedTextField(
-                        value = draft.currency,
-                        onValueChange = viewModel::setCustomSymbol,
-                        label = { Text("Currency symbol") },
+                        value = state.instanceAddressText,
+                        onValueChange = viewModel::setInstanceAddressText,
+                        label = { Text("Server address") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_CUSTOM_SYMBOL_FIELD),
+                        isError = state.hasAttemptedSave && !state.instanceIsValid,
+                        modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_SERVER_FIELD),
                         shape = FieldShape,
                     )
-                }
-
-                // Creating a group no longer asks for a server up front. The default is
-                // configurable in Settings, and picking one is the advanced half of a decision
-                // most people never make, somebody creating a group on spliit.app should never
-                // see this field. It is *hidden, not removed*: self-hosting is a first-class
-                // Spliit use case, the group's server is what a link resolves against, and there
-                // has to be a way to reach it without a detour through Settings.
-                //
-                // Only when creating. By the time you are editing a group the whole form is
-                // advanced, the address is a fact about the group rather than a choice, and a
-                // group cannot move servers anyway, so the ViewModel does not offer the field
-                // there at all.
-                if (state.mode == GroupFormMode.CREATE) {
-                    Spacer(Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { showAdvanced = !showAdvanced }
-                            .testTag(TestTags.GROUP_FORM_ADVANCED_TOGGLE)
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_chevron_right),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .size(18.dp)
-                                // The same glyph in both states, turned, one drawable, and the
-                                // rotation animates where a swap between two would pop.
-                                .rotate(advancedChevronRotation),
-                        )
-                        Text(
-                            text = "Advanced",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    if (state.hasAttemptedSave && !state.instanceIsValid) {
+                        FieldError(
+                            "That doesn't look like a web address. Try something like " +
+                                "spliit.example.com.",
+                            testTag = TestTags.GROUP_FORM_SERVER_ERROR,
                         )
                     }
-                    AnimatedVisibility(visible = showAdvanced) {
-                        Column {
-                            OutlinedTextField(
-                                value = state.instanceAddressText,
-                                onValueChange = viewModel::setInstanceAddressText,
-                                label = { Text("Server address") },
-                                singleLine = true,
-                                isError = state.hasAttemptedSave && !state.instanceIsValid,
-                                modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_SERVER_FIELD),
-                                shape = FieldShape,
-                            )
-                            if (state.hasAttemptedSave && !state.instanceIsValid) {
-                                FieldError(
-                                    "That doesn't look like a web address. Try something like " +
-                                        "spliit.example.com.",
-                                    TestTags.GROUP_FORM_SERVER_ERROR,
-                                )
-                            }
-                            Text(
-                                text = "Where this group is created, your default from Settings " +
-                                    "unless you change it. A group stays on the server it was made on.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                FormSectionHeader("Notes")
-                OutlinedTextField(
-                    value = draft.information,
-                    onValueChange = viewModel::setInformation,
-                    label = { Text("What should participants know?") },
-                    modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_INFORMATION_FIELD),
-                    shape = FieldShape,
-                )
-
-                FormSectionHeader("Participants")
-                draft.sortedParticipants.forEachIndexed { index, participant ->
-                    val canRemove = draft.canRemoveParticipant(participant.id)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = participant.name,
-                            onValueChange = { viewModel.renameParticipant(participant.id, it) },
-                            label = { Text("Name") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f).testTag(TestTags.groupFormParticipantField(index)),
-                            shape = FieldShape,
-                        )
-                        TextButton(
-                            onClick = { viewModel.removeParticipant(participant.id) },
-                            enabled = canRemove,
-                            modifier = Modifier.testTag(TestTags.groupFormParticipantRemove(index)),
-                        ) {
-                            Text("Remove")
-                        }
-                    }
-                    if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
-                        FieldError("This participant needs a name.", TestTags.groupFormParticipantError(index))
-                    }
-                }
-                TextButton(
-                    onClick = viewModel::addParticipant,
-                    modifier = Modifier.testTag(TestTags.GROUP_FORM_ADD_PARTICIPANT_BUTTON),
-                ) {
-                    Text("Add participant")
-                }
-                if (state.hasAttemptedSave &&
-                    draft.problems(GroupFormDraft.Field.PARTICIPANTS).contains(GroupFormDraft.Problem.NoParticipants)
-                ) {
-                    FieldError("A group needs at least one participant.", TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
-                } else if (state.mode != GroupFormMode.CREATE) {
-                    // Only worth saying while editing. A group being created has no expenses for
-                    // anyone to appear on, so on the create sheet this was a rule about a
-                    // situation that cannot exist yet.
                     Text(
-                        text = "Anyone who already appears on an expense can't be removed.",
+                        text = "Where this group is created, your default from Settings " +
+                            "unless you change it. A group stays on the server it was made on.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
 
-                if (state.saveError != null) {
-                    Spacer(Modifier.height(16.dp))
-                    FieldError(state.saveError.orEmpty(), testTag = null)
+        FormSectionHeader("Notes")
+        OutlinedTextField(
+            value = draft.information,
+            onValueChange = viewModel::setInformation,
+            label = { Text("What should participants know?") },
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_INFORMATION_FIELD),
+            shape = FieldShape,
+        )
+
+        FormSectionHeader("Participants")
+        draft.sortedParticipants.forEachIndexed { index, participant ->
+            val canRemove = draft.canRemoveParticipant(participant.id)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = participant.name,
+                    onValueChange = { viewModel.renameParticipant(participant.id, it) },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f).testTag(TestTags.groupFormParticipantField(index)),
+                    shape = FieldShape,
+                )
+                TextButton(
+                    onClick = { viewModel.removeParticipant(participant.id) },
+                    enabled = canRemove,
+                    modifier = Modifier.testTag(TestTags.groupFormParticipantRemove(index)),
+                ) {
+                    Text("Remove")
                 }
+            }
+            if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
+                FieldError("This participant needs a name.", testTag = TestTags.groupFormParticipantError(index))
+            }
+        }
+        TextButton(
+            onClick = viewModel::addParticipant,
+            modifier = Modifier.testTag(TestTags.GROUP_FORM_ADD_PARTICIPANT_BUTTON),
+        ) {
+            Text("Add participant")
+        }
+        if (state.hasAttemptedSave &&
+            draft.problems(GroupFormDraft.Field.PARTICIPANTS).contains(GroupFormDraft.Problem.NoParticipants)
+        ) {
+            FieldError("A group needs at least one participant.", testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
+        } else if (state.mode != GroupFormMode.CREATE) {
+            // Only worth saying while editing. A group being created has no expenses for
+            // anyone to appear on, so on the create sheet this was a rule about a
+            // situation that cannot exist yet.
+            Text(
+                text = "Anyone who already appears on an expense can't be removed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-                Spacer(Modifier.height(24.dp))
+        val saveError = state.saveError
+        if (saveError != null) {
+            Spacer(Modifier.height(16.dp))
+            FieldError(saveError)
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 
     if (showCurrencyPicker) {
@@ -392,30 +377,6 @@ internal fun BlockedParticipantNotice(message: String?, onDismiss: () -> Unit, m
             TextButton(onClick = onDismiss) { Text("OK") }
         }
     }
-}
-
-@Composable
-private fun FieldError(message: String, testTag: String?) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-        modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier,
-    )
-}
-
-/** More space above a heading than below it, a heading belongs to what follows it. */
-@Composable
-private fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
-    Spacer(Modifier.height(topSpace))
-    Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.9.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(8.dp))
 }
 
 /** What the currency row shows on the right, the currency and the symbol it puts beside every

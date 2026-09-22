@@ -50,15 +50,9 @@ public data class GroupFormValues(
 /**
  * The input the three `groups.expenses.*` mutations take.
  *
- * [expenseDate] must stay `@Contextual`. Kotlin binds serializers at compile time, so the
- * per-call marker that produces superjson's `meta.values` only reaches a field through the
- * per-call `SerializersModule`, and only `@Contextual` consults it. Annotating the field
- * directly compiles, decodes fine, and sends the date with no annotation at all.
- *
- * Caveat: sending the annotation is verified, its necessity is not. No server we have tested
- * rejects a plain ISO string, so `FormValuesTest` is what holds this in place, on the strength
- * of the iOS app having hit the failure elsewhere. If a write starts answering 400 about a
- * date, look here first.
+ * [expenseDate] must stay `@Contextual`: only that consults the per-call `SerializersModule`
+ * that produces superjson's `meta.values`. Annotating the field directly compiles, decodes fine,
+ * and sends the date unannotated. If a write starts answering 400 about a date, look here first.
  */
 @Serializable
 public data class ExpenseFormValues(
@@ -86,11 +80,9 @@ public data class ExpenseFormValues(
      */
     public val originalAmount: Int? = null,
     /**
-     * ISO-4217 of what was paid, or [JsonNull] to stop the expense being converted. The one
-     * field in the API whose schema takes a null, which is why it is not a `String?`: that
-     * would omit the key and leave the expense claiming a currency it no longer has.
-     *
-     * Use [conversionCurrency]; a Kotlin null here means "leave the column alone".
+     * ISO-4217 of what was paid, or [JsonNull] to stop the expense being converted. The one field
+     * whose schema takes a null, hence not a `String?`, which would omit the key and leave the
+     * expense claiming a currency it no longer has. Use [conversionCurrency].
      */
     public val originalCurrency: JsonElement? = null,
     /** `amount` / `originalAmount`, sent as a string. Answers 400 to a null, so it is

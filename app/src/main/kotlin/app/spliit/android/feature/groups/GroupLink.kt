@@ -4,11 +4,7 @@ import java.net.URI
 
 /**
  * A group link somebody pasted, parsed into the group it names and, when the link says so, the
- * instance it lives on.
- *
- * Ported from the iOS app's `GroupLink`. It names two things, not one: a group ID means nothing
- * without the server that issued it, so a link naming an instance is how somebody is let into a
- * group on a server this phone has never talked to, most of what self-hosting is. The shapes
+ * instance it lives on. A group ID means nothing without the server that issued it. The shapes
  * recognised, all naming the same group:
  *
  * ```
@@ -29,10 +25,9 @@ data class GroupLink(val groupId: String, val instanceBaseUrl: String?) {
             val trimmed = pastedText.trim()
             if (trimmed.isEmpty()) return null
 
-            // A link copied out of an address bar often arrives with no scheme, and
-            // "spliit.example.com/groups/x" would otherwise parse as a path with no host. Only
-            // assumed for something with a slash in it, "https://" in front of a bare ID would
-            // make the ID itself the hostname.
+            // A pasted link often arrives with no scheme, which would parse as a path with no
+            // host. Only assumed where there is a slash: in front of a bare ID it would make
+            // the ID the hostname.
             val candidate = if (trimmed.contains("://") || !trimmed.contains("/")) {
                 trimmed
             } else {

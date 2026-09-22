@@ -7,19 +7,12 @@ import java.time.Instant
 import java.time.temporal.WeekFields
 
 /**
- * The buckets an expense or activity list is divided into, newest first, one scheme for both:
- * an activity log wants the finer headings up top, because most of a log is from the last day or
- * two and "today"/"yesterday" is doing real work there, while an expense list is content with the
- * same headings even though its rows usually land in the coarser ones.
+ * The buckets an expense or activity list is divided into, newest first, one scheme for both.
  *
- * Boundaries follow the **device's** time zone, not UTC's: an expense logged at 11pm local time
- * is "today" on the phone that logged it, whatever instant that maps to in UTC. That is why [of]
- * takes a [Clock] instead of reading [Clock.systemDefaultZone] itself, a function that reaches
- * for the system clock carries the machine's own zone silently, which is correct on every
- * developer's laptop and on a CI runner pinned to UTC alike, right up until a device set to a
- * different zone proves it was never actually zone-aware. Passing an explicit [Clock] (which
- * carries both the instant and the zone) is what lets a test pin two zones a day apart and prove
- * the boundary moves with the zone rather than being assumed.
+ * Boundaries follow the device's zone, not UTC: an expense logged at 11pm local is "today" on
+ * the phone that logged it. [of] takes a [Clock] rather than reading the system one so that is
+ * testable; a function that reaches for the system clock is zone-aware only by accident, and
+ * looks correct on every laptop and on a UTC-pinned CI runner alike.
  */
 public enum class DateBucket {
     TODAY,
@@ -35,12 +28,8 @@ public enum class DateBucket {
 
     public companion object {
         /**
-         * Which bucket [instant] falls into, as of [clock].
-         *
-         * A date that has not arrived yet, a clock-skewed phone, a recurring expense dated
-         * ahead, lands in [TODAY] rather than a bucket of its own: this is a list of what has
-         * happened, not a schedule of what hasn't, so the newest bucket is the honest place for
-         * it.
+         * Which bucket [instant] falls into, as of [clock]. A future date, from clock skew or a
+         * recurring expense, lands in [TODAY]: this is a list of what happened, not a schedule.
          */
         public fun of(instant: Instant, clock: Clock): DateBucket {
             val zone = clock.zone

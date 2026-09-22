@@ -32,26 +32,18 @@ public class TrpcClient(
 ) {
 
     /**
-     * A group stores its instance as e.g. `https://spliit.app/`, but a user may type one without
-     * the trailing slash. [HttpUrl] normalizes either into a root path of `/`, so both end up
-     * producing exactly one slash before `api/trpc` without this class having to special-case it.
-     *
-     * Parsed lazily rather than in `init`: a malformed [baseUrl] is user input (someone typing a
-     * self-hosted address, not a programmer error), so it surfaces as [TrpcClientError] from a
-     * call, the same place every other failure in this client shows up, rather than as a crash
-     * at construction time.
+     * [HttpUrl] normalizes an address with or without its trailing slash into a root path of `/`,
+     * so both produce one slash before `api/trpc`. Parsed lazily, not in `init`: a malformed
+     * address is user input, so it surfaces as a [TrpcClientError] rather than a crash.
      */
     private val baseHttpUrl: HttpUrl? by lazy { baseUrl.toHttpUrlOrNull() }
 
     public suspend fun <I, O> call(procedure: TrpcProcedure<I, O>): O = withContext(Dispatchers.IO) {
         val request = buildRequest(procedure)
 
-        // IOException here is a real network failure (DNS, TLS, a dropped connection, a
-        // timeout), deliberately caught as IOException rather than a broader Exception, because
-        // kotlinx.coroutines signals cancellation as a CancellationException that does NOT
-        // extend IOException. A wider catch would swallow a cancelled search-field keystroke and
-        // report it as the server being unreachable, which is exactly the bug this client must
-        // not repeat.
+        // IOException, not a broader Exception: coroutines signal cancellation with a
+        // CancellationException that does not extend it, and a wider catch would report a
+        // cancelled search keystroke as the server being unreachable.
         val response = try {
             execute(request)
         } catch (cause: IOException) {
@@ -137,11 +129,9 @@ public class TrpcClient(
         continuation.invokeOnCancellation { call.cancel() }
         call.enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                // A cancellation races OkHttp's own callback: invokeOnCancellation above already
-                // moved the continuation to a cancelled state, so resuming it here (even with a
-                // failure) would be a no-op at best and a crash at worst. Letting it fall through
-                // is what makes the coroutine throw CancellationException at the suspension
-                // point instead of us reporting the cancellation as a network error.
+                // invokeOnCancellation already moved the continuation to a cancelled state, so
+                // resuming here is a no-op at best and a crash at worst. Falling through is what
+                // makes the coroutine throw CancellationException rather than a network error.
                 if (continuation.isCancelled) return
                 continuation.resumeWithException(e)
             }
@@ -164,25 +154,19 @@ public class TrpcClient(
             .callTimeout(20, TimeUnit.SECONDS)
             // A cached GET would quietly serve stale balances.
             .cache(null)
-            // followRedirects is left at OkHttp's default (true), inherited rather than chosen:
-            // a 301/302 turns a POST into a GET per HTTP semantics (URLSession does the same), so
-            // a redirecting proxy can silently drop a mutation's body and still answer 200, the
-            // caller sees success for a write that never happened. See
-            // `TrpcClientTest`'s pinning test for the exact behaviour. Left alone until a real
-            // deployment needs disabling it, rather than guessed at here.
+            // followRedirects is OkHttp's default, inherited rather than chosen: a 301/302 turns
+            // a POST into a GET, so a redirecting proxy can drop a mutation's body and still
+            // answer 200. TrpcClientTest pins the behaviour; left alone until a deployment needs it.
             .build()
     }
 }
 
 /**
- * Percent-encodes [value] for use as a query parameter's value, escaping everything outside the
- * unreserved set `A-Za-z0-9-._~`.
+ * Percent-encodes [value], escaping everything outside the unreserved set `A-Za-z0-9-._~`.
  *
- * [HttpUrl.Builder.encodedQuery] is deliberately not trusted to do this itself: the envelope is
- * JSON, and JSON is full of characters, `+`, `&`, `{`, `"`, that are meaningful in a query
- * string. `+` is the sharp edge: left alone, a downstream `URLSearchParams`-style decoder (which
- * is what Spliit's Next.js server uses) reads it as a space, silently corrupting the envelope
- * with no error the server can even blame it for.
+ * The envelope is JSON, which is full of characters meaningful in a query string. `+` is the
+ * sharp edge: left alone, the `URLSearchParams`-style decoder Next.js uses reads it as a space
+ * and corrupts the envelope, with no error the server can blame on it.
  */
 internal fun percentEncodeQueryValue(value: String): String {
     val builder = StringBuilder(value.length)

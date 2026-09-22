@@ -13,11 +13,9 @@ import androidx.compose.ui.text.font.FontWeight
 import app.spliit.android.ui.theme.SpliitTheme
 
 /**
- * How much the number matters on the screen it is on, DESIGN.md §3. Mapped onto M3's *named*
- * type styles rather than given point sizes of its own, and inheriting their `sp` units, so
- * every amount scales with the system font size the same way iOS's Dynamic Type does. Not `dp`:
- * an amount that ignores the reader's text size is an accessibility bug in the one element they
- * most need to read.
+ * How much the number matters on the screen it is on. Mapped onto M3's named type styles, so it
+ * inherits their `sp` and scales with the system font size; `dp` here would be an accessibility
+ * bug in the one element a reader most needs.
  */
 enum class MoneySize {
     /** A balance headline or a group total. */
@@ -42,15 +40,12 @@ private fun MoneySize.baseStyle(): TextStyle = when (this) {
 }
 
 /**
- * Whether an amount carries a direction, and, where it does, which half of the money axis it
- * is drawn in. DESIGN.md §3's sign rules: colour carries sign *only* where the amount has one.
- * An expense amount has none, so [NONE] takes the surrounding text colour rather than a tint of
- * its own. A balance has one, and [SETTLED] is deliberately [MaterialTheme.colorScheme]'s
- * `onSurfaceVariant` rather than a third money colour, zero is not an outcome worth tinting.
+ * Whether an amount carries a direction, and which half of the money axis it is drawn in.
+ * Colour carries sign only where the amount has one: an expense has none, so [NONE] takes the
+ * surrounding text colour.
  *
- * Colour is never the only carrier: a caller drawing [POSITIVE] / [NEGATIVE] on a bare number,
- * with no sign character in `value` and no caption above stating the direction, has reintroduced
- * exactly what that section warns against, this enum only supplies the tint, not the guarantee.
+ * Colour is never the only carrier. This supplies the tint, not the guarantee: a caller drawing
+ * [POSITIVE]/[NEGATIVE] on a bare number with no sign and no caption has undone the rule.
  */
 enum class MoneySign {
     /** An expense amount. It has no direction, so it takes the default text colour. */
@@ -66,19 +61,13 @@ enum class MoneySign {
     SETTLED,
 
     /**
-     * An expense amount in a list, `primary`, the brand green.
+     * An expense amount in a list, the brand green. **Not a direction and not on the ledger
+     * axis**: an expense has no sign, and `on-surface` would make it the same colour as the
+     * title beside it. This holds only because the two never share a screen, so **an expense
+     * amount and a balance in one view is the case it does not cover**.
      *
-     * **Not a direction, and deliberately not on the ledger axis.** DESIGN.md §4: an expense has
-     * no sign to carry, so it never takes [POSITIVE] or [NEGATIVE] whatever its value; it takes
-     * the brand colour because the amount is what people scan a ledger for and in `on-surface`
-     * it is the same colour as the title beside it. That costs a little of the rule that colour
-     * means direction, and it holds only because the two never share a screen, the expense list
-     * has no balances in it and the balances tab has no expense rows. **Putting an expense
-     * amount and a balance in one view is the case this does not cover.**
-     *
-     * One tier, unlike the ledger pair: `primary` is `#006948` in light (6.74:1 on the canvas)
-     * and the lightened `PrimaryDark` in dark, both of which clear the body-text threshold, so
-     * there is no size below which this has to darken.
+     * One tier, unlike the ledger pair: 6.74:1 in light and the lightened `PrimaryDark` in dark
+     * both clear the body-text threshold, so there is no size at which this has to darken.
      */
     EXPENSE,
     ;
@@ -94,13 +83,9 @@ enum class MoneySign {
 }
 
 /**
- * The ledger axis has two tiers, not one, DESIGN.md §1: the bright pair reads fine at large
- * sizes and on non-text marks but falls short of the 4.5:1 body-text threshold, so it is never
- * drawn under 24px. [MoneySize.HERO] is the only [MoneySize] guaranteed to clear that on every
- * supported system font scale (`displaySmall` is 32sp); every other size, including [MoneySize
- * .LEAD], which sits well under 24sp, takes the AA-safe text tier. A size threshold rather than
- * a per-size lookup table, so a future size added to [MoneySize] without an explicit colour rule
- * fails safe into the readable tier instead of the bright one.
+ * The ledger axis has two tiers: the bright pair falls short of 4.5:1 and is never drawn under
+ * 24px, so only [MoneySize.HERO] takes it. A threshold rather than a lookup table, so a size
+ * added later without a colour rule fails safe into the readable tier.
  */
 @Composable
 private fun MoneySign.tint(size: MoneySize): Color {
@@ -116,21 +101,12 @@ private fun MoneySign.tint(size: MoneySize): Color {
 }
 
 /**
- * Every amount in the app, in one treatment.
+ * Every amount in the app, in one treatment: tabular figures always, so a column does not jitter
+ * as digits change, tight tracking, semibold unless [isReimbursement] softens it.
  *
- * Money is what Spliit is for, so it gets its own typeface treatment rather than being body text
- * containing digits: tabular figures always, so a column does not jitter as digits change
- * (DESIGN.md §3), tight tracking, and semibold unless [isReimbursement] softens it.
- *
- * `fontFeatureSettings = "tnum"` selects Inter's tabular variant. The typeface itself comes from
- * the [MoneySize] style this borrows; this composable adds only what a body style lacks.
- *
- * @param value Preformatted by `MoneyFormatter`. Never assembled here, and never split the
- *   symbol into its own element: a screen reader should read one label, not "dollar" then
- *   "20.00".
+ * @param value Preformatted by `MoneyFormatter`. Never assembled here and never split from its
+ *   symbol: a screen reader should read one label, not "dollar" then "20.00".
  * @param isReimbursement Drawn regular and italic, as an aside rather than a charge.
- * @param testTag Applied to this composable's own `Text`, a leaf. See
- *   [app.spliit.android.ui.TestTags].
  */
 @Composable
 fun Money(
@@ -141,11 +117,8 @@ fun Money(
     isReimbursement: Boolean = false,
     testTag: String? = null,
 ) {
-    // Tracking is deliberately NOT set here: size.baseStyle() already carries the per-style
-    // value DESIGN.md §2's table specifies (e.g. -0.02em for a hero, -0.005em for a row amount),
-    // and TextStyle.merge lets a non-null field here win, so overriding it with one flat
-    // constant across all four sizes, as an earlier iOS-ported treatment did, would silently
-    // discard that per-size table.
+    // Tracking is deliberately not set: baseStyle() carries the per-size value, and merge lets a
+    // non-null field here win, so one flat constant would silently discard that table.
     val style = size.baseStyle().merge(
         TextStyle(
             fontFeatureSettings = "tnum",

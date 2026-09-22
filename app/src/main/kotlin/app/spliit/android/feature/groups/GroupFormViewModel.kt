@@ -51,12 +51,9 @@ data class GroupFormUiState(
 }
 
 /**
- * The group editor, shared by "Create group" and "Group settings", see [GroupFormMode].
- *
- * Every rule about what makes a group valid lives in [GroupFormDraft]; this class never
- * reimplements one. It only carries the draft, drives the two network calls around it, and
- * resolves the one thing `:core` cannot know on its own, which participant is making the change,
- * for the activity log (see [submit]'s EDIT branch).
+ * The group editor, shared by "Create group" and "Group settings". Every rule about what makes a
+ * group valid lives in [GroupFormDraft]; this carries the draft, drives the calls, and resolves
+ * the one thing `:core` cannot know: which participant is making the change, for the log.
  */
 class GroupFormViewModel(
     mode: GroupFormMode,
@@ -94,16 +91,9 @@ class GroupFormViewModel(
     }
 
     /**
-     * Back to a blank group, on [instanceBaseUrl].
-     *
-     * Creating a group is a sheet over the dashboard rather than a destination, so this instance
-     * lives as long as that screen does and is handed back for every create, where a
-     * navigated-to form got a fresh one each time. Without this, a second create would open
-     * holding the first one's participants, its typed name and, worst of all, its `savedGroupId`,
-     * which closes the sheet the instant it appears.
-     *
-     * [instanceBaseUrl] is re-read rather than remembered from construction because Settings can
-     * have changed the default since the app launched.
+     * Back to a blank group, on [instanceBaseUrl]. One ViewModel serves every create, so without
+     * this a second one opens holding the first's participants, name, and `savedGroupId`, which
+     * closes the sheet the instant it appears. The instance is re-read, since Settings can change.
      */
     fun resetForCreate(instanceBaseUrl: String) {
         _state.value = GroupFormUiState(

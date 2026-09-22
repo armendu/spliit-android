@@ -1,10 +1,8 @@
 package app.spliit.android.feature.group
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,11 +11,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,9 +27,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
-import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.Monogram
 import app.spliit.core.LoadState
 import java.time.ZoneId
@@ -42,23 +37,19 @@ import java.time.format.FormatStyle
 import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.feature.groups.InstanceAddress
+import app.spliit.android.ui.design.Footnote
+import app.spliit.android.ui.design.SectionDivider
+import app.spliit.android.ui.design.SectionHeader
 
 /**
- * What a group *is*, beside what it costs: the note it keeps for its participants, who those
- * participants are, the couple of facts that were otherwise only visible from inside the editor,
- * the way to the activity log, and the "who are you?" question.
+ * What a group *is*, beside what it costs: its note, its participants, the way to the activity
+ * log, and the "who are you?" question.
  *
- * The web app's version of this tab is the note and nothing else. That reads differently on a
- * phone, where a tab is one of four places a thumb can reach and most groups never fill the note
- * in, the tab would be empty for exactly the people who went looking. Naming the participants is
- * the cheapest thing that earns the slot, and this is the only screen in the app that lists them
- * outside the editor.
+ * The web app's version is the note and nothing else, which on a phone would leave the tab empty
+ * for exactly the people who went looking, since most groups never fill it in.
  *
  * The note has no editor of its own and should not grow one: it is a field on the group, and the
- * group form is where the group's fields are edited. The button here opens that form.
- *
- * Everything on this tab is the group, so unlike the expense and balance tabs there is no second
- * request to wait on.
+ * group form is where a group's fields are edited.
  */
 @Composable
 internal fun InformationTab(
@@ -104,12 +95,7 @@ private fun InformationContent(
     val note = group.information?.trim().orEmpty().takeIf { it.isNotEmpty() }
     val you = group.participants.firstOrNull { it.id == activeParticipantId }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(
-            bottom = fabAndNavigationBarPadding(),
-        ),
-    ) {
+    GroupTabList {
         item(key = "note_header") {
             Spacer(Modifier.height(16.dp))
             SectionHeader("Information")
@@ -207,27 +193,7 @@ private fun InformationContent(
 
         item(key = "you") {
             SectionHeader("You")
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
-                    .clickable(onClick = onIdentify)
-                    .testTag(TestTags.INFORMATION_YOU_BUTTON)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (you != null) {
-                    Monogram(name = you.name, participantId = you.id, size = 28.dp)
-                    Spacer(Modifier.width(12.dp))
-                }
-                Text(
-                    text = you?.name ?: "Not set",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            IdentityRow(you = you, testTag = TestTags.INFORMATION_YOU_BUTTON, onIdentify = onIdentify)
             Footnote(
                 "Which participant you are, on this phone. It decides whose balance the " +
                     "balances tab leads with, and who a new expense is paid by.",
@@ -288,35 +254,6 @@ private fun NavigationRow(icon: Int, title: String, onClick: () -> Unit, testTag
 
 private val createdFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun Footnote(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp),
-    )
-}
-
-@Composable
-private fun SectionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(vertical = 16.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
-}
 
 
 @Composable

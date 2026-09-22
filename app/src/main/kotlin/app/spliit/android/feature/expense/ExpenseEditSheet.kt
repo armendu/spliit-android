@@ -1,25 +1,18 @@
 package app.spliit.android.feature.expense
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,32 +25,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.ui.TestTags
 import kotlinx.coroutines.launch
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.SheetHeader
+import app.spliit.android.ui.design.DiscardChangesDialog
 
 
 /**
- * Editing an expense, as a sheet over the group screen rather than a screen of its own.
+ * Editing an expense, as a sheet over the group screen rather than a screen of its own. It opens
+ * partially expanded on the title and amount, with save pinned above them.
  *
- * It opens partially expanded on the title and amount, the two fields nearly every edit touches,
- * with save pinned above them. Dragging up reveals the rest of [ExpenseFormBody].
+ * The point is what does not happen: the group screen stays composed, so its load effect does
+ * not re-run, the list keeps its scroll and paged-in rows, and no skeleton flashes.
  *
- * The point is what does not happen: the group screen stays composed underneath, so its
- * `LaunchedEffect(Unit) { load() }` does not re-run, the list keeps its scroll and paged-in rows,
- * and no skeleton flashes.
- *
- * It outlives the sheet slightly: after a delete the sheet goes but the undo is still on offer.
- * [onDone] signals the whole errand is over.
- *
- * @param snackbarHostState the *group screen's* host; a snackbar inside a closing sheet has
- *   nowhere to be.
- * @param onSaved a write landed. Also fires for an undone delete, which returns under a **new**
- *   ID (see [DeletedExpense]).
- * @param onDeleted the expense is gone from the server.
+ * @param snackbarHostState the *group screen's* host; a snackbar in a closing sheet has nowhere
+ *   to be.
+ * @param onSaved a write landed. Also fires for an undone delete, which returns under a new ID.
  * @param onDone the sheet and its undo window are both finished.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -145,10 +131,9 @@ fun ExpenseEditSheet(
             },
             sheetState = sheetState,
             shape = SheetShape,
-            // The sheet consumes the navigation-bar inset by default, which leaves the
-            // `navigationBarsPadding()` below with nothing to apply, so the last row of the form
-            // drew underneath the gesture bar. Insets are handed to the content instead, where
-            // one modifier can pad for the bar and the keyboard together.
+            // The sheet consumes the navigation-bar inset by default, leaving the padding below
+            // nothing to apply, so the last row drew under the gesture bar. Handed to the content
+            // instead, where one modifier pads for the bar and the keyboard together.
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.testTag(TestTags.EXPENSE_EDIT_SHEET),
         ) {
@@ -161,7 +146,13 @@ fun ExpenseEditSheet(
                     .navigationBarsPadding()
                     .imePadding(),
             ) {
-                SheetHeader(state = state, onSave = viewModel::save)
+                SheetHeader(
+                    title = "Edit expense",
+                    actionLabel = if (state.isSaving) "Saving…" else "Save",
+                    onAction = viewModel::save,
+                    actionEnabled = !state.isSaving && state.draft != null && state.deleted == null,
+                    actionTestTag = TestTags.EXPENSE_FORM_SAVE_BUTTON,
+                )
 
                 val draft = state.draft
                 val group = state.group
@@ -192,70 +183,24 @@ fun ExpenseEditSheet(
     }
 
     if (showDiscardDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                // Dismissing the question is not answering it, and the sheet has already
-                // animated away underneath, so it comes back rather than the edits going.
+        // Dismissing the question is not answering it, and the sheet has already animated away
+        // underneath, so both ways out of the dialog bring it back.
+        val keepEditing = {
+            showDiscardDialog = false
+            scope.launch { sheetState.show() }
+            Unit
+        }
+        DiscardChangesDialog(
+            dialogTestTag = TestTags.EXPENSE_FORM_DISCARD_DIALOG,
+            confirmTestTag = TestTags.EXPENSE_FORM_DISCARD_CONFIRM,
+            onDismiss = keepEditing,
+            onKeepEditing = keepEditing,
+            onDiscard = {
                 showDiscardDialog = false
-                scope.launch { sheetState.show() }
-            },
-            modifier = Modifier.testTag(TestTags.EXPENSE_FORM_DISCARD_DIALOG),
-            title = { Text("Discard changes?") },
-            text = { Text("What you've typed on this expense won't be kept.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDiscardDialog = false
-                        isSheetVisible = false
-                        viewModel.close()
-                    },
-                    modifier = Modifier.testTag(TestTags.EXPENSE_FORM_DISCARD_CONFIRM),
-                ) {
-                    Text("Discard")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showDiscardDialog = false
-                        scope.launch { sheetState.show() }
-                    },
-                ) {
-                    Text("Keep editing")
-                }
+                isSheetVisible = false
+                viewModel.close()
             },
         )
     }
 }
 
-/**
- * The one row that never scrolls.
- *
- * Save lives here rather than at the foot of the form because the sheet opens collapsed: an
- * action below the fold would mean the ordinary edit, change the amount, save, needed a drag
- * to complete, which is the friction this sheet exists to remove.
- */
-@Composable
-private fun SheetHeader(state: ExpenseFormUiState, onSave: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            text = "Edit expense",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.weight(1f),
-        )
-        Button(
-            onClick = onSave,
-            enabled = !state.isSaving && state.draft != null && state.deleted == null,
-            modifier = Modifier.testTag(TestTags.EXPENSE_FORM_SAVE_BUTTON),
-        ) {
-            Text(if (state.isSaving) "Saving…" else "Save")
-        }
-    }
-}

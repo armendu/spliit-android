@@ -1,21 +1,12 @@
 package app.spliit.android.ui
 
 /**
- * Every Compose `testTag` the app sets, shared with the instrumented tests and added in the same
- * commit as the screen it tags.
+ * Every Compose `testTag` the app sets, shared with the instrumented tests. Tags go on **leaves**,
+ * never on a layout container: a test wants "the amount in this row" apart from "the row".
  *
- * Tags go on **leaves**, never on a `Row` / `Column` / `Box` that only lays other things out: a
- * test wants "the amount in this row" separately from "the row".
- *
- * Two Compose behaviours here were hit in practice, not read about:
- *
- * 1. `clearAndSetSemantics { }` clears the semantics of the node *and its descendants* and
- *    substitutes only what its lambda sets, so a `Modifier.testTag()` elsewhere on the chain is
- *    gone, not merged. To keep a tag, set it inside that lambda via the `testTag` property on
- *    `SemanticsPropertyReceiver`. [app.spliit.android.ui.design.Monogram] does this.
- * 2. `Modifier.clickable` merges descendants into one node, and the test finders query the
- *    merged tree by default. A tag on a child of a clickable container needs
- *    `useUnmergedTree = true`, which is why the expense row's inner tags need it.
+ * Two behaviours hit in practice: `clearAndSetSemantics` discards a `Modifier.testTag` on the
+ * same chain, so the tag goes inside its lambda ([design.Monogram] does this); and
+ * `Modifier.clickable` merges descendants, so a tag on a child needs `useUnmergedTree = true`.
  */
 object TestTags {
     const val MONEY_AMOUNT = "money_amount"
@@ -88,12 +79,8 @@ object TestTags {
     const val GROUP_DETAIL_ADD_EXPENSE_FAB = "group_detail_add_expense_fab"
 
     /**
-     * The same action as [GROUP_DETAIL_ADD_EXPENSE_FAB], as a top-app-bar icon.
-     *
-     * Only one of the two is on screen at a time, see
-     * [app.spliit.android.feature.group.GroupDetailLayout]: the bottom-bar layout has no FAB,
-     * because M3 dropped the docked-FAB pattern and one floating over a navigation bar covers
-     * it. A test that wants "add an expense" has to ask for whichever the current layout draws.
+     * The same action as [GROUP_DETAIL_ADD_EXPENSE_FAB], as a top-app-bar icon. Only one is on
+     * screen at a time, so a test wanting "add an expense" has to ask for whichever is drawn.
      */
     const val GROUP_DETAIL_ADD_EXPENSE_ACTION = "group_detail_add_expense_action"
     const val GROUP_DETAIL_TAB_EXPENSES = "group_detail_tab_expenses"

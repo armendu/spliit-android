@@ -3,20 +3,15 @@ package app.spliit.core
 import java.util.Locale
 import java.util.UUID
 
-// The group form's state, plus the validation the server would apply. Sibling to
-// ExpenseFormDraft and deliberately shaped like it.
+// The group form's state, plus the validation the server would apply.
 //
-// Participant names are compared trimmed and case-folded: "Ana" and "ana " are the same mistake,
-// not two people. The fold uses [Locale.ROOT] so two devices editing one shared list reach the
-// same answer. Neither folding choice is strictly correct, and it is worth knowing what ROOT
-// costs: verified on the JDK, "Ismail"/"ismail" collide under ROOT while "Ismail" (dotted
-// capital I) and "ismail" do not, and a Turkish locale swaps which pair collides.
-// `GroupFormDraftTest` pins this on that pair, because an all-ASCII pair proves nothing.
+// Participant names are compared trimmed and case-folded, so "Ana" and "ana " are one mistake
+// rather than two people. The fold uses Locale.ROOT so two devices editing one list agree.
+// Verified: "Ismail"/"ismail" collide under ROOT, "İsmail"/"ismail" do not, and Turkish swaps
+// which pair does. GroupFormDraftTest pins that pair, since an ASCII pair proves nothing.
 //
-// A cleared currency code is sent as `""`. `GroupFormValues.currencyCode` is a non-null String
-// precisely so there is no null to reach for: the web app writes `""` for "no code", and all
-// three clients share one database, so dropping a code has to leave the same state whoever did
-// it. See CLAUDE.md.
+// A cleared currency code is sent as `""`, never null: the web app writes `""` and all three
+// clients share one database, so dropping a code must leave the same state whoever did it.
 /** A group member as the group form edits one. */
 public data class ParticipantFormDraft(
     /**
@@ -88,12 +83,9 @@ public data class GroupFormDraft(
     }
 
     /**
-     * Removes the row for [id], or null when that participant is on an expense.
-     *
-     * Null rather than an unchanged draft: a same-type no-op is a return value a call site can
-     * drop without the compiler objecting, which is what a stale remove button would do.
-     * [canRemoveParticipant] greys the control out beforehand; this is the fallback when that
-     * check was skipped or went stale.
+     * Removes the row for [id], or null when that participant is on an expense. Null rather than
+     * an unchanged draft, which a caller could drop silently. [canRemoveParticipant] greys the
+     * control out first; this catches the case where that check went stale.
      */
     public fun withParticipantRemoved(id: String): GroupFormDraft? {
         if (!canRemoveParticipant(id)) return null

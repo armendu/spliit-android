@@ -13,12 +13,8 @@ import app.spliit.android.ui.TestTags
 import app.spliit.core.DateBucket
 
 /**
- * What to draw for each [DateBucket].
- *
- * Plain Kotlin rather than a string resource, so this mapping is testable on the JVM with no
- * device and no `Context`, the same reasoning `:core` follows throughout. French (deferred per
- * the spec's §9) becomes a resource lookup layered on top of this map when it arrives, not a
- * rewrite of it.
+ * What to draw for each [DateBucket]. Plain Kotlin rather than a string resource, so it is
+ * testable on the JVM with no `Context`; a translation layers a lookup on top of this map.
  */
 object DateBucketText {
     fun of(bucket: DateBucket): String = when (bucket) {
@@ -35,14 +31,10 @@ object DateBucketText {
 }
 
 /**
- * The heading above a run of expenses, "This week", "Last month", "Older", for `:core`'s
- * [DateBucket].
+ * The heading above a run of expenses, for `:core`'s [DateBucket].
  *
- * Drawn upper-case and letter-spaced as a *typographic* treatment only, mirroring the iOS
- * header's own comment on this: capitals are a presentation choice, not a change to the words,
- * so the accessibility label stays [DateBucketText.of]'s natural-case string via an explicit
- * `contentDescription` rather than the upper-cased text a screen reader would otherwise spell
- * out.
+ * The capitals are typographic, not a change to the words, so the natural-case string stays as
+ * the accessibility label rather than being spelled out letter by letter.
  */
 @Composable
 fun DateHeader(bucket: DateBucket, modifier: Modifier = Modifier) {

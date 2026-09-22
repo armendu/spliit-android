@@ -37,40 +37,28 @@ internal val ErrorLight = Color(0xFFBA1A1A)
 internal val ErrorContainerLight = Color(0xFFFFDAD6)
 internal val OnErrorContainerLight = Color(0xFF93000A)
 
-// Dark mirrors the relationship, not the hexes: a faint tint of the canvas toward the error
-// hue. Measured, #4A1113 on the dark canvas is 1.22:1, matching the light pair's 1.23:1, and
-// the #FFB4AB label on it is 8.96:1.
-//
-// M3's baseline dark container #93000A was rejected at 1.99:1, nearly twice that tint and a
-// solid red bar on screen. Its label measured fine, so this is about weight, not contrast.
+// Dark mirrors the relationship, not the hexes: #4A1113 is 1.22:1 on the dark canvas, matching
+// the light pair's 1.23:1. M3's baseline #93000A was rejected at 1.99:1, a solid red bar; its
+// label measured fine, so this is about weight rather than contrast.
 internal val ErrorContainerDark = Color(0xFF4A1113)
 internal val OnErrorContainerDark = Color(0xFFFFB4AB)
 
 // Dark: the brief supplies a light palette only, so surfaces are M3's dark defaults seeded by
-// `primary`. Only `primary` is overridden, to a lighter tone of the hue with a dark `onPrimary`.
-//
-// These are the brief's own tokens: `inverse-primary` means primary as it appears in the
-// opposite theme, and `on-primary-fixed` the label that belongs on it.
-//
-// They replace #00855D on #003D29, which measured 2.66:1 under a comment claiming ">8:1", and
-// which also failed as accent text at 3.68:1. The replacements are 10.01:1 and 10.03:1.
+// `primary`, which is overridden to a lighter tone with a dark `onPrimary`. These replace
+// #00855D on #003D29, which measured 2.66:1 under a comment claiming ">8:1"; now 10.01:1.
 internal val PrimaryDark = Color(0xFF68DBA9) // the brief's `inverse-primary`
 internal val OnPrimaryDark = Color(0xFF002114) // the brief's `on-primary-fixed`
 internal val PrimaryContainerDark = Color(0xFF00855D)
 
-// The tile an empty state's icon sits in, not one of DESIGN.md's named tokens (its table stops
-// at `primary-container`), but the same soft-tint role the icon tile has always played. A curated
-// tint rather than a computed one, the way the accent's own soft tile always has been: measured,
-// not "primary at N% opacity" composited over an arbitrary background.
+// The tile an empty state's icon sits in. A curated tint rather than "primary at N% opacity"
+// composited over an arbitrary background, which is a measurement nobody made.
 internal val BrandAccentSoftLight = Color(0xFFE6F5EF)
 
 // ---- the ledger axis ---------------------------------------------------------------------
 
-// Two tokens per side, not one, DESIGN.md §1 is explicit about why. The bright pair reads fine
-// at large sizes and on non-text marks (bars, dots, icons) but measures only 3.30:1 / 3.30:1
-// against white, short of the 4.5:1 body-text threshold; the darker pair (5.02:1 / 4.70:1) is what
-// carries an amount at row or label size. Reusing the bright pair for body text is the mistake
-// this pairing exists to prevent.
+// Two tokens per side: the bright pair measures 3.30:1 against white, short of the 4.5:1 body
+// threshold, so the darker pair (5.02:1 / 4.70:1) carries an amount at row or label size.
+// Reusing the bright pair for body text is the mistake this pairing prevents.
 internal val BalancePositiveLight = Color(0xFF16A34A) // large text (>=24px) and non-text only
 internal val BalancePositiveTextLight = Color(0xFF15803D) // body and label sizes
 internal val BalancePositiveBgLight = Color(0xFFDCFCE7)
@@ -103,16 +91,11 @@ internal val MonogramColors = listOf(
 // ---- category glyphs ---------------------------------------------------------------------
 
 /**
- * One hue per category grouping, measured against the tile the glyph sits on. The glyph takes
- * the colour and the tile stays neutral, so a row gains something to scan by without a second
- * saturated block competing with the amount.
+ * One hue per category grouping, measured against the tile the glyph sits on.
  *
- * Light and dark values of a hue differ, and the bolt is why: a true yellow #FBBF24 is 1.52:1
- * on the light tile and invisible, and even #D97706 is 2.90:1, under the 3:1 a non-text graphic
- * needs. So light gets deep amber and dark gets the yellow. Do not match them up.
- *
- * Keyed by `grouping`, like the glyph itself, so a category invented after this ships falls
- * back consistently.
+ * Light and dark values of a hue differ, and the bolt is why: #FBBF24 is 1.52:1 on the light tile
+ * and invisible, even #D97706 is 2.90:1, under the 3:1 a non-text graphic needs. **Do not match
+ * them up.** Keyed by grouping, so a category invented later falls back consistently.
  */
 internal val CategoryGlyphColorsLight = mapOf(
     "Utilities" to Color(0xFFB45309), // deep amber, not yellow, see above

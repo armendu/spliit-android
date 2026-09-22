@@ -109,21 +109,16 @@ class GroupsListViewModel(
      * composition, and a group just created needs the list to reload when the screen returns.
      */
     fun load() {
-        // One load at a time. Two of them share [snapshot], [summaries] and [answeredInstances],
-        // so an earlier one finishing late publishes over a newer one's result, which is how a
-        // group added while the first load was still on the wire came back to an empty list,
-        // watched happen on a device. The newer load is always the one that is still wanted, so
-        // the older is cancelled rather than waited for.
+        // One load at a time: two share the same fields, so an earlier one finishing late
+        // publishes over a newer one's result. That is how a group added mid-load came back to
+        // an empty list, watched happen on a device.
         refreshJob?.cancel()
         refreshJob = viewModelScope.launch { refresh() }
     }
 
     /**
-     * Rate-limited, unlike [load].
-     *
-     * This screen has no pull gesture, so the button beside a failure is the only repeatable
-     * thing on it, and the most expensive: one request per stored group. [load] is left alone,
-     * because it runs once per composition and nobody can hammer it.
+     * Rate-limited, unlike [load]: this screen has no pull gesture, so the button beside a
+     * failure is the only repeatable thing on it, and costs one request per stored group.
      */
     fun retry() {
         refreshJob?.cancel()
@@ -131,11 +126,9 @@ class GroupsListViewModel(
     }
 
     /**
-     * The work behind [retry], where the rate limit lives.
-     *
-     * On the work rather than on [retry] so a test can reach it: `viewModelScope` dispatches on
-     * Main, which the JVM suites do not install, and a check inside the launcher is a check
-     * nothing can assert on. [refresh] stays unguarded because it is also the composition path.
+     * The work behind [retry], where the rate limit lives, rather than on [retry] itself:
+     * `viewModelScope` dispatches on Main, which the JVM suites do not install, so a check inside
+     * a launcher is one nothing can assert on.
      */
     suspend fun retryNow() {
         if (!refreshLimiter.allow()) return
@@ -227,11 +220,8 @@ class GroupsListViewModel(
     /** The actual load. Called through [load] in production and directly in tests, which
      *  sidesteps needing a Main-dispatcher rule. */
     suspend fun refresh() {
-        // The skeleton is for a screen with nothing on it yet. Every later load, coming back
-        // from a group, adding one, pulling the list again, keeps the rows that are already
-        // drawn: they are read from local storage and are not what the request is for, and
-        // replacing them with a skeleton for a second would make returning to this screen look
-        // like it lost the list.
+        // The skeleton is for a screen with nothing on it yet. Later loads keep the drawn rows,
+        // which come from local storage anyway; blanking them would look like a lost list.
         if (_state.value !is LoadState.Loaded) _state.value = LoadState.Loading
 
         snapshot = try {

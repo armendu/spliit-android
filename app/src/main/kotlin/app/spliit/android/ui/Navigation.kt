@@ -52,15 +52,13 @@ object Routes {
     const val GROUP_EDIT = "groups/{groupId}/edit"
     const val GROUP_DETAIL = "groups/{groupId}"
 
-    // Three ways into one screen, iOS's `createExpense`, `editExpense(id)` and
-    // `settle(reimbursement)`. Separate patterns rather than one with optional arguments: a
-    // settle-up carries three values a create has none of, and a route that can be missing most
-    // of its arguments is a route whose mode is decided by which of them happen to be null.
+    // Three ways into one screen. Separate patterns rather than one with optional arguments: a
+    // settle-up carries three values a create has none of, and a route missing most of its
+    // arguments is one whose mode is decided by which happen to be null.
 
     //
-    // There is no edit route. Editing an expense is a sheet drawn over the group screen, see
-    // ExpenseEditSheet, precisely so that the group screen is *not* dropped and rebuilt, which
-    // is what made every edit re-read the whole expense list. A destination cannot do that.
+    // There is no edit route: editing is a sheet over the group screen, so that screen is not
+    // dropped and rebuilt, which is what made every edit re-read the whole expense list.
     const val EXPENSE_FORM_CREATE = "groups/{groupId}/expenses/new"
     const val EXPENSE_FORM_SETTLE = "groups/{groupId}/settle/{from}/{to}/{amount}"
     const val SETTINGS = "settings"
@@ -125,10 +123,8 @@ fun SpliitNavHost(
                     viewModelFactory { initializer { AddGroupByUrlViewModel(recentGroupsStore) } }
                 },
             )
-            // Creating a group is a sheet over this screen rather than a destination, see
-            // CreateGroupSheet, so its ViewModel is scoped to this entry alongside the
-            // dashboard's, and reset each time the sheet opens (which is also where the current
-            // default instance is read).
+            // Creating a group is a sheet over this screen, so its ViewModel is scoped to this
+            // entry and reset each time the sheet opens, which is where the default is read.
             val createGroupViewModel: GroupFormViewModel = viewModel(
                 factory = remember {
                     viewModelFactory {
@@ -162,12 +158,9 @@ fun SpliitNavHost(
                             GroupFormViewModel(
                                 mode = GroupFormMode.EDIT,
                                 groupId = groupId,
-                                // Which server the group is on is a fact about the group, not a
-                                // default: EDIT resolves it from the stored row rather than from
-                                // the app's current default, which a self-hosted group would not
-                                // be on. Handed in here because the ViewModel's constructor takes
-                                // it; the form offers no field to change it (a group cannot move
-                                // servers).
+                                // Which server a group is on is a fact about the group, not a
+                                // default, so EDIT resolves it from the stored row. A group
+                                // cannot move servers, and the form offers no field for it.
                                 instanceBaseUrl = AppSettingsHolder.defaultInstanceBaseUrl,
                                 recentGroupsStore = recentGroupsStore,
                             )
@@ -226,10 +219,8 @@ fun SpliitNavHost(
                 onBack = { navController.popBackStack() },
                 onAddExpense = { navController.navigate(Routes.expenseFormCreate(groupId)) },
                 onEditGroup = { navController.navigate(Routes.groupEdit(groupId)) },
-                // Editing is a sheet over this screen, not a destination, hence a ViewModel
-                // handed in rather than a route navigated to. Scoped to this nav entry and keyed
-                // on the expense, so it outlives the sheet: the undo offered after a delete is
-                // still its to make once the sheet has gone.
+                // Scoped to this nav entry and keyed on the expense, so it outlives the sheet:
+                // the undo offered after a delete is still its to make once the sheet has gone.
                 editViewModelFor = { expenseId ->
                     viewModel(
                         key = "edit/$groupId/$expenseId",
@@ -299,11 +290,9 @@ fun SpliitNavHost(
 }
 
 /**
- * The expense form, however it was reached.
- *
- * The ViewModel is keyed on the mode as well as the group: the same NavHost entry can be a
- * create one moment and an edit the next, and a ViewModel keyed on the group alone would be
- * handed back holding the previous expense.
+ * The expense form, however it was reached. The ViewModel is keyed on the mode as well as the
+ * group: one entry can be a create then an edit, and keying on the group alone hands back the
+ * previous expense.
  */
 @Composable
 private fun ExpenseForm(
@@ -323,9 +312,8 @@ private fun ExpenseForm(
     ExpenseFormScreen(
         viewModel = viewModel,
         onClose = {
-            // The group screen behind this no longer reloads on its way back into composition,
-            // so a write has to announce itself. Read from the ViewModel rather than taken as a
-            // parameter, because `onClose` fires for a cancel as well as for a save, and a
+            // The group screen no longer reloads on its way back, so a write announces itself.
+            // Read from the ViewModel, not a parameter: `onClose` fires for a cancel too, and a
             // cancelled form must not cost the group a round of requests.
             val current = viewModel.state.value
             if (current.savedExpenseId != null || current.deleted != null) {

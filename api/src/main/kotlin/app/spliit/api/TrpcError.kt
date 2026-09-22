@@ -1,12 +1,8 @@
 package app.spliit.api
 
 /**
- * Anything a call can fail with.
- *
- * The two subclasses answer different questions, and most callers want both: [TrpcServerError]
- * is the server saying no, [TrpcClientError] is never having got an answer. Before this existed
- * they shared only `Exception`, so every call site named both in separate `catch` clauses, and
- * nothing told anyone who named only one. Catch this when the handling is the same.
+ * Anything a call can fail with: [TrpcServerError] is the server saying no, [TrpcClientError] is
+ * never having got an answer. Catch this when the handling is the same, which is usually.
  */
 public sealed class TrpcException(message: String) : Exception(message)
 
@@ -26,17 +22,13 @@ public class TrpcServerError(
 ) : TrpcException(message) {
 
     /**
-     * True when the instance has never heard of this procedure, e.g. an older deployment without
-     * `groups.stats.overview`. Degrade the screen or try a fallback rather than retrying.
+     * True when the instance has never heard of this procedure. Degrade or fall back, do not
+     * retry.
      *
-     * tRPC answers an unresolvable path with code `NOT_FOUND` and a message like
-     * `No procedure found on path "..."`. The code check drops anything that was never about
-     * routing (a validation failure is `BAD_REQUEST`); the message check separates a missing
-     * *route* from a missing *resource*, since "Group not found." is also `NOT_FOUND`.
-     *
-     * The HTTP status is deliberately not checked: `NOT_FOUND` already implies 404, and a
-     * `TrpcServerError` built outside [TrpcClient] may carry a null status, which would make
-     * requiring it a false negative.
+     * tRPC answers an unresolvable path with `NOT_FOUND` and `No procedure found on path "..."`.
+     * The message check is what separates a missing *route* from a missing *resource*, since
+     * "Group not found." is also `NOT_FOUND`. The HTTP status is not checked: an error built
+     * outside [TrpcClient] may carry none, which would make requiring it a false negative.
      */
     public val isUnknownProcedure: Boolean
         get() = code == "NOT_FOUND" && message.contains("No procedure found", ignoreCase = true)
@@ -66,19 +58,12 @@ public sealed class TrpcClientError(message: String) : TrpcException(message) {
         TrpcClientError("The server's response couldn't be read. It may be running a different version.")
 
     /**
-     * A non-2xx response whose body was not a tRPC error envelope, a proxy's HTML error page, an
-     * upstream timeout page, or a body that is simply empty.
+     * A non-2xx response whose body was not a tRPC error envelope: a proxy's HTML page, a timeout
+     * page, or nothing at all.
      *
-     * [status] and [bodyPrefix] together are what let a caller distinguish a *meaningful* empty
-     * response from a generic failure: a self-hosted Spliit instance with no S3 bucket configured
-     * answers its document-signing route with exactly HTTP 500 and an empty body, which a caller
-     * should read as "this instance keeps no documents", not as something worth retrying. That
-     * reading needs both fields (`status == 500 && bodyPrefix.isEmpty()`); neither one alone marks
-     * the case, since a 500 can carry a real error page and an empty body can arrive with a
-     * different status from a different route.
-     *
-     * [bodyPrefix] is truncated to [BODY_PREFIX_LIMIT] characters, an error message should not
-     * be a whole HTML page.
+     * [status] and [bodyPrefix] together mark a *meaningful* empty response. An instance with no
+     * S3 bucket answers the document route with exactly 500 and an empty body, which means "this
+     * instance keeps no documents" rather than "retry". Neither field alone identifies that.
      */
     public class UnexpectedResponse(public val status: Int, public val bodyPrefix: String) :
         TrpcClientError("Unexpected response ($status)")

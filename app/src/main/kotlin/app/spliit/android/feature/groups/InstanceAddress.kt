@@ -4,26 +4,19 @@ import app.spliit.android.BuildConfig
 import java.net.URI
 
 /**
- * Where a group lives, when nothing else says otherwise: the instance a group is created on, and
- * the one a link that names no server, a bare group ID, is looked up against.
+ * Where a group lives when nothing else says otherwise: what a group is created on, and what a
+ * bare group ID is looked up against.
  *
- * `https://spliit.app/` matches the iOS app's own default. It is a `BuildConfig` field rather
- * than a literal so a build can be pointed at a throwaway instance with the `spliit.baseUrl`
- * property the Makefile already passes, which is the only way to exercise "paste a bare ID"
- * against a server that actually has the group. Settings (Part 13) makes this a stored
- * preference; a screen should read it from the state it is given rather than from here, so that
- * change lands in one place.
+ * A `BuildConfig` field rather than a literal, so a build can be pointed at a throwaway instance
+ * with the `spliit.baseUrl` property. Settings overrides it, so a screen should read the value
+ * from the state it is given rather than from here.
  */
 val DEFAULT_INSTANCE_BASE_URL: String = BuildConfig.DEFAULT_INSTANCE_BASE_URL
 
 /**
- * Turns a Spliit instance's address into the base URL shape [RecentGroup][app.spliit.core.RecentGroup]
- * stores it as, and back into something short enough to put in a row.
- *
- * A base URL is compared as a plain string elsewhere in this app (see CLAUDE.md on why
- * `RecentGroup.instanceBaseUrl` is a `String` and not a `java.net.URL`), so the normalisation
- * here, lower-cased scheme and host, a trailing slash, is what keeps two spellings of the same
- * server from quietly becoming two different rows in the groups list.
+ * Turns an instance's address into the base URL shape a stored row holds, and back into something
+ * short enough to put in a row. Those URLs are compared as plain strings, so the normalisation
+ * here is what keeps two spellings of one server from becoming two rows in the list.
  */
 object InstanceAddress {
 

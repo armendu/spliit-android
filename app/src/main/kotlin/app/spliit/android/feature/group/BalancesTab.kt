@@ -7,18 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,9 +25,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySign
 import app.spliit.android.ui.design.MoneySize
@@ -42,15 +38,14 @@ import app.spliit.core.MoneyFormatter
 import kotlin.math.abs
 import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.SectionDivider
+import app.spliit.android.ui.design.SectionHeader
 
 /**
- * The balances tab: the active participant's own standing leads, then every participant's
- * balance, then the suggested payments that would settle the group.
+ * The balances tab: your own standing, then everyone's, then the payments that would settle up.
  *
- * Both [GroupDetailUiState.group] (for currency and the participant roster) and
- * [GroupDetailUiState.balances] have to be in before any of this can be drawn, a participant
- * list without balances is a row of zeroes that reads as "everyone is settled up", which is
- * exactly the wrong thing to show while the real answer is still on the wire.
+ * Both the group and the balances have to be in before any of it draws: a participant list
+ * without balances is a row of zeroes reading as "everyone is settled up".
  */
 @Composable
 internal fun BalancesTab(
@@ -108,14 +103,7 @@ private fun BalancesContent(
     val you = participants.firstOrNull { it.id == state.activeParticipantId }
     val yourBalance = state.yourBalanceMinorUnits()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        // The FAB clearance, plus the navigation-bar inset the app now draws behind, see
-        // ExpensesTab for the reasoning; the two lists have to agree or one of them hides a row.
-        contentPadding = PaddingValues(
-            bottom = fabAndNavigationBarPadding(),
-        ),
-    ) {
+    GroupTabList {
         item(key = "you") {
             YouSection(you = you, yourBalance = yourBalance, formatter = formatter, onIdentify = onIdentify)
             SectionDivider()
@@ -204,27 +192,7 @@ private fun YouSection(you: Participant?, yourBalance: Long?, formatter: MoneyFo
             Spacer(Modifier.height(8.dp))
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .clickable(onClick = onIdentify)
-                .testTag(TestTags.GROUP_DETAIL_YOU_BUTTON)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (you != null) {
-                Monogram(name = you.name, participantId = you.id, size = 28.dp)
-                Spacer(Modifier.width(12.dp))
-            }
-            Text(
-                text = you?.name ?: "Say who you are",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        IdentityRow(you = you, testTag = TestTags.GROUP_DETAIL_YOU_BUTTON, onIdentify = onIdentify)
         if (you == null) {
             Spacer(Modifier.height(6.dp))
             Text(
@@ -316,25 +284,6 @@ private fun ReimbursementRow(
         // an ordinary expense amount is.
         Money(value = formatter.format(reimbursement.amount.toLong()), size = MoneySize.LEAD)
     }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun SectionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(vertical = 12.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
 }
 
 private fun direction(balanceMinorUnits: Long): String = when {

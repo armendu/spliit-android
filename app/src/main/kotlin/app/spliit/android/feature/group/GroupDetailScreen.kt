@@ -89,19 +89,12 @@ private enum class GroupDetailTab(
 /**
  * A single group: its expenses, its balances, its totals and what it is.
  *
- * Four routes lead to the expense form: the add action creates one, a row opens that expense, a
- * suggested payment opens a prefilled settle-up, and an activity row opens the expense it
- * describes if there still is one.
+ * Editing is a sheet, creating and settling up are destinations: an edit is usually one field on
+ * an expense already on screen, so the list is not re-read when it closes, while a create has no
+ * row to preserve. Re-entering a loaded group costs nothing, the effect below calls
+ * `loadIfNeeded`; whatever did change is asked for specifically.
  *
- * Editing is a sheet; creating and settling up are destinations. An edit is usually one field on
- * an expense already on screen, so it happens over the list and the list is not re-read when it
- * closes. A create has no row to preserve.
- *
- * Re-entering a loaded group costs nothing: the effect below calls `loadIfNeeded`, not `load`.
- * Whatever did change is asked for specifically, by the edit sheet, by [onExpensesChanged]'s
- * caller, or by a pull to refresh.
- *
- * @param search whether the top bar is currently a search field. Hoisted so the back handler and
+ * @param search whether the top bar is currently a search field, hoisted so the back handler and
  *   the tab bar can both see it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -119,9 +112,8 @@ fun GroupDetailScreen(
     var showActiveUserPicker by rememberSaveable { mutableStateOf(false) }
     var showActivityLog by rememberSaveable { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
-    // Which expense is being edited, if any, the sheet is state on this screen rather than a
-    // destination of its own, which is what keeps this screen composed underneath it and its
-    // expense list unread. Deliberately not `rememberSaveable`: a sheet restored across process
+    // The sheet is state on this screen rather than a destination, which keeps this screen
+    // composed and its list unread. Not `rememberSaveable`: a sheet restored across process
     // death would come back over a group screen that had reloaded anyway.
     var editingExpenseId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -189,10 +181,8 @@ fun GroupDetailScreen(
             }
         },
         floatingActionButton = {
-            // Only once the group is in: an expense cannot be written without its participants
-            // and its currency, and a FAB that opens a form with nothing in it is worse than one
-            // that arrives a moment later. Suppressed entirely in the bottom-bar layout, where
-            // the same action lives in the top bar, see GroupDetailLayout.
+            // Only once the group is in: an expense needs its participants and currency, and a
+            // FAB opening an empty form is worse than one arriving a moment later.
             if (!GroupDetailLayout.USE_BOTTOM_BAR && groupInfo != null && !state.search.isActive) {
                 SpliitFab(
                     icon = R.drawable.ic_plus,
@@ -203,11 +193,9 @@ fun GroupDetailScreen(
             }
         },
     ) { contentPadding ->
-        // Top and bottom are treated differently on purpose. The bottom of `contentPadding` is
-        // the navigation-bar inset (plus the bottom bar, where there is one); consuming it for
-        // the lists would stop them short of the bar instead of letting them scroll under it, so
-        // each tab adds that inset to its own content padding. The bottom bar itself is the
-        // exception, it is opaque, so its height has to be reserved rather than scrolled under.
+        // Top and bottom differ on purpose: consuming the bottom inset would stop the lists
+        // short of the bar instead of letting them scroll under it, so each tab adds it to its
+        // own content padding. The bottom bar is opaque, so its height is reserved instead.
         val bottomInset = if (GroupDetailLayout.USE_BOTTOM_BAR && !state.search.isActive) {
             contentPadding.calculateBottomPadding()
         } else {
@@ -328,12 +316,9 @@ fun GroupDetailScreen(
 }
 
 /**
- * The web app's own share link, `{instance}/groups/{id}`, which is what makes it open for
- * anyone regardless of platform.
- *
- * [instanceBaseUrl] is stored with a trailing slash in some rows and without in others, so the
- * separator is normalised here rather than assumed. Nothing is escaped: Spliit's IDs are nanoids
- * over `A-Za-z0-9_-`, every character of which is already URL-safe.
+ * The web app's own share link, `{instance}/groups/{id}`, so it opens for anyone on any platform.
+ * The separator is normalised because some stored rows carry a trailing slash and some do not;
+ * nothing is escaped, since Spliit's IDs are nanoids over `A-Za-z0-9_-`.
  */
 internal fun groupShareLink(instanceBaseUrl: String, groupId: String): String =
     "${instanceBaseUrl.trimEnd('/')}/groups/$groupId"
@@ -468,13 +453,9 @@ private fun GroupTopBar(
 }
 
 /**
- * Material's own tab row, not a hand-drawn one: it brings the sliding indicator,
- * `selectableGroup()` semantics so TalkBack says "tab 1 of 4", touch targets and keyboard
- * traversal.
- *
- * Scrollable rather than fixed because the fixed row divides the width equally and clipped
- * "Information" at the default font size on a Pixel 8. Colours are the theme's; DESIGN.md names
- * no override for tabs.
+ * Material's own tab row, which brings the indicator, `selectableGroup()` semantics, touch
+ * targets and keyboard traversal. Scrollable rather than fixed: the fixed row divides the width
+ * equally and clipped "Information" at the default font size on a Pixel 8.
  */
 @Composable
 private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab) -> Unit) {
@@ -493,15 +474,11 @@ private fun GroupDetailTabs(selected: GroupDetailTab, onSelect: (GroupDetailTab)
 }
 
 /**
- * The same four tabs at the bottom. Icons are required here: a `NavigationBar` item reserves the
- * icon slot whether or not one is supplied.
+ * The same four tabs at the bottom. Icons are required: a `NavigationBar` item reserves the slot
+ * whether or not one is supplied.
  *
- * Transparent, not `surfaceContainer`: M3's default is a tone lighter than the background and
- * drew the bar as a pale band with the system nav area below it in a third shade. Transparent
- * lets one background run to the bottom of the display.
- *
- * Nothing scrolls underneath, since `Scaffold` hands this bar's height to the content as
- * padding. The selected item's `secondaryContainer` pill is what marks the current tab.
+ * Transparent, not `surfaceContainer`, whose lighter tone drew the bar as a pale band with the
+ * system nav area below it in a third shade.
  */
 @Composable
 private fun GroupBottomBar(selected: GroupDetailTab, onSelect: (GroupDetailTab) -> Unit) {

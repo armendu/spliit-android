@@ -54,11 +54,25 @@ fun groupInfoOf(group: app.spliit.api.Group, instanceBaseUrl: String): GroupInfo
 )
 
 
+/**
+ * One page of a list the server pages by offset cursor.
+ *
+ * Both lists here can be written to between pages, so a page can repeat a row already held;
+ * [items] is what the de-duplication in `loadNextPage` reads.
+ */
+interface CursorPage<T> {
+    val items: List<T>
+    val hasMore: Boolean
+    val nextCursor: Int
+}
+
 data class ExpensesPage(
     val expenses: List<ExpenseListItem>,
-    val hasMore: Boolean,
-    val nextCursor: Int,
-)
+    override val hasMore: Boolean,
+    override val nextCursor: Int,
+) : CursorPage<ExpenseListItem> {
+    override val items: List<ExpenseListItem> get() = expenses
+}
 
 /**
  * The balances tab's answer, with `paid`/`paidFor` discarded. They are derived from the
@@ -92,9 +106,11 @@ data class StatsInfo(
 /** One page of the activity log, newest first, the same offset-cursor shape as [ExpensesPage]. */
 data class ActivitiesPage(
     val activities: List<Activity>,
-    val hasMore: Boolean,
-    val nextCursor: Int,
-)
+    override val hasMore: Boolean,
+    override val nextCursor: Int,
+) : CursorPage<Activity> {
+    override val items: List<Activity> get() = activities
+}
 
 /**
  * The search field's state, kept beside the expense list rather than narrowing it. The server
@@ -153,12 +169,9 @@ fun bucketExpenses(expenses: List<ExpenseListItem>, clock: Clock = Clock.systemD
 /**
  * [item] placed in [expenses] by date, newest first.
  *
- * A row whose date did not change does not move at all. Dates are whole days, so rows share
- * them, and their order within a day is the server's by creation: inserting by date alone
- * shuffled an edited row to the end of its own day, which looks like the list reloading.
- *
- * Otherwise the old copy goes and the new one is inserted before the first older row. An undone
- * delete comes back under a new ID and lands the same way.
+ * A row whose date did not change does not move at all: dates are whole days, so rows share
+ * them, and inserting by date alone shuffled an edited row to the end of its own day, which
+ * looks like the list reloading. Otherwise the old copy goes and the new one takes its place.
  */
 fun placed(expenses: List<ExpenseListItem>, item: ExpenseListItem): List<ExpenseListItem> {
     val current = expenses.indexOfFirst { it.id == item.id }

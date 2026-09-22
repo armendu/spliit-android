@@ -20,15 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 
 /**
- * The app's floating action button, defined once so a third one cannot drift into a different
- * green.
+ * The app's floating action button, defined once so a third cannot drift into a different green:
+ * M3 defaults to `primaryContainer`, a tone this theme never tunes, and the two FABs were
+ * visibly different until both came through here.
  *
- * `primary` on `onPrimary`, per DESIGN.md §1. M3's default is `primaryContainer`, a tone this
- * theme never tunes, so the two FABs were visibly different greens until both came through here.
- *
- * Circular and icon-only, not M3's extended pill: both FABs mean "add the obvious thing to this
- * list". Dropping the label costs the screen reader its only text, so [contentDescription] and a
- * long-press tooltip carrying the same words are required, not optional.
+ * Icon-only, so [contentDescription] and its tooltip are the screen reader's only text.
  *
  * @param contentDescription what the button does, as a sentence: "Add expense", not "plus".
  */

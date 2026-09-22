@@ -63,12 +63,9 @@ public class TrpcProcedure<I, O> private constructor(
 }
 
 /**
- * Input for a procedure that takes none.
- *
- * [TrpcClient] recognizes this singleton by reference and, for a [TrpcProcedure.Kind.Query],
- * omits the `input` query parameter entirely rather than sending an encoded null, the two are
- * different requests to a tRPC router. A [TrpcProcedure.Kind.Mutation] still needs a body, so it
- * sends this encoded as `{"json":null}` the same as any other input would be.
+ * Input for a procedure that takes none. [TrpcClient] recognises this singleton by reference and
+ * omits the `input` parameter entirely on a query, rather than sending an encoded null, which is
+ * a different request to a tRPC router. A mutation still needs a body, so it sends `{"json":null}`.
  */
 @Serializable(with = NoInputSerializer::class)
 public object NoInput

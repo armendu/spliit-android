@@ -18,7 +18,6 @@ import java.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -232,34 +231,52 @@ class GroupDetailViewModel(
     }
 
     /** The next offset-cursor page. Public so tests can drive it without a Main dispatcher. */
-    suspend fun loadNextExpensesPage() {
-        val current = (_state.value.expenses as? LoadState.Loaded)?.value ?: return
-        if (!current.hasMore || _state.value.isLoadingMoreExpenses) return
+    suspend fun loadNextExpensesPage(): Unit = loadNextPage(
+        current = (_state.value.expenses as? LoadState.Loaded)?.value,
+        isLoading = _state.value.isLoadingMoreExpenses,
+        idOf = { it.id },
+        setLoading = { loading -> _state.update { it.copy(isLoadingMoreExpenses = loading) } },
+        fetch = { client, cursor ->
+            val response = client.call(SpliitEndpoints.expensesList(groupId, cursor, PAGE_SIZE))
+            ExpensesPage(response.expenses, response.hasMore, response.nextCursor)
+        },
+        onPage = { items, hasMore, cursor ->
+            _state.update { it.copy(expenses = LoadState.Loaded(ExpensesPage(items, hasMore, cursor))) }
+        },
+    )
+
+    /**
+     * One page of a cursor-paged list, for both lists that have one.
+     *
+     * Two things here are easy to get wrong separately and were: the loading flag has to clear
+     * on *every* way out, including the failures, or the footer spinner never stops; and a page
+     * can repeat rows, because both lists can be written to between requests, the activity log
+     * at the top and the expense list anywhere. A failure leaves what is on screen alone and
+     * stops trying until something asks again.
+     */
+    private suspend fun <T> loadNextPage(
+        current: CursorPage<T>?,
+        isLoading: Boolean,
+        idOf: (T) -> String,
+        setLoading: (Boolean) -> Unit,
+        fetch: suspend (TrpcClient, Int) -> CursorPage<T>,
+        onPage: (items: List<T>, hasMore: Boolean, nextCursor: Int) -> Unit,
+    ) {
+        if (current == null || !current.hasMore || isLoading) return
         val baseUrl = resolvedInstanceBaseUrl ?: return
 
-        _state.update { it.copy(isLoadingMoreExpenses = true) }
+        setLoading(true)
         try {
-            val client = clientFactory(baseUrl)
-            val response = client.call(
-                SpliitEndpoints.expensesList(groupId, cursor = current.nextCursor, limit = PAGE_SIZE),
-            )
-            // Guards a duplicate page if an expense was added while paging, same as the iOS list.
-            val known = current.expenses.mapTo(HashSet()) { it.id }
-            val merged = current.expenses + response.expenses.filterNot { it.id in known }
-            _state.update {
-                it.copy(
-                    expenses = LoadState.Loaded(ExpensesPage(merged, response.hasMore, response.nextCursor)),
-                    isLoadingMoreExpenses = false,
-                )
-            }
+            val fetched = fetch(clientFactory(baseUrl), current.nextCursor)
+            val known = current.items.mapTo(HashSet(), idOf)
+            val merged = current.items + fetched.items.filterNot { idOf(it) in known }
+            onPage(merged, fetched.hasMore, fetched.nextCursor)
         } catch (e: CancellationException) {
-            _state.update { it.copy(isLoadingMoreExpenses = false) }
             throw e
-        } catch (e: TrpcServerError) {
-            // A paging failure leaves what is on screen; the row stops trying until a retry.
-            _state.update { it.copy(isLoadingMoreExpenses = false) }
-        } catch (e: TrpcClientError) {
-            _state.update { it.copy(isLoadingMoreExpenses = false) }
+        } catch (e: TrpcException) {
+            // Deliberately silent: the rows already drawn are still correct.
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -285,13 +302,9 @@ class GroupDetailViewModel(
 
     // ---- what the edit sheet writes back ------------------------------------------------------
     //
-    // The expense form used to be a destination: the NavHost dropped this screen while it was up,
-    // and `LaunchedEffect(Unit) { load() }` re-read the group, the whole first page of expenses
-    // and the balances on the way back. Editing is now a sheet drawn *over* this screen, which
-    // stays composed, so nothing re-runs on its own, and the three entry points below are what
-    // put the result back. None of them calls `groups.expenses.list`: the list keeps its scroll
-    // position, its paged-in rows and its skeleton-free state, and only what actually changed is
-    // read again.
+    // Editing is a sheet over this screen, so nothing re-runs on its own and the three entry
+    // points below put the result back. None of them calls `groups.expenses.list`: the list keeps
+    // its scroll position and its paged-in rows, and only what changed is read again.
 
     /**
      * One expense was written: put the row back where it belongs and recompute the balances.
@@ -410,10 +423,8 @@ class GroupDetailViewModel(
             client.call(SpliitEndpoints.expensesGet(groupId, expenseId)).expense
         } catch (e: CancellationException) {
             throw e
-        } catch (e: TrpcServerError) {
+        } catch (e: TrpcException) {
             // The write went through; only the row failed to catch up.
-            return
-        } catch (e: TrpcClientError) {
             return
         }
         val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
@@ -450,25 +461,30 @@ class GroupDetailViewModel(
      * activity log can name anybody with.
      */
     fun selectActiveParticipant(participantId: String?) {
-        viewModelScope.launch {
-            val snapshot = try {
-                recentGroupsStore.load()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                return@launch
-            }
-            val updated = snapshot.settingParticipantId(groupId, participantId)
-            recentGroupsStore.save(updated)
+        viewModelScope.launch { applyActiveParticipant(participantId) }
+    }
 
-            val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
-            val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
-            _state.update { it.copy(activeParticipantId = actorId) }
-
-            // Two of the totals are this participant's, so the answer changes with them.
-            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
-            if (statsRequested) loadStats(clientFactory(baseUrl), actorId)
+    /** The work behind [selectActiveParticipant]. Public for the same reason the other suspend
+     *  functions here are: `viewModelScope` dispatches on Main, which the JVM suites do not
+     *  install, so anything inside the launcher is beyond a test's reach. */
+    suspend fun applyActiveParticipant(participantId: String?) {
+        val snapshot = try {
+            recentGroupsStore.load()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return
         }
+        val updated = snapshot.settingParticipantId(groupId, participantId)
+        recentGroupsStore.save(updated)
+
+        val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
+        val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
+        _state.update { it.copy(activeParticipantId = actorId) }
+
+        // Two of the totals are this participant's, so the answer changes with them.
+        val baseUrl = resolvedInstanceBaseUrl ?: return
+        if (statsRequested) loadStats(clientFactory(baseUrl), actorId)
     }
 
     // ---- the totals tab ----------------------------------------------------------------------
@@ -613,40 +629,21 @@ class GroupDetailViewModel(
     }
 
     /** Public for the same reason as [loadNextExpensesPage]. */
-    suspend fun loadNextActivitiesPage() {
-        val current = (_state.value.activities as? LoadState.Loaded)?.value ?: return
-        if (!current.hasMore || _state.value.isLoadingMoreActivities) return
-        val baseUrl = resolvedInstanceBaseUrl ?: return
-
-        _state.update { it.copy(isLoadingMoreActivities = true) }
-        try {
-            val response = clientFactory(baseUrl).call(
-                SpliitEndpoints.activitiesList(groupId, cursor = current.nextCursor, limit = PAGE_SIZE),
-            )
-            // The log grows at the *top*, so a page fetched after something new was recorded
-            // repeats a row rather than skipping one. Same guard as the expense list.
-            val known = current.activities.mapTo(HashSet()) { it.id }
-            val merged = current.activities + response.activities.filterNot { it.id in known }
-            _state.update {
-                it.copy(
-                    activities = LoadState.Loaded(
-                        ActivitiesPage(merged, response.hasMore, response.nextCursor),
-                    ),
-                    isLoadingMoreActivities = false,
-                )
-            }
-        } catch (e: CancellationException) {
-            _state.update { it.copy(isLoadingMoreActivities = false) }
-            throw e
-        } catch (e: TrpcException) {
-            _state.update { it.copy(isLoadingMoreActivities = false) }
-        }
-    }
+    suspend fun loadNextActivitiesPage(): Unit = loadNextPage(
+        current = (_state.value.activities as? LoadState.Loaded)?.value,
+        isLoading = _state.value.isLoadingMoreActivities,
+        idOf = { it.id },
+        setLoading = { loading -> _state.update { it.copy(isLoadingMoreActivities = loading) } },
+        fetch = { client, cursor ->
+            val response = client.call(SpliitEndpoints.activitiesList(groupId, cursor, PAGE_SIZE))
+            ActivitiesPage(response.activities, response.hasMore, response.nextCursor)
+        },
+        onPage = { items, hasMore, cursor ->
+            _state.update { it.copy(activities = LoadState.Loaded(ActivitiesPage(items, hasMore, cursor))) }
+        },
+    )
 
     // ---- search ------------------------------------------------------------------------------
-
-    /** The in-flight search, cancelled by the next keystroke. Holding the job is what makes the
-     *  delay in [runSearch] a debounce: only the last one ever survives it. */
 
     // The search field owns its own state slice and its own debounce job; see [ExpenseSearch].
     // These three stay as delegates because the screen and the tests both call them by name.

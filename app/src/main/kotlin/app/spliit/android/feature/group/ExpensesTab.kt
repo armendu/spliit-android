@@ -31,7 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.spliit.android.feature.groups.SkeletonBlock
+import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
@@ -122,14 +122,9 @@ private fun ExpensesList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // The extended FAB floats over the bottom of this list, so the last row needs room to
-        // scroll clear of it, 16dp margin + 56dp FAB + 16dp breathing space. Without it the
-        // final expense of a group is permanently half-covered, which is exactly the row someone
-        // scrolled down to read.
-        //
-        // Plus the navigation-bar inset, *on top of* that clearance rather than instead of it:
-        // the app draws behind the bar (MainActivity), so the list scrolls under it and the last
-        // row would otherwise end up beneath the gesture handle.
+        // The FAB floats over this list, so the last row needs room to clear it, and the
+        // navigation-bar inset goes *on top of* that clearance rather than instead of it: the
+        // app draws behind the bar, so the list scrolls under it.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -175,10 +170,8 @@ internal fun ExpenseRow(
     onClick: () -> Unit,
 ) {
     Row(
-        // The whole row is the target, not the title within it: a 56dp row that only responds
-        // where the text happens to end is a row most taps miss. Note the tags beneath this one
-        // are now inside a merging clickable, TestTags' own note 2, so Part 14's finders need
-        // `useUnmergedTree = true` to reach them.
+        // The whole row is the target, not the title within it. That makes this a merging
+        // clickable, so finders need `useUnmergedTree = true` to reach the tags beneath it.
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
@@ -200,14 +193,9 @@ internal fun ExpenseRow(
                 modifier = Modifier.testTag(TestTags.expenseRowTitle(expense.id)),
             )
             Spacer(Modifier.height(2.dp))
-            // Two facts, two lines. Run together as "Paid by Ana for Ana, Bruno and Chloé" the
-            // *second* one truncates first at row width, and that is the half somebody is
-            // checking. The payer takes the smaller label style and the split takes body, so the
-            // extra line reads as a subordinate detail rather than adding a third equal-weight
-            // line to every row in the list.
-            //
-            // Merged, because two Texts in a column are two fragments to a screen reader. The
-            // pair announces the one sentence it used to be.
+            // Two facts, two lines: run together, the *second* truncates first at row width,
+            // and that is the half somebody is checking. Merged for semantics, because two Texts
+            // in a column are two fragments to a screen reader.
             Column(
                 modifier = Modifier
                     .semantics(mergeDescendants = true) {
@@ -237,10 +225,8 @@ internal fun ExpenseRow(
         }
 
         Column(horizontalAlignment = Alignment.End) {
-            // `primary`, not the surrounding text colour, DESIGN.md §4. An expense amount still
-            // carries no *direction*, and never takes the ledger axis; the brand green is a
-            // different token doing a different job, which is "this is the number you came to
-            // read". See MoneySign.EXPENSE for what that trade costs.
+            // `primary`, not the surrounding text colour: an expense carries no direction and
+            // never takes the ledger axis. See MoneySign.EXPENSE for what that trade costs.
             Money(
                 value = formatter.format(expense.amount.toLong()),
                 size = MoneySize.ROW,
