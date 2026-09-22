@@ -17,6 +17,17 @@ phone just keeps a list of the groups you have opened.
 
 Grab the `.apk`, open it on your phone, and allow installing from that source when Android asks.
 
+Every release ships a checksum, and a signed attestation saying which workflow run built it:
+
+```sh
+sha256sum -c spliit-0.1.0.apk.sha256
+gh attestation verify spliit-0.1.0.apk --repo armendu/spliit-android
+```
+
+One APK, not one per ABI. Per-ABI splits pay off when an app bundles large native libraries;
+here the only `.so` files come from AndroidX and total 73 KB across all four ABIs of a 10 MB
+APK, so splitting would mean choosing between five downloads to save half a percent.
+
 Want a build of something that isn't released yet? Every push to `master` and every pull
 request produces one: open the run under [Actions](../../actions/workflows/ci.yml) and the APK
 is attached at the bottom of the page.
@@ -78,8 +89,12 @@ git push origin v0.1.0
 ```
 
 That runs [`release.yml`](.github/workflows/release.yml), which checks the tag matches
-`appVersionName`, runs the tests, builds the APK and publishes it to
-[Releases](../../releases). Nothing needs a machine of yours.
+`appVersionName`, runs the tests and the linter, builds the APK, attests where it came from and
+publishes it to [Releases](../../releases). Nothing needs a machine of yours.
+
+Write what changed in `fastlane/metadata/android/en-US/changelogs/<appVersionCode>.txt` first:
+the release notes lead with it. That path is F-Droid's convention, so the same file would serve
+a listing there without being written twice.
 
 ### Signing
 

@@ -1,0 +1,8 @@
+The first release.
+
+Groups, expenses and balances, with totals, an activity log and per-group
+information. Search covers a whole group rather than the pages loaded so far.
+Groups can be shared by link and edited in place.
+
+Works against spliit.app or any instance you host yourself. No account needed:
+a group is reachable by its link and nothing else.

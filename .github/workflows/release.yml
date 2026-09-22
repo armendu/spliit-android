@@ -1,14 +1,15 @@
 # Cutting a release: a tag in, a downloadable APK out.
 #
 # Trigger it by pushing an annotated tag whose name is `v` plus the version in
-# gradle/libs.versions.toml, `git tag -a v0.1.0 -m '…' && git push origin v0.1.0`. The job
-# below refuses to build if those two disagree, because the failure it prevents is silent: a
-# release page saying v0.2.0 whose APK reports 0.1.0 under Settings > Apps, and no way to tell
-# which is wrong six months later.
+# gradle/libs.versions.toml. The job below refuses to build if those two disagree, because the
+# failure it prevents is silent: a release page saying v0.2.0 whose APK reports 0.1.0.
 #
 # `workflow_dispatch` is here for re-running a release whose upload failed after the build
 # succeeded. It builds from whatever ref you choose and does not create a release; the APK comes
 # out as a workflow artifact instead.
+#
+# Actions are pinned to commit SHAs rather than to tags. A tag is mutable, so `@v4` is a promise
+# that whoever owns the action can rewrite, and this workflow holds a signing key.
 name: Release
 
 on:
@@ -17,27 +18,34 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# The default GITHUB_TOKEN is read-only on this repository's settings. Creating a release needs
-# write, and this is scoped to the one job rather than the workflow's default.
 permissions:
+  # Creating a release.
   contents: write
+  # The two below are what `attest-build-provenance` needs to sign the attestation: an OIDC
+  # token identifying this workflow run, and permission to record the result.
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # Identical to ci.yml's, and for the same reasons, see the long note there about why the
-      # platform is installed explicitly and why cmdline-tools is pinned to 20.0.
-      - uses: android-actions/setup-android@v4
+      # Identical to ci.yml's, and for the same reasons: see the long note there about why the
+      # platform is installed explicitly and why cmdline-tools is pinned.
+      - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
           cmdline-tools-version: 14742923
           packages: 'platform-tools platforms;android-37.1 build-tools;37.0.0'
@@ -50,8 +58,6 @@ jobs:
             exit 1
           }
 
-      # Read once, here, and reused by every step below, so "what version is this?" has one
-      # answer in this workflow too, not one per step.
       - name: Read the version the build will stamp
         id: version
         run: |
@@ -63,7 +69,6 @@ jobs:
           fi
           echo "name=$version" >> "$GITHUB_OUTPUT"
           echo "code=$code" >> "$GITHUB_OUTPUT"
-          echo "Building $version ($code)"
 
       - name: Check the tag and the version agree
         if: startsWith(github.ref, 'refs/tags/v')
@@ -76,14 +81,12 @@ jobs:
             exit 1
           fi
 
-      # The suite runs before anything is published. A release is the one build where "the tests
-      # were green on main" is not a good enough answer.
+      # A release is the one build where "it was green on main" is not good enough.
       - run: make test
       - run: make lint
 
       # Present only when the four secrets are configured. Absent, the build falls back to the
-      # debug key, see app/build.gradle.kts for what that costs, and the release notes below
-      # say so plainly rather than letting somebody assume otherwise.
+      # debug key, and the release notes say so.
       - name: Decode the signing keystore, if one is configured
         id: signing
         env:
@@ -105,58 +108,88 @@ jobs:
           SPLIIT_KEY_PASSWORD: ${{ secrets.SPLIIT_KEY_PASSWORD }}
         run: make apk-release
 
-      # Named for the version rather than left as app-release.apk, so a download sitting in
-      # somebody's folder still says what it is.
-      - name: Name the APK after the version
+      # One APK, not one per ABI. Splits pay off when an app bundles large native libraries,
+      # which is why Mihon and Seal use them. Measured here: the only `.so` files come from
+      # AndroidX and total 73 KB across all four ABIs of a 10 MB APK, so a split would ask people
+      # to pick between five downloads to save half a percent. Revisit if that ratio changes.
+      - name: Name the APK after the version, and check it
         id: apk
         run: |
+          set -e
           out="spliit-${{ steps.version.outputs.name }}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$out"
-          sha=$(sha256sum "$out" | cut -d' ' -f1)
+          sha256sum "$out" > "$out.sha256"
           echo "path=$out" >> "$GITHUB_OUTPUT"
-          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(cut -d' ' -f1 < "$out.sha256")" >> "$GITHUB_OUTPUT"
 
-      # Always uploaded, tag or not, this is what makes a manual run useful.
-      - uses: actions/upload-artifact@v4
+      # Lets anyone verify this APK was built by this workflow, from this repository, at this
+      # commit: `gh attestation verify spliit-<version>.apk --repo armendu/spliit-android`.
+      # A checksum only says a file is unchanged; this says where it came from.
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.apk.outputs.path }}
+
+      # Always uploaded, tag or not, which is what makes a manual run useful.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.apk.outputs.path }}
-          path: ${{ steps.apk.outputs.path }}
+          path: |
+            ${{ steps.apk.outputs.path }}
+            ${{ steps.apk.outputs.path }}.sha256
           if-no-files-found: error
 
-      # `gh` rather than a third-party release action: it is already on the runner, it is the
-      # tool the repo's own house rule about dependencies would pick, and there is nothing here
-      # an action would do for us that one command does not.
+      # `gh` rather than a third-party release action: it is already on the runner, and there is
+      # nothing here one command does not do.
       - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
           SIGNED: ${{ steps.signing.outputs.signed }}
+          VERSION: ${{ steps.version.outputs.name }}
+          CODE: ${{ steps.version.outputs.code }}
+          APK: ${{ steps.apk.outputs.path }}
+          SHA256: ${{ steps.apk.outputs.sha256 }}
         run: |
+          set -e
           notes="$RUNNER_TEMP/notes.md"
+
+          # What changed, from the per-version changelog if this release has one. The path is
+          # F-Droid's own convention (fastlane/metadata/android/en-US/changelogs/<versionCode>),
+          # so the same file serves a future F-Droid listing and this release page, and is
+          # written by a person rather than derived from commit subjects.
+          changelog="fastlane/metadata/android/en-US/changelogs/$CODE.txt"
+          if [ -f "$changelog" ]; then
+            cat "$changelog" >> "$notes"
+            printf '\n\n' >> "$notes"
+          fi
+
           {
-            echo "Spliit for Android ${{ steps.version.outputs.name }} (build ${{ steps.version.outputs.code }})."
+            echo "### Install"
             echo
-            echo "Download \`${{ steps.apk.outputs.path }}\` below and open it on the device."
-            echo "Android will ask you to allow installing from this source the first time."
+            echo "Download \`$APK\` below and open it on the device. Android will ask you to"
+            echo "allow installing from this source the first time."
             echo
             if [ "$SIGNED" != "true" ]; then
-              echo "> **This build is signed with a debug key.** It installs and runs, but Android"
-              echo "> identifies an app by its signature, so it cannot upgrade a copy installed from"
-              echo "> a differently-signed build, uninstall the old one first. Configure the"
+              echo "> [!WARNING]"
+              echo "> This build is signed with a debug key. It installs and runs, but Android"
+              echo "> identifies an app by its signature, so it cannot upgrade a copy installed"
+              echo "> from a differently-signed build: uninstall the old one first. Set the"
               echo "> \`SPLIIT_KEYSTORE_*\` repository secrets to publish properly signed releases."
               echo
             fi
-            echo "SHA-256: \`${{ steps.apk.outputs.sha256 }}\`"
-          } > "$notes"
+            echo "### Verify"
+            echo
+            echo '```sh'
+            echo "sha256sum -c $APK.sha256"
+            echo "gh attestation verify $APK --repo $GITHUB_REPOSITORY"
+            echo '```'
+            echo
+            echo "SHA-256: \`$SHA256\`"
+          } >> "$notes"
 
-          # Published as a normal release, not a pre-release, even when it carries the debug
-          # key: this is the build people are meant to download, and burying it under
-          # "Pre-release" while it is the only one there hides the thing the tag exists to
-          # publish. The notes above say plainly what the signature is; that is the honest
-          # place for the caveat, rather than a label that also changes where the release
-          # appears.
           gh release create "${GITHUB_REF#refs/tags/}" \
-            "${{ steps.apk.outputs.path }}" \
-            --title "Spliit for Android ${{ steps.version.outputs.name }}" \
+            "$APK" "$APK.sha256" \
+            --title "Spliit for Android $VERSION" \
             --notes-file "$notes" \
             --latest
