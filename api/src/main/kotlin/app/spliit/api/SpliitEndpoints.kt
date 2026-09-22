@@ -9,8 +9,7 @@ import kotlinx.serialization.Serializable
  * val response = client.call(SpliitEndpoints.groupsGet(groupId = "abc"))
  * ```
  *
- * Every response wrapper type lives here rather than in `Models.kt`, Part 4 owns the endpoint
- * surface, and Part 3 owns only what is inside these wrappers.
+ * Response wrappers live here; `Models.kt` owns what is inside them.
  */
 public object SpliitEndpoints {
 
@@ -23,12 +22,9 @@ public object SpliitEndpoints {
     public data class GroupsListResponse(public val groups: List<GroupSummary>)
 
     /**
-     * Fetches the groups behind a set of IDs.
-     *
-     * Deliberately not a no-input procedure: the server answers `BAD_REQUEST` when this is
-     * called without an input object at all, so [groupIds] is a required parameter rather than
-     * one defaulting to an empty list. Unknown IDs are silently absent from the result, which is
-     * how a group deleted server-side shows up.
+     * Fetches the groups behind a set of IDs. Not a no-input procedure: the server answers
+     * `BAD_REQUEST` without an input object. Unknown IDs are silently absent, which is how a
+     * server-side deletion shows up.
      */
     public fun groupsList(groupIds: List<String>): TrpcProcedure<GroupsListInput, GroupsListResponse> =
         TrpcProcedure.query(
@@ -89,13 +85,8 @@ public object SpliitEndpoints {
         public val participantId: String? = null,
     )
 
-    /**
-     * [participantId] is who the activity log should credit this change to, the *only* thing
-     * that lets it say more than "Someone". It is optional on the server and defaults to null
-     * here too, so a caller has to actively decide to leave it out rather than discover, later,
-     * that it never set it. (Resolving who the actor actually is is Part 8's job; this only
-     * carries the value.)
-     */
+    /** [participantId] is who the activity log credits, and the only thing that lets it say
+     *  more than "Someone". Optional on the server, so it is easy to forget. */
     public fun groupsUpdate(
         groupId: String,
         values: GroupFormValues,
@@ -242,16 +233,12 @@ public object SpliitEndpoints {
 
     // ---- Stats -----------------------------------------------------------------------------
     //
-    // Two procedure names exist in the wild. `groups.stats.overview` folded the whole totals
-    // page, spending by month, by participant, by category, plus recurring subscriptions -
-    // into one query, and upstream **deleted** the old `groups.stats.get` rather than keep it
-    // beside the new name. Every published image is still, for now, one of the instances that
-    // predates the rename: spliit.app runs ahead of what the self-hosted world installs. So
-    // `statsGet` below is not dead code, and asking only `statsOverview` is exactly the mistake
-    // that shipped a polite, wrong "this server has no totals" to everyone on spliit.app.
+    // Two procedure names exist in the wild: upstream deleted `groups.stats.get` when it added
+    // `groups.stats.overview`, and published images still predate the rename. `statsGet` is
+    // therefore not dead code, and asking only the new name is what shipped a wrong "this server
+    // has no totals" to everyone on spliit.app.
     //
-    // Ask through the `TrpcClient.groupStats` extension at the bottom of this file, which knows
-    // both names, rather than reaching for either procedure directly.
+    // Ask through the `TrpcClient.groupStats` extension below, which knows both names.
 
     @Serializable
     public data class GroupStatsInput(
@@ -260,13 +247,8 @@ public object SpliitEndpoints {
         public val participantId: String? = null,
     )
 
-    /**
-     * The only endpoint that knows what anybody actually paid.
-     *
-     * `groups.balances.list` looks like it does and does not: its `paid` and `paidFor` are
-     * derived from the suggested payments rather than from the expenses. These three figures are
-     * summed over the expenses themselves.
-     */
+    /** The only endpoint that knows what anybody actually paid. `groups.balances.list` looks
+     *  like it does: its `paid`/`paidFor` come from suggested payments, not expenses. */
     @Serializable
     public data class GroupStatsResponse(
         /** Minor units. Negative when the group has taken in more than it has spent. */
@@ -274,15 +256,10 @@ public object SpliitEndpoints {
         /** Minor units, this participant's own spending. Absent when the request named nobody. */
         public val totalParticipantSpendings: Int? = null,
         /**
-         * **The one amount in the API that is not an integer**, and it has to stay floating even
-         * though today's server sends a whole number.
-         *
-         * Until the web app's *Shares* change, an evenly split expense was divided in
-         * floating-point and the sum rounded to two decimals, a third of 42.50 across three
-         * people summed to `1416.67`. An instance that predates the change still sends that.
-         * Typing this as `Int` throws and takes the whole totals screen down with it, against a
-         * real server, for a subset of self-hosted users. Round on the way to the display, never
-         * on the way in. Absent when the request named nobody.
+         * The one amount in the API that is not an integer, and it stays floating even though
+         * today's server sends a whole number: instances predating the *Shares* change send
+         * `1416.67`. Typed as `Int` this throws and takes the totals screen with it. Round on
+         * the way to the display, never on the way in.
          */
         public val totalParticipantShare: Double? = null,
         /**
@@ -297,13 +274,9 @@ public object SpliitEndpoints {
     )
 
     /**
-     * The group's spending described rather than merely totalled, `summary` on the overview
-     * payload.
-     *
-     * [firstDate] and [lastDate] are plain `YYYY-MM-DD` strings on the wire, **not** superjson
-     * `Date`s: the envelope's `meta.values` annotates neither, and declaring them `Instant` would
-     * ask the contextual instant decoder to read a date-only string. They are dates without a
-     * time and are carried as what they are.
+     * The group's spending described rather than totalled. [firstDate] and [lastDate] are plain
+     * `YYYY-MM-DD` strings, not superjson `Date`s: nothing annotates them, and `Instant` would
+     * ask the contextual decoder to read a date-only string.
      */
     @Serializable
     public data class StatsSummary(
@@ -324,13 +297,8 @@ public object SpliitEndpoints {
         public val amount: Int? = null,
     )
 
-    /**
-     * One category's share of the group's spending.
-     *
-     * [grouping] rather than [name] is what picks the glyph, the same top-level key the web app
-     * and [ExpenseCategory] already key on, a category the server has invented since this client
-     * shipped still lands on a sensible icon rather than none.
-     */
+    /** One category's share of the group's spending. [grouping], not [name], picks the glyph,
+     *  so a category invented after this shipped still lands on a sensible icon. */
     @Serializable
     public data class CategoryTotal(
         public val categoryId: Int,
@@ -413,16 +381,13 @@ public object SpliitEndpoints {
 /**
  * The group's totals, from whichever of the two stats procedures this instance answers.
  *
- * `groups.stats.overview` first, because that's the name the instance most people are on
- * answers to. An instance that predates the rename answers that with `NOT_FOUND` naming the
- * missing route, [TrpcServerError.isUnknownProcedure], which is the signal to ask the old
- * name instead. An instance that answers neither genuinely has no stats, and the second
- * `NOT_FOUND` propagates so a screen can say so rather than offer a retry that can never work.
+ * `groups.stats.overview` first. An older instance answers `NOT_FOUND` naming the missing route
+ * ([TrpcServerError.isUnknownProcedure]), which is the signal to ask the old name. One that
+ * answers neither has no stats, and the second `NOT_FOUND` propagates so a screen can say so
+ * rather than retry forever.
  *
- * Which name an instance answers is deliberately not remembered anywhere. A [TrpcClient] is
- * built per request, so the answer would have to be cached per instance and invalidated the
- * moment a server is upgraded underneath it, for a return of, at most, one avoided 404, and
- * only on the instances that are already behind.
+ * Which name an instance answers is not cached: a [TrpcClient] is per request, and the cache
+ * would need invalidating on every server upgrade to save one 404.
  */
 public suspend fun TrpcClient.groupStats(
     groupId: String,

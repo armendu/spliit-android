@@ -31,33 +31,20 @@ import java.util.Locale
 // [MinorUnits] is the only place the two widths meet.
 
 /**
- * The one place minor units change width between `:core` and `:api`.
- *
- * `:api` owns [Int], it is the wire's type, and the server's. `:core` owns [Long] for the
- * reason given at the top of this file. Everything that crosses does so here: the draft takes
- * wire-width values in [ExpenseFormDraft.ExistingExpense] and hands them back in
- * [ExpenseSubmission.Wire], and `:app` copies those straight into `ExpenseFormValues`.
+ * The one place minor units change width between `:core` ([Long]) and `:api` ([Int]). Inbound
+ * through [ExpenseFormDraft.ExistingExpense], outbound through [ExpenseSubmission.Wire].
  */
 public object MinorUnits {
     /** Widening, which never fails. */
     public fun fromWire(amount: Int): Long = amount.toLong()
 
-    /**
-     * Narrowing, which can. It throws rather than wrapping: a silently negative amount is the
-     * kind of bug this whole module exists to avoid, and validation already caps an expense at
-     * [ExpenseFormDraft.MAX_AMOUNT_MINOR_UNITS], well inside an [Int], so reaching the throw
-     * means something upstream is already wrong.
-     */
+    /** Narrowing, which can overflow. Throws rather than wrapping: validation already caps an
+     *  expense well inside an [Int], so reaching this means something upstream is wrong. */
     public fun toWire(amount: Long): Int = Math.toIntExact(amount)
 }
 
-/**
- * How an expense divides between the people it was paid for.
- *
- * `:core`'s own, deliberately not `:api`'s: this module does not depend on the wire models, see
- * CLAUDE.md, and the split maths is about amounts and participants. `:app` maps the two, which
- * is a `when` over four entries that the compiler checks.
- */
+/** How an expense divides. `:core`'s own, not `:api`'s: this module does not depend on wire
+ *  models. `:app` maps the two with a `when` the compiler checks. */
 public enum class SplitMode {
     EVENLY,
     BY_SHARES,
@@ -353,12 +340,9 @@ public data class ExpenseFormDraft(
     }
 
     /**
-     * One thing the server would refuse, and which field it belongs to, so a screen can label
-     * the box that is wrong.
-     *
-     * The rules follow the web app's `expenseFormSchema` so that the two cannot drift; the
-     * sentences a reader sees are `:app`'s, since `:core` has no resources and no locale for
-     * prose.
+     * One thing the server would refuse, and which field it belongs to. Follows the web app's
+     * `expenseFormSchema`; the wording a reader sees is `:app`'s, since `:core` has no
+     * resources.
      */
     public sealed interface Problem {
         public val field: Field
@@ -382,12 +366,8 @@ public data class ExpenseFormDraft(
             override val field: Field get() = Field.AMOUNT
         }
 
-        /**
-         * An expense of minus ten euros is not a correction, it is a balances screen with the
-         * signs inverted for everybody it was paid for. Worth its own problem because
-         * [MoneyFormatter.parseMinorUnits] reads a leading minus deliberately, so this is a
-         * value a field can really produce rather than one only a bug could.
-         */
+        /** Minus ten euros is not a correction, it is every balance inverted. Its own problem
+         *  because [MoneyFormatter.parseMinorUnits] reads a leading minus deliberately. */
         public data object AmountNegative : Problem {
             override val field: Field get() = Field.AMOUNT
         }
@@ -889,27 +869,17 @@ public data class ExpenseSubmission(
     )
 
     /**
-     * The same values in the wire's own widths, ready to be copied into an `ExpenseFormValues`
-     * field for field.
+     * The same values in the wire's widths. The three conversion fields do not share one notion
+     * of empty, measured against a live instance:
      *
-     * **The three conversion fields do not share one notion of empty**, and the differences were
-     * established against a live instance rather than read off the schema:
+     * - [originalCurrency]: null here becomes an explicit JSON null, the only conversion field
+     *   whose schema accepts one, and so the only way to stop an expense being converted.
+     * - [originalAmount] and [conversionRate]: null here means *omitted*. Both answer 400 to a
+     *   JSON null, and neither is cleared, so the stored figures stay put and inert. Nothing
+     *   reads either without [originalCurrency].
      *
-     * - [originalCurrency], a **null**, which `:api` spells as an explicit JSON null. It is the
-     *   only conversion field whose schema accepts one, and so the only way to stop an expense
-     *   being converted.
-     * - [originalAmount] and [conversionRate], a **null here means omitted**. Both answer 400
-     *   to a JSON null and clear with `''`, but neither is cleared: they land on `:api`'s own
-     *   defaults, and `encodeDefaults = false` leaves the keys out, so the stored figures stay
-     *   in the database untouched and inert. Nothing reads either without [originalCurrency],
-     *   which is the field that says an expense was converted at all.
-     *
-     * Leaving them behind rather than blanking them is a decision the three clients share. The
-     * web app, iOS and this app write to **one database**, so the same action has to leave the
-     * same state whichever of them performed it: an expense whose conversion was dropped on a
-     * phone must look to the browser exactly like one dropped in the browser. It is also the
-     * only spelling `:api` can express, `ExpenseFormValues.originalAmount` is an `Int?` and its
-     * `conversionRate` a `LenientDecimal?`, and neither can carry a JSON empty string.
+     * Leaving them behind rather than blanking them is what the web app and iOS do, and all
+     * three write to one database, so the same action must leave the same state.
      */
     public data class Wire(
         public val title: String,

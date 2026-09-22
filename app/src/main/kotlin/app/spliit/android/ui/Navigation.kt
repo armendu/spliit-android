@@ -45,12 +45,9 @@ object Routes {
     const val GROUPS = "groups"
 
     /**
-     * Editing an existing group, "Edit group", from the group screen's overflow menu.
-     *
-     * There is no create route any more. Creating a group is a sheet over the dashboard (see
-     * [app.spliit.android.feature.groups.CreateGroupSheet]), which is also what made this route
-     * necessary: [app.spliit.android.feature.groups.GroupFormScreen] has supported EDIT since
-     * Part 10, and the only way in was `groups/form` with no id, so editing was unreachable.
+     * Editing an existing group, from the group screen's overflow menu. There is no create
+     * route: creating is a sheet over the dashboard. This route exists because the form has
+     * always supported EDIT, and the old `groups/form` took no id, so editing was unreachable.
      */
     const val GROUP_EDIT = "groups/{groupId}/edit"
     const val GROUP_DETAIL = "groups/{groupId}"
@@ -76,13 +73,9 @@ object Routes {
     fun expenseFormCreate(groupId: String) = "groups/$groupId/expenses/new"
 
     /**
-     * Results a form hands back to the group screen it was opened from, through the previous
-     * back-stack entry's `SavedStateHandle`.
-     *
-     * The group screen no longer reloads on its way back into composition, that is the whole
-     * point of `loadIfNeeded`, so a full-screen form that *did* write something has to say so.
-     * Two keys rather than one, because the two invalidate opposite things: an expense cannot
-     * change the group, and a group edit does not move a single amount.
+     * Results a form hands back through the previous back-stack entry's `SavedStateHandle`. The
+     * group screen no longer reloads on re-composition, so a form that wrote something has to
+     * say so. Two keys, because the two invalidate opposite things.
      */
     const val RESULT_EXPENSES_CHANGED = "result_expenses_changed"
     const val RESULT_GROUP_CHANGED = "result_group_changed"
@@ -92,16 +85,10 @@ object Routes {
         "groups/$groupId/settle/${pathSegment(from)}/${pathSegment(to)}/$amountMinorUnits"
 
     /**
-     * An ID as one segment of a route, escaped to the unreserved set.
+     * An ID as one route segment, escaped to the unreserved set. Nanoids never need it, but an
+     * ID with a `/` from some other instance would split into two segments and match no route.
      *
-     * Spliit's IDs are nanoids, whose alphabet is already `A-Za-z0-9_-`, so in practice nothing
-     * here is ever escaped. It is written anyway because *relying* on that is a decision nobody
-     * would find again: an ID with a `/` in it, from an instance that generates them differently,
-     * would otherwise split into two segments and match no route at all.
-     *
-     * Hand-rolled rather than `android.net.Uri.encode`, which is a framework method: it throws
-     * "not mocked" under a JVM unit test, and the route table is exactly the kind of thing worth
-     * testing without a device.
+     * Hand-rolled rather than `Uri.encode`, which throws "not mocked" in a JVM test.
      */
     private fun pathSegment(value: String): String = buildString {
         for (byte in value.toByteArray(Charsets.UTF_8)) {

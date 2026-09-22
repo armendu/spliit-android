@@ -55,14 +55,9 @@ public class MoneyFormatter(
         synchronized(plainFormat) { plainFormat.format(asDecimal(minorUnits)) }
 
     /**
-     * Formats an amount that arrived as a fraction of a minor unit.
-     *
-     * `totalParticipantShare` is the one amount in the API that is not an integer: instances
-     * older than the web app's *Shares* change sum floating-point thirds and round to two
-     * decimals, sending `1416.67`. The rounding belongs here, on the way to the display, rather
-     * than on the way in, decoding it as an integer throws on the totals screen against real
-     * servers, and rounding it at the boundary hands every later calculation a value the server
-     * never sent.
+     * Formats an amount that arrived as a fraction of a minor unit, which
+     * `totalParticipantShare` does on instances predating the *Shares* change. Rounding belongs
+     * here, not at the boundary, which would hand later calculations a value never sent.
      */
     public fun formatShare(share: Double): String = format(roundMinorUnits(share))
 
@@ -115,23 +110,16 @@ public class MoneyFormatter(
 
     public companion object {
         /**
-         * What an amount is counted in when nothing can say otherwise.
-         *
-         * Two, for two independent reasons. A group carrying only a symbol and no ISO code was
-         * stored as hundredths by the web app, so that is what its integers mean. And a code
-         * nothing can resolve, junk on a self-hosted instance, or a pseudo-currency the JDK
-         * declines to give a precision, is more likely to be counted like the overwhelming
-         * majority than like the yen.
+         * What an amount is counted in when nothing says otherwise. Two, for two reasons: a
+         * group with only a symbol was stored as hundredths by the web app, and an unresolvable
+         * code is likelier to be counted like the majority than like the yen.
          */
         public const val DEFAULT_MINOR_UNIT_DIGITS: Int = 2
 
         /**
-         * The number of decimal places an ISO 4217 code is counted in, 2 for most, 0 for the
-         * yen, 3 for the Gulf dinars.
-         *
-         * Never throws. The group's currency is free text on a self-hosted instance, and
-         * `Currency.getInstance` answers anything that is not exactly three known letters with an
-         * `IllegalArgumentException`; a screen drawing a number should not have to catch it.
+         * Decimal places for an ISO 4217 code: 2 for most, 0 for yen, 3 for Gulf dinars. Never
+         * throws, because the group's currency is free text and `Currency.getInstance` rejects
+         * anything that is not three known letters.
          */
         public fun minorUnitDigits(currencyCode: String?): Int {
             val digits = isoCurrency(currencyCode)?.defaultFractionDigits ?: return DEFAULT_MINOR_UNIT_DIGITS
@@ -166,34 +154,24 @@ public class MoneyFormatter(
         }
 
         /**
-         * Rounds an amount that arrived as a fraction of a minor unit, see [formatShare].
-         *
-         * Half-up meaning *away from zero*, which is what a person reading a receipt expects.
-         * Not `Math.round`, which is half-up towards positive infinity and so answers -2 for
-         * -2.5, moving a debt in one party's favour; and not half-even, which answers 2 for 2.5.
-         * Through [BigDecimal] rather than arithmetic on the [Double], so the value rounded is
-         * the decimal the server sent rather than the binary approximation of it.
+         * Rounds a fractional minor unit, half-up meaning *away from zero*. Not `Math.round`,
+         * which answers -2 for -2.5 and so moves a debt in one party's favour, and not
+         * half-even. Through [BigDecimal], so what is rounded is the decimal the server sent.
          */
         public fun roundMinorUnits(amount: Double): Long =
             BigDecimal.valueOf(amount).setScale(0, RoundingMode.HALF_UP).toLong()
 
         /**
-         * The number in a piece of typed or pasted text, as a decimal.
+         * The number in typed or pasted text, as a decimal. Public because a conversion rate is
+         * not money: rounding one to the group's precision would turn 0.9241 into 0.92.
          *
-         * Public because a conversion rate is a number that is not money: it has no minor units
-         * to scale by, and rounding one to the group's precision would turn 0.9241 into 0.92.
+         * Anything that is not a digit, separator or leading minus is dropped. The hard part is
+         * that `,` is the decimal point in Paris and the thousands separator in New York, and
+         * keyboards disagree with locales: reading "42,50" as 4250 is a hundredfold error.
          *
-         * Everything that is not a digit, a separator or a leading minus is dropped, so a symbol
-         * pasted along with the amount does not defeat it. What is left is the hard part: `,` is
-         * the decimal point in Paris and the thousands separator in New York, and keyboards
-         * disagree with locales often enough that the reader's own convention cannot simply be
-         * assumed. Reading "42,50" from a French keyboard as 4250 is the hundredfold error the
-         * web app shipped a fix for.
-         *
-         * So: a separator the locale spells decimals with is a decimal point. Otherwise the last
-         * separator is a decimal point *unless* it is shaped like a group, exactly three digits
-         * behind it and nothing after, and either the locale groups with that character or
-         * there is more than one of them, since no number has two decimal points.
+         * So a separator the locale spells decimals with is a decimal point. Otherwise the last
+         * separator is one *unless* it looks like a group (exactly three digits after, nothing
+         * else) and either the locale groups with it or there is more than one.
          */
         public fun parseDecimal(text: String, locale: Locale = Locale.getDefault()): BigDecimal? {
             val symbols = DecimalFormatSymbols.getInstance(locale)
@@ -244,11 +222,9 @@ public class MoneyFormatter(
 }
 
 /**
- * The JDK's currency for a code, or null for anything that is not one.
- *
- * Shared with [Currencies], and the single place that knows an instance's `currency` field is
- * free text: a self-hosted Spliit will store "kr", "BITCOIN" or "" there quite happily, and
- * `Currency.getInstance` answers all three with an exception rather than a null.
+ * The JDK's currency for a code, or null. The single place that knows `currency` is free text:
+ * a self-hosted Spliit stores "kr", "BITCOIN" or "" happily, and `Currency.getInstance` throws
+ * on all three rather than returning null.
  */
 internal fun isoCurrency(code: String?): IsoCurrency? {
     // Locale.ROOT, not the default: uppercasing "iqd" in Turkish gives "İQD", and the lookup

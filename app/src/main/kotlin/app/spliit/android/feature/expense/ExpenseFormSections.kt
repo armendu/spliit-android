@@ -66,13 +66,9 @@ import app.spliit.core.MoneyFormatter
 import app.spliit.core.SplitMode
 
 /**
- * The oversized, centred amount entry DESIGN.md §4 asks for: the symbol beside the figure, and
- * nothing else on the line.
- *
- * Under a conversion the total is **not** typed, it is what the amount paid comes to at the rate
- * given, so the field becomes a read-out. Binding an editable field to
- * [ExpenseFormDraft.amountText] while a conversion is in force would show a number the expense
- * does not have; that field's own doc says so, and this is the screen that has to honour it.
+ * The oversized, centred amount entry from DESIGN.md §4. Under a conversion the total is not
+ * typed but derived from the rate, so the field becomes a read-out: an editable field bound to
+ * [ExpenseFormDraft.amountText] would show a number the expense does not have.
  */
 @Composable
 internal fun AmountEntry(
@@ -88,15 +84,12 @@ internal fun AmountEntry(
         Text(
             text = formatter.currencySymbol.ifBlank { draft.groupCurrencyCode.orEmpty() },
             style = MaterialTheme.typography.headlineMedium,
-            // `primary`, not a muted grey, DESIGN.md §4. Two roles, two colours: the symbol says
-            // *which money this is* and the figure beside it says how much. Drawn in one grey the
-            // symbol reads as decoration and the eye skips it, which is wrong on the one screen
-            // where the currency is a real question, a group counted in yen and one counted in
-            // euros differ by nothing else here.
+            // `primary`, not grey (DESIGN.md §4): the symbol says which money this is and the
+            // figure says how much. In one grey the symbol reads as decoration and gets skipped,
+            // on the one screen where the currency is a real question.
             //
-            // The figure itself stays `on-surface`, including in the converted read-out below,
-            // and an expense *row*'s amount takes `primary` while this one does not: a value
-            // being edited reads as a state rather than a value once it is tinted.
+            // The figure stays `on-surface`. An expense *row*'s amount takes `primary` and this
+            // one does not: a tinted value being edited reads as a state, not a value.
             color = MaterialTheme.colorScheme.primary,
         )
         Spacer(Modifier.width(8.dp))
@@ -172,13 +165,9 @@ internal fun PaidByChips(
 // ---- category --------------------------------------------------------------------------------
 
 /**
- * Every category the server offers, as a horizontally scrolling strip, DESIGN.md §4's chips,
- * `surface-container` idle and `primary` / `on-primary` selected.
- *
- * In the order `categories.list` sends them, which is grouped: "Uncategorized", then
- * Entertainment, Food and Drink, and so on. Sorting them alphabetically would scatter each
- * grouping's members across the strip and cost the glyphs, which are keyed by grouping, their
- * only visual grouping.
+ * Every category the server offers, as a scrolling strip of DESIGN.md §4 chips. In the order
+ * `categories.list` sends them, which is grouped: sorting alphabetically would scatter each
+ * grouping's members and cost the glyphs their only visual grouping.
  */
 @Composable
 internal fun CategoryChips(
@@ -244,13 +233,8 @@ private fun SelectableChip(
 
 // ---- the split -------------------------------------------------------------------------------
 
-/**
- * How the expense divides, and what that comes to for each person.
- *
- * The breakdown is [ExpenseFormDraft.splitAmounts], which apportions the remainder in whole
- * minor units, and decides *who* gets the extra one by position, so the figures here are the
- * figures that will be stored, not a display-only approximation of them.
- */
+/** How the expense divides, and what that comes to per person. The figures are
+ *  [ExpenseFormDraft.splitAmounts], which is what gets stored, not an approximation. */
 @Composable
 internal fun SplitSection(
     state: ExpenseFormUiState,
@@ -330,15 +314,9 @@ internal fun SplitSection(
 }
 
 /**
- * Choosing one of four ways to divide the expense, Material's own segmented buttons, which is
- * the control this job belongs to.
- *
- * Not tabs: tabs navigate between views, and nothing here is a view. Four options is inside the
- * two-to-five a segmented button row is designed for, and the labels are kept short enough to
- * survive the largest system font size, shortening a label is the answer to a tight fit, not
- * truncating one or reaching for a different control.
- *
- * Colours are the theme's; DESIGN.md names no override for this.
+ * Choosing one of four ways to divide the expense, on Material's segmented buttons. Not tabs,
+ * which navigate between views. Labels stay short enough to survive the largest system font:
+ * shorten the label rather than truncating it or changing control.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -439,12 +417,8 @@ private fun ParticipantSplitRow(
 // ---- currency conversion ---------------------------------------------------------------------
 
 /**
- * What the expense was paid in, and, when that is not what the group counts in, what was paid
- * and at what rate.
- *
- * The two amounts here are on **two different scales**: `originalAmount` is in the currency it
- * was paid in, the total is in the group's. [ExpenseFormDraft] keeps them apart; this only draws
- * each with the precision its own currency has.
+ * What the expense was paid in, and at what rate when that is not the group's currency. The two
+ * amounts are on different scales; this draws each at its own currency's precision.
  */
 @Composable
 internal fun CurrencySection(
@@ -546,13 +520,8 @@ internal fun SwitchRow(
     }
 }
 
-/**
- * How often the expense repeats.
- *
- * Only the four cadences this client has words for are offered. An expense arriving with a fifth
- * from an instance running ahead of us keeps it, [ExpenseFormDraft.recurrenceRule] carries the
- * server's own string, and is shown by that raw name rather than being quietly reset to NONE.
- */
+/** How often the expense repeats. Only the four cadences this client knows are offered; a
+ *  fifth from a newer instance is kept and shown by its raw name. */
 @Composable
 internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -595,12 +564,7 @@ internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
     }
 }
 
-/**
- * A label for a control whose meaning comes from what it sits beside rather than from itself.
- *
- * Deliberately `semantics`, not `clearAndSetSemantics`, see TestTags' own note: clearing would
- * take the field's editability, its value and its test tag with it, which is precisely the
- * failure that note records.
- */
+/** A label for a control that means nothing on its own. `semantics`, not
+ *  `clearAndSetSemantics`, which would take the field's value and tag with it. */
 private fun Modifier.semanticsLabel(label: String): Modifier =
     this.semantics { contentDescription = label }
