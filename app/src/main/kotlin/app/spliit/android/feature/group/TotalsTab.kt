@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,10 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.CategoryIcon
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.Money
@@ -49,6 +45,9 @@ import java.time.format.FormatStyle
 import kotlin.math.abs
 import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.Footnote
+import app.spliit.android.ui.design.SectionDivider
+import app.spliit.android.ui.design.SectionHeader
 
 /**
  * What the group has spent, and how much of it is yours.
@@ -125,12 +124,7 @@ private fun TotalsContent(
     formatter: MoneyFormatter,
     onIdentify: () -> Unit,
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(
-            bottom = fabAndNavigationBarPadding(),
-        ),
-    ) {
+    GroupTabList {
         item(key = "group_header") {
             Spacer(Modifier.height(16.dp))
             SectionHeader("The group")
@@ -457,35 +451,6 @@ private fun dateRangeText(firstDate: String?, lastDate: String?): String? {
     val start = first.format(summaryDateFormatter)
     val end = last.format(summaryDateFormatter)
     return if (start == end) start else "$start – $end"
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 4.dp),
-    )
-}
-
-@Composable
-private fun Footnote(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp),
-    )
-}
-
-@Composable
-private fun SectionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(vertical = 16.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
 }
 
 

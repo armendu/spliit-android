@@ -68,6 +68,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.SectionHeader
 
 
 /**
@@ -264,7 +265,7 @@ internal fun ExpenseFormBody(
             onClick = { showDatePicker = true },
         )
 
-        SectionHeader("Paid by")
+        ExpenseSectionHeader("Paid by")
         PaidByChips(
             participants = group.participants,
             selectedId = draft.paidById,
@@ -273,7 +274,7 @@ internal fun ExpenseFormBody(
         FieldProblems(state, ExpenseFormDraft.Field.PAID_BY, formatter)
 
         if (state.categories.isNotEmpty()) {
-            SectionHeader("Category")
+            ExpenseSectionHeader("Category")
             CategoryChips(
                 categories = state.categories,
                 selectedId = draft.categoryId,
@@ -307,7 +308,7 @@ internal fun ExpenseFormBody(
             )
         }
 
-        SectionHeader("More")
+        ExpenseSectionHeader("More")
         SwitchRow(
             label = "This is a reimbursement",
             description = "Somebody settling up, rather than a new expense.",
@@ -443,18 +444,11 @@ private fun ExpenseDatePicker(date: Instant, onPick: (Instant) -> Unit, onDismis
 private fun Instant.truncatedToUtcDay(): Instant =
     atZone(ZoneOffset.UTC).toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant()
 
-// ---- shared chrome ---------------------------------------------------------------------------
-
+/** The form's headings carry a lead-in the group tabs do not need; the heading itself is shared. */
 @Composable
-internal fun SectionHeader(title: String) {
+internal fun ExpenseSectionHeader(title: String) {
     Spacer(Modifier.height(24.dp))
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
+    SectionHeader(title)
 }
 
 /**

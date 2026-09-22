@@ -427,7 +427,7 @@ internal fun CurrencySection(
     onOriginalAmount: (String) -> Unit,
     onRate: (String) -> Unit,
 ) {
-    SectionHeader("Currency")
+    ExpenseSectionHeader("Currency")
     val paidIn = draft.originalCurrencyCode?.let { Currencies.named(it) }
     Row(
         modifier = Modifier

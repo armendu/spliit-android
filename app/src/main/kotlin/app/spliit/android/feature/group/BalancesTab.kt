@@ -7,18 +7,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.spliit.android.feature.groups.SkeletonBlock
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySign
 import app.spliit.android.ui.design.MoneySize
@@ -42,6 +38,8 @@ import app.spliit.core.MoneyFormatter
 import kotlin.math.abs
 import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.SectionDivider
+import app.spliit.android.ui.design.SectionHeader
 
 /**
  * The balances tab: the active participant's own standing leads, then every participant's
@@ -108,14 +106,7 @@ private fun BalancesContent(
     val you = participants.firstOrNull { it.id == state.activeParticipantId }
     val yourBalance = state.yourBalanceMinorUnits()
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        // The FAB clearance, plus the navigation-bar inset the app now draws behind, see
-        // ExpensesTab for the reasoning; the two lists have to agree or one of them hides a row.
-        contentPadding = PaddingValues(
-            bottom = fabAndNavigationBarPadding(),
-        ),
-    ) {
+    GroupTabList {
         item(key = "you") {
             YouSection(you = you, yourBalance = yourBalance, formatter = formatter, onIdentify = onIdentify)
             SectionDivider()
@@ -316,25 +307,6 @@ private fun ReimbursementRow(
         // an ordinary expense amount is.
         Money(value = formatter.format(reimbursement.amount.toLong()), size = MoneySize.LEAD)
     }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-}
-
-@Composable
-private fun SectionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(vertical = 12.dp),
-        color = MaterialTheme.colorScheme.outlineVariant,
-    )
 }
 
 private fun direction(balanceMinorUnits: Long): String = when {

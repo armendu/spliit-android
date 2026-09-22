@@ -37,16 +37,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.core.ThemeMode
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.CardShape
+import app.spliit.android.ui.design.FormSectionHeader
 
 
 
@@ -91,10 +89,10 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            SectionHeader("Appearance", topSpace = 0.dp)
+            FormSectionHeader("Appearance", topSpace = 0.dp)
             AppearanceCard(themeMode = state.themeMode, onSelect = viewModel::setThemeMode)
 
-            SectionHeader("Default instance")
+            FormSectionHeader("Default instance")
             InstanceCard(
                 state = state,
                 onTextChange = viewModel::setInstanceAddressText,
@@ -110,7 +108,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionHeader("About")
+            FormSectionHeader("About")
             AboutCard(
                 onVisit = { openUrl(context, "https://spliit.app/?ref=android-app") },
                 onGitHub = { openUrl(context, "https://github.com/spliit-app") },
@@ -123,14 +121,14 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionHeader("Feedback")
+            FormSectionHeader("Feedback")
             FeedbackCard(
                 // Points at the org page, not a repo, there is no spliit-android repository yet.
                 // See this part's own report for the follow-up once one exists.
                 onReport = { openUrl(context, "https://github.com/spliit-app") },
             )
 
-            SectionHeader("Version")
+            FormSectionHeader("Version")
             VersionCard(name = viewModel.versionName, code = viewModel.versionCode)
 
             Spacer(Modifier.height(24.dp))
@@ -291,21 +289,6 @@ private fun LinkRow(label: String, onClick: () -> Unit, testTag: String) {
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
     }
-}
-
-/** More space above a heading than below it, a heading belongs to what follows it, the same rule
- *  GroupFormScreen's own FormSectionHeader follows. */
-@Composable
-private fun SectionHeader(text: String, topSpace: Dp = 24.dp) {
-    Spacer(Modifier.height(topSpace))
-    Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.9.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(8.dp))
 }
 
 /** Best-effort: a device with literally no browser would otherwise crash the app for tapping a

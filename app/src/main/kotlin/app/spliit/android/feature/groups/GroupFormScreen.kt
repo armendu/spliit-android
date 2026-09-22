@@ -37,9 +37,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import java.util.Currency
@@ -47,6 +45,8 @@ import app.spliit.android.ui.design.CurrencyPickerSheet
 import app.spliit.core.Currencies
 import app.spliit.core.GroupFormDraft
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.FieldError
+import app.spliit.android.ui.design.FormSectionHeader
 
 
 /**
@@ -174,7 +174,7 @@ internal fun GroupFormBody(
                     shape = FieldShape,
                 )
                 if (state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty()) {
-                    FieldError("A group needs a name.", TestTags.GROUP_FORM_NAME_ERROR)
+                    FieldError("A group needs a name.", testTag = TestTags.GROUP_FORM_NAME_ERROR)
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -261,7 +261,7 @@ internal fun GroupFormBody(
                                 FieldError(
                                     "That doesn't look like a web address. Try something like " +
                                         "spliit.example.com.",
-                                    TestTags.GROUP_FORM_SERVER_ERROR,
+                                    testTag = TestTags.GROUP_FORM_SERVER_ERROR,
                                 )
                             }
                             Text(
@@ -308,7 +308,7 @@ internal fun GroupFormBody(
                         }
                     }
                     if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
-                        FieldError("This participant needs a name.", TestTags.groupFormParticipantError(index))
+                        FieldError("This participant needs a name.", testTag = TestTags.groupFormParticipantError(index))
                     }
                 }
                 TextButton(
@@ -320,7 +320,7 @@ internal fun GroupFormBody(
                 if (state.hasAttemptedSave &&
                     draft.problems(GroupFormDraft.Field.PARTICIPANTS).contains(GroupFormDraft.Problem.NoParticipants)
                 ) {
-                    FieldError("A group needs at least one participant.", TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
+                    FieldError("A group needs at least one participant.", testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
                 } else if (state.mode != GroupFormMode.CREATE) {
                     // Only worth saying while editing. A group being created has no expenses for
                     // anyone to appear on, so on the create sheet this was a rule about a
@@ -392,30 +392,6 @@ internal fun BlockedParticipantNotice(message: String?, onDismiss: () -> Unit, m
             TextButton(onClick = onDismiss) { Text("OK") }
         }
     }
-}
-
-@Composable
-private fun FieldError(message: String, testTag: String?) {
-    Text(
-        text = message,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.error,
-        modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier,
-    )
-}
-
-/** More space above a heading than below it, a heading belongs to what follows it. */
-@Composable
-private fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
-    Spacer(Modifier.height(topSpace))
-    Text(
-        text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.9.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer(Modifier.height(8.dp))
 }
 
 /** What the currency row shows on the right, the currency and the symbol it puts beside every
