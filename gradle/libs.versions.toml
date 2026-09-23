@@ -23,8 +23,8 @@ targetSdk = "37"
 # is what stops a tag saying one thing and the installed app another. `appVersionCode` is the
 # integer Android compares when deciding whether an APK is an upgrade, so it only ever goes up -
 # including for a release that changes nothing else.
-appVersionName = "0.1.0"
-appVersionCode = "1"
+appVersionName = "0.2.0"
+appVersionCode = "2"
 
 # :api, the tRPC transport. OkHttp stands in for URLSession, kotlinx-serialization for Codable.
 okhttp = "5.5.0"
