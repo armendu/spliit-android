@@ -1,0 +1,12 @@
+Fixes.
+
+A group created on the server but not saved to this phone is no longer lost
+without a word. Spliit has no accounts, so that group was unreachable; the app
+now says so and hands you its link.
+
+Empty states no longer sit under the add button or the navigation bar.
+
+The Information tab names a server the way the rest of the app does, port and
+path prefix included, so a self-hosted instance reads correctly.
+
+Screen readers no longer spell headings out letter by letter.
