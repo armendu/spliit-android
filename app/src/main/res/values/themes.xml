@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Compose owns the real theme; this exists so the window has sane colours before the
          first frame and during the launch animation. DESIGN.md is where the palette lives. -->
-    <style name="Theme.Spliit" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Spliit" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@color/window_background</item>
+    </style>
 </resources>

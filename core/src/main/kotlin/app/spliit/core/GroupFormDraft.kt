@@ -35,10 +35,10 @@ public data class GroupFormDraft(
     /** The group's description. `""` clears it, see [submission]. */
     public val information: String = "",
     /** A free-text symbol such as "$" or "CHF". The server does not interpret it. */
-    public val currency: String = "$",
+    public val currency: String = "€",
     /** ISO-4217, or null for a free-text symbol. Set via [withCurrency] / [withCustomSymbol],
      *  which keep [currency] in step: a code disagreeing with the symbol is worse than none. */
-    public val currencyCode: String? = null,
+    public val currencyCode: String? = "EUR",
     public val participants: List<ParticipantFormDraft> = emptyList(),
     /** Participants who appear on at least one expense, from `groups.getDetails`. Removing one
      *  would silently orphan the expenses naming them. */
@@ -91,13 +91,6 @@ public data class GroupFormDraft(
         if (!canRemoveParticipant(id)) return null
         return copy(participants = participants.filterNot { it.id == id })
     }
-
-    /**
-     * [participants], ordered the way the reader's language orders names rather than by Unicode
-     * code point, see [localizedOrder]. What a screen actually lists.
-     */
-    public val sortedParticipants: List<ParticipantFormDraft>
-        get() = participants.sortedWith(compareBy(localizedOrder(locale)) { it.name })
 
     // ---- validation -----------------------------------------------------------------------
 
@@ -216,7 +209,10 @@ public data class GroupFormDraft(
             information = information,
             currency = currency,
             currencyCode = currencyCode,
-            participants = participants.map { ParticipantFormDraft(serverId = it.id, name = it.name) },
+            // Sorted once here, never while editing, or rows move under the field being typed in.
+            participants = participants
+                .sortedWith(compareBy(localizedOrder(locale)) { it.name })
+                .map { ParticipantFormDraft(serverId = it.id, name = it.name) },
             participantsWithExpenses = participantsWithExpenses,
             locale = locale,
         )

@@ -1,5 +1,14 @@
 package app.spliit.api
 
+import app.spliit.api.SpliitEndpoints.ActivitiesListResponse
+import app.spliit.api.SpliitEndpoints.BalancesResponse
+import app.spliit.api.SpliitEndpoints.CategoriesResponse
+import app.spliit.api.SpliitEndpoints.ExpenseResponse
+import app.spliit.api.SpliitEndpoints.ExpensesListResponse
+import app.spliit.api.SpliitEndpoints.GroupDetailsResponse
+import app.spliit.api.SpliitEndpoints.GroupResponse
+import app.spliit.api.SpliitEndpoints.GroupStatsResponse
+import app.spliit.api.SpliitEndpoints.GroupsListResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -11,52 +20,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 import java.time.Instant
-
-// The envelopes the procedures answer with. They live here, not in the module: Part 4 owns the
-// endpoint surface, and Part 3 owns only what is inside these wrappers.
-@Serializable
-private data class GroupResponse(val group: Group)
-
-@Serializable
-private data class GroupDetailsResponse(val group: Group, val participantsWithExpenses: List<String>)
-
-@Serializable
-private data class GroupsListResponse(val groups: List<GroupSummary>)
-
-@Serializable
-private data class CategoriesResponse(val categories: List<ExpenseCategory>)
-
-@Serializable
-private data class ExpensesListResponse(
-    val expenses: List<ExpenseListItem>,
-    val hasMore: Boolean,
-    val nextCursor: Int? = null,
-)
-
-@Serializable
-private data class ExpenseResponse(val expense: ExpenseDetails)
-
-@Serializable
-private data class BalancesResponse(
-    val balances: Map<String, Balance>,
-    val reimbursements: List<Reimbursement>,
-)
-
-@Serializable
-private data class ActivitiesResponse(val activities: List<Activity>, val hasMore: Boolean)
-
-/**
- * The totals screen's payload, in the shape Part 4 will declare it.
- *
- * [totalParticipantShare] is a `Double` here deliberately, and the test below is why: it is the
- * one amount in the API that is not an integer.
- */
-@Serializable
-private data class GroupStatsResponse(
-    val totalGroupSpendings: Int,
-    val totalParticipantSpendings: Double? = null,
-    val totalParticipantShare: Double? = null,
-)
 
 /** As an instance older than the *Shares* change sends it: a rounded sum of thirds. */
 @Serializable
@@ -75,7 +38,7 @@ class ModelsTest {
 
     @Test
     fun `a group carries its participants, its symbol and its ISO code`() {
-        val group = decode(GroupResponse.serializer(), "groups.get").group
+        val group = decode(GroupResponse.serializer(), "groups.get").group!!
 
         assertEquals("Weekend in Lisbon", group.name)
         assertEquals("€", group.currency)
@@ -204,7 +167,7 @@ class ModelsTest {
 
     @Test
     fun `an activity log decodes its kinds, its titles and whether the expense survives`() {
-        val activities = decode(ActivitiesResponse.serializer(), "groups.activities.list").activities
+        val activities = decode(ActivitiesListResponse.serializer(), "groups.activities.list").activities
 
         assertTrue(activities.isNotEmpty())
         assertTrue(activities.any { it.activityType == ActivityType.UpdateGroup })
@@ -249,7 +212,7 @@ class ModelsTest {
         assertTrue(missingRoute.isUnknownProcedure)
 
         // This instance has the overview and not the old name, so its answer to the old one is a
-        // recorded example of the 404 Part 4's fallback has to recognise.
+        // recorded example of the 404 the stats fallback has to recognise.
         assertTrue(SuperJson.decodeError(Fixture.text("groups.stats.get"))!!.isUnknownProcedure)
     }
 
@@ -281,10 +244,10 @@ class ModelsTest {
         val body = """
             {"activities":[{"id":"a1","groupId":"g1","time":"2026-09-01T10:00:00.000Z",
             "activityType":"ARCHIVE_GROUP","participantId":null,"expenseId":null,
-            "data":null,"expense":null}],"hasMore":false}
+            "data":null,"expense":null}],"hasMore":false,"nextCursor":0}
         """.trimIndent()
 
-        val activity = decodeBody(ActivitiesResponse.serializer(), body).activities.single()
+        val activity = decodeBody(ActivitiesListResponse.serializer(), body).activities.single()
 
         assertEquals(ActivityType.Unknown("ARCHIVE_GROUP"), activity.activityType)
         assertFalse(activity.activityType.isRecognised)
@@ -335,7 +298,7 @@ class ModelsTest {
             "createdAt":"2026-09-01T10:00:00.000Z","expenseDate":"2026-09-01T00:00:00.000Z",
             "isReimbursement":false,"splitMode":"BY_PHASE_OF_THE_MOON","recurrenceRule":"NONE",
             "category":null,"paidBy":{"id":"p1","name":"Ana"},"paidFor":[],
-            "_count":{"documents":0}}],"hasMore":false}
+            "_count":{"documents":0}}],"hasMore":false,"nextCursor":0}
         """.trimIndent()
 
         assertThrows<SerializationException> { decodeBody(ExpensesListResponse.serializer(), body) }
@@ -366,7 +329,7 @@ class ModelsTest {
     @Test
     fun `an amount is carried as minor units, whatever the currency counts in`() {
         // 1234 is 12.34 in a two-decimal currency and ¥1,234 in yen. Nothing in the model may
-        // assume hundredths, formatting is Part 5's job and needs the raw count intact.
+        // assume hundredths, formatting is MoneyFormatter's job and needs the raw count intact.
         val body = """{"expense":${convertedExpenseJson(amount = 1234)}}"""
 
         assertEquals(1234, decodeBody(ExpenseResponse.serializer(), body).expense.amount)
@@ -398,7 +361,7 @@ class ModelsTest {
             "category":null,"paidBy":{"id":"p1","name":"Dana"},
             "paidFor":[{"participant":{"id":"p1","name":"Dana"},"shares":6000},
             {"participant":{"id":"p2","name":"Eli"},"shares":4000}],
-            "_count":{"documents":0}}],"hasMore":false}
+            "_count":{"documents":0}}],"hasMore":false,"nextCursor":0}
             """.trimIndent(),
         ).expenses.single()
         assertEquals(10_000, internet.paidFor.sumOf { it.shares })
@@ -428,7 +391,7 @@ class ModelsTest {
             "_count":{"documents":0}}
             """.trimIndent()
         }
-        return """{"expenses":[${expenses.joinToString(",")}],"hasMore":false}"""
+        return """{"expenses":[${expenses.joinToString(",")}],"hasMore":false,"nextCursor":0}"""
     }
 
     private fun convertedExpenseJson(amount: Int = 18482, rate: String = "0.9241"): String = """

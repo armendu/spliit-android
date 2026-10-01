@@ -105,9 +105,7 @@ internal fun ComposeTestRule.waitUntilGone(tag: String, timeoutMillis: Long = DE
 /**
  * The tag of the participant row that currently has no name in it.
  *
- * Rows are tagged by **position** and the form sorts them by name, so a row moves the moment
- * somebody types into it. The symptom was not a wrong name but the create sheet never closing,
- * because the still-blank participant failed validation.
+ * Rows are tagged by position, so this finds the row by its content instead.
  */
 internal fun ComposeTestRule.blankParticipantFieldTag(): String {
     val prefix = TestTags.groupFormParticipantField(0).removeSuffix("0")

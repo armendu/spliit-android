@@ -21,12 +21,7 @@ data class AddGroupByUrlState(
     val problem: String? = null,
     /** Set once the group has actually been stored, the screen's cue to leave. */
     val addedGroupId: String? = null,
-    /**
-     * Where a link that names no server is looked up, and what the field's placeholder is built
-     * from, so somebody running their own instance is shown their own address rather than
-     * spliit.app's. Carried on the state rather than read from a constant by the screen: once
-     * Settings (Part 13) can change it, the screen is already reading the right thing.
-     */
+    /** Where a link that names no server is looked up, and what the field's placeholder shows. */
     val defaultInstanceBaseUrl: String = DEFAULT_INSTANCE_BASE_URL,
 )
 

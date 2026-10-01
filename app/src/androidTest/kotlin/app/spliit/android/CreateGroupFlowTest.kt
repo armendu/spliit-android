@@ -53,7 +53,7 @@ class CreateGroupFlowTest {
 
         // Two participants, because a one-person group has no split to make. Both fussy bits
         // were found on a device: "Add participant" ends up under the keyboard, so it is scrolled
-        // to first, and the row is found by being empty, because the form re-sorts as you type.
+        // to first, and the row is found by being empty rather than by its position.
         for (participant in listOf("Ana", "Bruno")) {
             rule.onNodeWithTag(TestTags.GROUP_FORM_ADD_PARTICIPANT_BUTTON)
                 .performScrollTo()

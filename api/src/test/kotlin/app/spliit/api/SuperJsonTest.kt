@@ -24,8 +24,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 @Serializable
-// Named for what it is rather than after a model: Part 3's real GroupSummary now lives in
-// the same package, and a file-private stub sharing its name shadows it for every other test.
+// Not named GroupSummary: a file-private class of that name would shadow the real one.
 private data class ListedGroup(val id: String, val name: String, @Contextual val createdAt: Instant)
 
 @Serializable
@@ -305,7 +304,7 @@ class SuperJsonTest {
         assertEquals(JsonNull, json.getValue("originalCurrency"))
     }
 
-    /** Part 3's payloads nest dates under map-shaped values, not only under declared properties. */
+    /** Real payloads nest dates under map-shaped values, not only under declared properties. */
     @Test
     fun `annotates a date that is a map value`() {
         val input = MapInput(dates = mapOf("due" to DATE, "settled" to DATE))

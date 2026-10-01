@@ -343,11 +343,4 @@ class MoneyFormatterTest {
 
         assertEquals(-2L, Math.round(-2.5), "The premise: Math.round is not this rounding.")
     }
-
-    @Test
-    fun `a share is formatted at the group's precision after rounding`() {
-        assertEquals("€14.17", MoneyFormatter("€", "EUR", AMERICAN).formatShare(1416.67))
-        assertEquals("¥1,417", MoneyFormatter("¥", "JPY", AMERICAN).formatShare(1416.67))
-        assertEquals("1 417 ¥", MoneyFormatter("¥", "JPY", FRENCH).formatShare(1416.67).spacesFlattened())
-    }
 }

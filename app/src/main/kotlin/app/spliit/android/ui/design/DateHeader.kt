@@ -1,14 +1,8 @@
 package app.spliit.android.ui.design
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 import app.spliit.android.ui.TestTags
 import app.spliit.core.DateBucket
 
@@ -30,23 +24,8 @@ object DateBucketText {
     }
 }
 
-/**
- * The heading above a run of expenses, for `:core`'s [DateBucket].
- *
- * The capitals are typographic, not a change to the words, so the natural-case string stays as
- * the accessibility label rather than being spelled out letter by letter.
- */
+/** The heading above a run of expenses, for `:core`'s [DateBucket]. */
 @Composable
 fun DateHeader(bucket: DateBucket, modifier: Modifier = Modifier) {
-    val title = DateBucketText.of(bucket)
-    Text(
-        text = title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.9.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier
-            .testTag(TestTags.DATE_HEADER)
-            .semantics { contentDescription = title },
-    )
+    CapsLabel(DateBucketText.of(bucket), modifier.testTag(TestTags.DATE_HEADER))
 }

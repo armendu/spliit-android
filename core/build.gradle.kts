@@ -14,10 +14,6 @@ plugins {
 kotlin {
     jvmToolchain(21)
 
-    // Every public declaration in these modules is about to become someone else's API: :app
-    // consumes both, and Parts 1-8 grow the real surface. Explicit API mode makes each `public`
-    // a decision rather than a default, and requires a declared return type on it, far cheaper
-    // to adopt now, while the surface is empty, than to retrofit over a finished module.
     explicitApi()
 }
 

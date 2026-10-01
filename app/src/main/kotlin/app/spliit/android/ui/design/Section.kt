@@ -33,25 +33,26 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
 }
 
 /**
- * A form's heading, drawn in capitals.
- *
- * The capitals are typographic, not a change to the words, so the natural-case string stays as
- * the accessibility label rather than being spelled out letter by letter. Same reasoning as
- * [DateHeader]. The locale is read through Compose's own [Locale.current] rather than
- * `java.util.Locale.getDefault()`, which is not observable: the latter would leave a heading in
- * the old language until something else happened to recompose it.
+ * A heading drawn in capitals. Screen readers get the natural-case [text], and the capitals
+ * follow Compose's observable [Locale.current] rather than `Locale.getDefault()`.
  */
 @Composable
-fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
-    Spacer(Modifier.height(topSpace))
+fun CapsLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text.uppercase(JavaLocale.forLanguageTag(Locale.current.toLanguageTag())),
         style = MaterialTheme.typography.labelSmall,
         fontWeight = FontWeight.Bold,
         letterSpacing = 0.9.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.semantics { contentDescription = text },
+        modifier = modifier.semantics { contentDescription = text },
     )
+}
+
+/** A form's heading. */
+@Composable
+fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
+    Spacer(Modifier.height(topSpace))
+    CapsLabel(text)
     Spacer(Modifier.height(8.dp))
 }
 
