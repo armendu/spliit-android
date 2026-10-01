@@ -1,6 +1,8 @@
 package app.spliit.android.feature.groups
 
 import app.spliit.core.GroupFormDraft
+import app.spliit.core.RecentGroup
+import app.spliit.core.RecentGroupsSnapshot
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -136,6 +138,25 @@ class GroupFormViewModelTest {
         assertEquals("https://home.example.com/", viewModel.state.value.resolvedInstanceBaseUrl)
     }
 
+    @Test
+    fun `editing a group with no stored row reports it instead of using the default server`() = runBlocking {
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.EDIT,
+            groupId = "g1",
+            instanceBaseUrl = server.url("/").toString(),
+            recentGroupsStore = FakeRecentGroupsStore(),
+        )
+
+        viewModel.refreshForEdit()
+
+        assertEquals("This group isn't in your list anymore.", viewModel.state.value.loadError)
+        assertEquals(0, server.requestCount)
+    }
+
+    private fun storedRow(groupId: String) = RecentGroupsSnapshot().opening(
+        RecentGroup(groupId = groupId, instanceBaseUrl = server.url("/").toString(), groupName = "Weekend in Lisbon"),
+    )
+
     // ---- refused participant removal ---------------------------------------------------------
 
     @Test
@@ -149,7 +170,7 @@ class GroupFormViewModelTest {
                 ),
             ).build(),
         )
-        val store = FakeRecentGroupsStore()
+        val store = FakeRecentGroupsStore(storedRow("g1"))
         val viewModel = GroupFormViewModel(
             mode = GroupFormMode.EDIT,
             groupId = "g1",
@@ -202,7 +223,7 @@ class GroupFormViewModelTest {
     @Test
     fun `picking a currency sets the symbol with it, so the form never shows two answers`() {
         val viewModel = createViewModel()
-        // The default is a bare "$" with no code behind it, the web app's own.
+        viewModel.useCustomSymbol()
         assertTrue(viewModel.state.value.draft.usesCustomSymbol)
 
         viewModel.setCurrency("EUR")

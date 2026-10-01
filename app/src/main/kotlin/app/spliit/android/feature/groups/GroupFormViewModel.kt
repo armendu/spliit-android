@@ -111,17 +111,14 @@ class GroupFormViewModel(
     suspend fun refreshForEdit() {
         val id = checkNotNull(groupId) { "refreshForEdit requires EDIT mode" }
         _state.update { it.copy(isLoading = true, loadError = null) }
-        // Which server the group is on is a fact about *the group*, resolved from its stored row
-        //, never the app's current default, which a self-hosted group is not on and which
-        // Settings can have changed since the group was added. The constructor's value is only a
-        // fallback for a group with no row, which this app's routes cannot currently produce.
+        // From the group's stored row, never the app's default server.
         val instanceBaseUrl = try {
             recentGroupsStore.load().groups.firstOrNull { it.groupId == id }?.instanceBaseUrl
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             null
-        } ?: _state.value.resolvedInstanceBaseUrl ?: run {
+        } ?: run {
             _state.update { it.copy(isLoading = false, loadError = "This group isn't in your list anymore.") }
             return
         }
@@ -166,7 +163,10 @@ class GroupFormViewModel(
      *  a state to reach deliberately, not a failure to pick properly. */
     fun useCustomSymbol() = updateDraft { it.withCustomSymbol() }
 
-    fun addParticipant() = updateDraft { it.withParticipantAdded() }
+    fun addParticipant(): String {
+        updateDraft { it.withParticipantAdded() }
+        return _state.value.draft.participants.last().id
+    }
 
     fun renameParticipant(id: String, name: String) = updateDraft { it.withParticipantRenamed(id, name) }
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,15 +29,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
@@ -47,6 +53,7 @@ import app.spliit.core.GroupFormDraft
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.FieldError
 import app.spliit.android.ui.design.FormSectionHeader
+import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.SkeletonBlock
 
 
@@ -138,6 +145,7 @@ internal fun GroupFormBody(
     // Collapsed by default and remembered across a rotation but not across the sheet closing:
     // somebody who opened Advanced for one group has not said anything about the next.
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
+    var focusParticipantId by remember { mutableStateOf<String?>(null) }
     val advancedChevronRotation by animateFloatAsState(
         targetValue = if (showAdvanced) 90f else 0f,
         label = "group_form_advanced_chevron",
@@ -171,22 +179,12 @@ internal fun GroupFormBody(
 
         Spacer(Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showCurrencyPicker = true }
-                .testTag(TestTags.GROUP_FORM_CURRENCY_ROW)
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Currency", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = currencySummary(draft),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        SelectField(
+            label = "Currency",
+            value = currencySummary(draft),
+            onClick = { showCurrencyPicker = true },
+            testTag = TestTags.GROUP_FORM_CURRENCY_ROW,
+        )
         if (draft.usesCustomSymbol) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
@@ -268,35 +266,48 @@ internal fun GroupFormBody(
         )
 
         FormSectionHeader("Participants")
-        draft.sortedParticipants.forEachIndexed { index, participant ->
-            val canRemove = draft.canRemoveParticipant(participant.id)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = participant.name,
-                    onValueChange = { viewModel.renameParticipant(participant.id, it) },
-                    label = { Text("Name") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).testTag(TestTags.groupFormParticipantField(index)),
-                    shape = FieldShape,
-                )
-                TextButton(
-                    onClick = { viewModel.removeParticipant(participant.id) },
-                    enabled = canRemove,
-                    modifier = Modifier.testTag(TestTags.groupFormParticipantRemove(index)),
-                ) {
-                    Text("Remove")
+        draft.participants.forEachIndexed { index, participant ->
+            key(participant.id) {
+                val canRemove = draft.canRemoveParticipant(participant.id)
+                val focusRequester = remember { FocusRequester() }
+                if (participant.id == focusParticipantId) {
+                    LaunchedEffect(Unit) {
+                        focusRequester.requestFocus()
+                        focusParticipantId = null
+                    }
                 }
-            }
-            if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
-                FieldError("This participant needs a name.", testTag = TestTags.groupFormParticipantError(index))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = participant.name,
+                        onValueChange = { viewModel.renameParticipant(participant.id, it) },
+                        label = { Text("Name") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester)
+                            .testTag(TestTags.groupFormParticipantField(index)),
+                        shape = FieldShape,
+                    )
+                    TextButton(
+                        onClick = { viewModel.removeParticipant(participant.id) },
+                        enabled = canRemove,
+                        modifier = Modifier.testTag(TestTags.groupFormParticipantRemove(index)),
+                    ) {
+                        Text("Remove")
+                    }
+                }
+                if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
+                    FieldError("This participant needs a name.", testTag = TestTags.groupFormParticipantError(index))
+                }
             }
         }
         TextButton(
-            onClick = viewModel::addParticipant,
+            onClick = { focusParticipantId = viewModel.addParticipant() },
             modifier = Modifier.testTag(TestTags.GROUP_FORM_ADD_PARTICIPANT_BUTTON),
         ) {
             Text("Add participant")
