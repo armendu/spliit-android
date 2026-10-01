@@ -1,5 +1,6 @@
 package app.spliit.api
 
+import app.spliit.api.SpliitEndpoints.CreateExpenseInput
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -187,7 +188,7 @@ class FormValuesTest {
     fun `a paid-for entry names the participant by id and carries its shares verbatim`() {
         // The shares value means different things under different split modes, ×100 for EVENLY,
         // BY_SHARES and BY_PERCENTAGE, minor units for BY_AMOUNT, and the model's job is to
-        // carry whatever Part 6 computed, unaltered.
+        // carry whatever the draft computed, unaltered.
         val body = SuperJson.encodeEnvelope(ExpenseFormValues.serializer(), expenseForm())
 
         val paidFor = payload(body).getValue("paidFor").jsonArray
@@ -241,11 +242,3 @@ class FormValuesTest {
         assertFalse(envelope(body).containsKey("meta"))
     }
 }
-
-/** The shape `groups.expenses.create` takes; Part 4 declares the real one. */
-@kotlinx.serialization.Serializable
-private data class CreateExpenseInput(
-    val groupId: String,
-    val participantId: String?,
-    val expenseFormValues: ExpenseFormValues,
-)

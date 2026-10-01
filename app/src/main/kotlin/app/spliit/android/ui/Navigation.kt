@@ -1,13 +1,10 @@
 package app.spliit.android.ui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,14 +30,8 @@ import app.spliit.android.feature.groups.GroupsListScreen
 import app.spliit.android.feature.groups.GroupsListViewModel
 import app.spliit.android.feature.settings.SettingsScreen
 import app.spliit.android.feature.settings.SettingsViewModel
-import app.spliit.android.ui.design.EmptyState
 import app.spliit.core.RecentGroupsStore
 
-/**
- * The cycle-1 route table, spec §2's screen list, one route each. Part 10 fills in the groups
- * list and the group form; Part 12 turns the list into the dashboard; Part 13 replaces the
- * settings stub with the real screen. The currency and active-user pickers below remain stubs.
- */
 object Routes {
     const val GROUPS = "groups"
 
@@ -52,17 +43,10 @@ object Routes {
     const val GROUP_EDIT = "groups/{groupId}/edit"
     const val GROUP_DETAIL = "groups/{groupId}"
 
-    // Three ways into one screen. Separate patterns rather than one with optional arguments: a
-    // settle-up carries three values a create has none of, and a route missing most of its
-    // arguments is one whose mode is decided by which happen to be null.
-
-    //
-    // There is no edit route: editing is a sheet over the group screen, so that screen is not
-    // dropped and rebuilt, which is what made every edit re-read the whole expense list.
+    // No expense edit route: editing is a sheet over the group screen.
     const val EXPENSE_FORM_CREATE = "groups/{groupId}/expenses/new"
     const val EXPENSE_FORM_SETTLE = "groups/{groupId}/settle/{from}/{to}/{amount}"
     const val SETTINGS = "settings"
-    const val ACTIVE_USER_PICKER = "groups/{groupId}/active-user"
 
     fun groupDetail(groupId: String) = "groups/$groupId"
 
@@ -283,9 +267,6 @@ fun SpliitNavHost(
             )
             SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
-        composable(Routes.ACTIVE_USER_PICKER) {
-            Placeholder(icon = "AU", title = "Who are you?", part = "Part 13")
-        }
     }
 }
 
@@ -323,11 +304,4 @@ private fun ExpenseForm(
             navController.popBackStack()
         },
     )
-}
-
-@Composable
-private fun Placeholder(icon: String, title: String, part: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        EmptyState(icon = icon, title = title, description = "Arrives in $part.")
-    }
 }

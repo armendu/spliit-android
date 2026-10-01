@@ -46,13 +46,6 @@ public class MoneyFormatter(
     public fun formatPlain(minorUnits: Long): String =
         synchronized(plainFormat) { plainFormat.format(asDecimal(minorUnits)) }
 
-    /**
-     * Formats an amount that arrived as a fraction of a minor unit, which
-     * `totalParticipantShare` does on instances predating the *Shares* change. Rounding belongs
-     * here, not at the boundary, which would hand later calculations a value never sent.
-     */
-    public fun formatShare(share: Double): String = format(roundMinorUnits(share))
-
     /** Parses what someone typed back into minor units at this currency's precision. */
     public fun parse(text: String): Long? = parseMinorUnits(text, locale, minorUnitDigits)
 
@@ -214,8 +207,6 @@ public class MoneyFormatter(
  * on all three rather than returning null.
  */
 internal fun isoCurrency(code: String?): IsoCurrency? {
-    // Locale.ROOT, not the default: uppercasing "iqd" in Turkish gives "İQD", and the lookup
-    // then fails for a currency that is perfectly real.
     val normalised = code?.trim()?.uppercase(Locale.ROOT) ?: return null
     if (normalised.length != 3) return null
     return try {

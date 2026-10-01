@@ -39,8 +39,7 @@ fun CategoryIcon(
         modifier = modifier
             .size(size)
             .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(size * 0.24f))
-            // The row this leads names the category in its own title (Part 11), this would
-            // just say it again.
+            // The row already names the category.
             .clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
@@ -53,12 +52,7 @@ fun CategoryIcon(
     }
 }
 
-/**
- * Keyed by `grouping`, the same top-level key the web app's `category-icon.tsx` and the iOS
- * `ExpenseCategoryIcon` both use before falling back, a category's *grouping* decides this
- * cycle's glyph, not its more specific `name`, so e.g. "Taxi" and "Car" read the same until
- * Part 11 gives per-name icons their own row treatment.
- */
+/** Keyed by a category's `grouping`, not its `name`, like the web and iOS apps. */
 object CategoryGlyphs {
     private val byGrouping = mapOf(
         "Entertainment" to R.drawable.ic_cat_entertainment,
@@ -72,7 +66,4 @@ object CategoryGlyphs {
     /** Falls through to a banknote, same as the web app's own "Uncategorized" default. */
     fun drawable(grouping: String?): Int =
         byGrouping[grouping] ?: R.drawable.ic_cat_uncategorized
-
-    /** Every grouping the server sends today has its own glyph. */
-    fun groupingsWithOwnGlyph(): Set<String> = byGrouping.keys
 }

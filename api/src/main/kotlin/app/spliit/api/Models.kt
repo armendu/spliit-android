@@ -66,7 +66,7 @@ public data class GroupSummary(
 ) {
     public val participantCount: Int get() = counts.participants
 
-    /** For tests and for Part 8's recent-group rows, which build one without a server. */
+    /** For tests and for recent-group rows, which build one without a server. */
     public constructor(
         id: String,
         name: String,

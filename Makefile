@@ -57,9 +57,7 @@ help: ## List these targets
 #
 # :app's unit tests are here too. They are JVM tests, ViewModels and pure presentation
 # functions, no Robolectric and no device, but they do pay for AGP's resource and manifest
-# tasks, so the target is tens of seconds rather than the seconds :api and :core take. They
-# were written from Part 9 onward and ran nowhere at all until this line existed, which is the
-# kind of gap that only shows up when somebody counts the tests rather than the green ticks.
+# tasks, so the target is tens of seconds rather than the seconds :api and :core take.
 test: ## Fast unit tests, every JVM suite, no emulator
 	@$(GRADLE) :api:test :core:test :app:testDebugUnitTest
 
