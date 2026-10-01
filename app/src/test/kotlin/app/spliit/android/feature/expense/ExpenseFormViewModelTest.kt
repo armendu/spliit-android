@@ -7,6 +7,7 @@ import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
 import app.spliit.core.SplitMode
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
@@ -74,7 +75,7 @@ private val EXPENSE_JSON = """
 
 /** Routes by procedure path, and keeps every request so a test can read what was written. */
 private class Router(private val bodies: Map<String, String>) : Dispatcher() {
-    val requests = mutableListOf<Pair<String, String>>()
+    val requests = CopyOnWriteArrayList<Pair<String, String>>()
 
     override fun dispatch(request: RecordedRequest): MockResponse {
         val path = request.url.encodedPath
