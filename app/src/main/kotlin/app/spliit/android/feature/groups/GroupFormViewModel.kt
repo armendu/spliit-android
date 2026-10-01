@@ -59,15 +59,14 @@ class GroupFormViewModel(
             } else {
                 InstanceAddress.normalize(instanceBaseUrl)
             },
+            isLoading = mode == GroupFormMode.EDIT,
         ),
     )
     val state: StateFlow<GroupFormUiState> = _state.asStateFlow()
 
     private var knownParticipants: List<Participant> = emptyList()
 
-    init {
-        if (mode == GroupFormMode.EDIT) load()
-    }
+    private var loadStarted = false
 
     fun resetForCreate(instanceBaseUrl: String) {
         _state.value = GroupFormUiState(
@@ -78,7 +77,10 @@ class GroupFormViewModel(
         knownParticipants = emptyList()
     }
 
+    // Called by the screen, not from init: an init-time launch races tests that call refreshForEdit.
     fun load() {
+        if (_state.value.mode != GroupFormMode.EDIT || loadStarted) return
+        loadStarted = true
         viewModelScope.launch { refreshForEdit() }
     }
 
