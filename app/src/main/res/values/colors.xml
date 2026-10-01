@@ -5,6 +5,5 @@
          so there is no dark-mode counterpart to define. -->
     <color name="ic_launcher_background">#059669</color>
 
-    <!-- Must match SurfaceLight in Color.kt. -->
     <color name="window_background">#FBF8FF</color>
 </resources>
