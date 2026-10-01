@@ -6,6 +6,7 @@ import app.spliit.core.DateBucket
 import app.spliit.core.LoadState
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
@@ -249,7 +250,7 @@ class GroupDetailViewModelTest {
             val viewModel = GroupDetailViewModel("g1", store)
             viewModel.refresh()
 
-            val asked = mutableListOf<String>()
+            val asked = CopyOnWriteArrayList<String>()
             server.dispatcher = object : Dispatcher() {
                 override fun dispatch(request: RecordedRequest): MockResponse {
                     val path = request.url.encodedPath
@@ -499,7 +500,7 @@ class GroupDetailViewModelTest {
     fun `the totals are not asked for until the tab is opened`() = runBlocking {
         val instance = server.url("/").toString()
         val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
-        val asked = mutableListOf<String>()
+        val asked = CopyOnWriteArrayList<String>()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
@@ -565,7 +566,7 @@ class GroupDetailViewModelTest {
         val instance = server.url("/").toString()
         val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
         val statsBody = """{"totalGroupSpendings":4200,"totalParticipantSpendings":null,"totalParticipantShare":null}"""
-        val asked = mutableListOf<String>()
+        val asked = CopyOnWriteArrayList<String>()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
@@ -731,7 +732,7 @@ class GroupDetailViewModelTest {
     fun `the activity log is not read until it is opened`() = runBlocking {
         val instance = server.url("/").toString()
         val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
-        val asked = mutableListOf<String>()
+        val asked = CopyOnWriteArrayList<String>()
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val path = request.url.encodedPath
