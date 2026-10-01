@@ -21,15 +21,6 @@ import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.SheetHeader
 
-
-/**
- * Creating a group, as a drawer over the dashboard rather than a screen of its own: a name, a
- * couple of participants, done. **Editing** keeps the full screen, where the form has earned the
- * room; both draw the same [GroupFormBody].
- *
- * **It opens fully expanded**, unlike the expense editor: this sheet *is* the whole form, and a
- * partial anchor would put a drag between somebody and the participant they came to add.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateGroupSheet(
@@ -48,9 +39,6 @@ fun CreateGroupSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = SheetShape,
-        // Handed to the content instead, where one modifier pads for the navigation bar and the
-        // keyboard together, the sheet consuming the inset leaves the last field under the
-        // gesture handle. Same reasoning as ExpenseEditSheet.
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         modifier = Modifier.testTag(TestTags.GROUP_FORM_SHEET),
     ) {

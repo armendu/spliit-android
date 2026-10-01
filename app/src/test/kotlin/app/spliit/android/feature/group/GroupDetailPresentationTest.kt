@@ -14,15 +14,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 
-/**
- * The pure functions behind the group screen's new surfaces, the share link, the activity log's
- * prose and bucketing, and the expense row's two metadata lines. None of them needs a server, a
- * `Context` or a composition, which is why they are plain functions in the first place.
- */
 class GroupDetailPresentationTest {
-
-    // ---- the share link ------------------------------------------------------------------------
-
     @Test
     fun `the share link is the web app's own, on the group's instance`() {
         assertEquals(
@@ -33,8 +25,6 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `a stored base URL with a trailing slash does not double it`() {
-        // Rows are written by several paths, a pasted link, the create form, a seeded fixture -
-        // and they do not agree about the trailing slash.
         assertEquals(
             "https://spliit.example.com/groups/abc123",
             groupShareLink("https://spliit.example.com/", "abc123"),
@@ -43,12 +33,8 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `a self-hosted group is shared on its own server, not on spliit app`() {
-        // The bug this exists to prevent: a self-hosted group shared as a spliit.app link opens
-        // nothing at all for whoever receives it.
         assertTrue(groupShareLink("http://10.0.2.2:3009/", "g1").startsWith("http://10.0.2.2:3009/"))
     }
-
-    // ---- the activity log ----------------------------------------------------------------------
 
     private fun activity(
         id: String,
@@ -68,8 +54,6 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `a change nobody claimed reads as Someone rather than as nobody at all`() {
-        // Every mutating procedure takes an optional participantId and none requires one, so this
-        // is the honest sentence for a write made by a client that never said who it was.
         val entry = activity("a1", ActivityType.CreateExpense, "2025-06-02T10:00:00Z", title = "Taxi")
 
         assertEquals("Someone created \"Taxi\"", summaryOf(entry, participantName = null))
@@ -92,8 +76,6 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `a kind this version cannot describe is dropped rather than drawn`() {
-        // There is no honest sentence to put on the row. A log missing a line it cannot describe
-        // still reads correctly; one saying "something happened" does not.
         val clock = Clock.fixed(Instant.parse("2025-06-02T12:00:00Z"), ZoneId.of("UTC"))
         val sections = bucketActivities(
             listOf(
@@ -124,8 +106,6 @@ class GroupDetailPresentationTest {
         )
     }
 
-    // ---- the expense row's two lines -----------------------------------------------------------
-
     private fun expense(payer: String, vararg payees: String): ExpenseListItem = ExpenseListItem(
         "e1",
         "Taxi",
@@ -145,7 +125,6 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `the split line lists the payees and nothing else`() {
-        // The "Paid by …" half is its own line now, so this returns only the list.
         assertEquals("Bruno and Chloé", paidForDescription(expense("Ana", "Bruno", "Chloé")))
         assertEquals("Ana, Bruno and Chloé", paidForDescription(expense("Ana", "Ana", "Bruno", "Chloé")))
         assertEquals("Bruno", paidForDescription(expense("Ana", "Bruno")))
@@ -158,7 +137,6 @@ class GroupDetailPresentationTest {
 
     @Test
     fun `a screen reader still hears the two lines as one sentence`() {
-        // Two Texts in a column are two fragments; the merged node puts the sentence back.
         assertEquals(
             "Paid by Ana for Bruno and Chloé",
             accessibleSplitDescription(expense("Ana", "Bruno", "Chloé")),

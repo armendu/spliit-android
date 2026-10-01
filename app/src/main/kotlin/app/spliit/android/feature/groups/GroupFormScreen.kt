@@ -56,14 +56,6 @@ import app.spliit.android.ui.design.FormSectionHeader
 import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.SkeletonBlock
 
-
-/**
- * The group editor as a full screen, "Group settings". Every rule about what makes a group valid
- * comes from [GroupFormDraft.problems]; this only renders it.
- *
- * **Creating a group does not come through here**, it is [CreateGroupSheet] over the dashboard.
- * Both draw the same [GroupFormBody].
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun GroupFormScreen(
@@ -82,9 +74,6 @@ fun GroupFormScreen(
             topBar = {
                 TopAppBar(
                     title = { Text(if (state.mode == GroupFormMode.CREATE) "Create group" else "Group settings") },
-                    // A modal task, not a destination: Material's full-screen dialog takes an ✕
-                    // and a confirming action, which is also what the iOS Cancel/Save pair means.
-                    // An up arrow here would promise a parent screen this form does not have.
                     navigationIcon = {
                         IconButton(
                             onClick = onCancel,
@@ -117,8 +106,6 @@ fun GroupFormScreen(
             )
         }
 
-        // Informational, not a decision to make, never a protected-focus dialog. A refused
-        // removal says why, near the list it happened in, and clears itself on the next tap.
         BlockedParticipantNotice(
             message = state.blockedParticipantMessage,
             onDismiss = viewModel::dismissBlockedParticipantMessage,
@@ -127,10 +114,6 @@ fun GroupFormScreen(
     }
 }
 
-/**
- * The fields themselves, without any chrome, so the full screen and [CreateGroupSheet] draw the
- * same form rather than two forms that have to be kept in step.
- */
 @Composable
 internal fun GroupFormBody(
     state: GroupFormUiState,
@@ -138,12 +121,7 @@ internal fun GroupFormBody(
     modifier: Modifier = Modifier,
 ) {
     val draft = state.draft
-    // A sheet the form opens over itself, not a route. Navigating left the create *sheet* with
-    // no way to reach a currency at all, since it has no NavController to push onto, so that row
-    // was wired to `{}` and silently did nothing.
     var showCurrencyPicker by rememberSaveable { mutableStateOf(false) }
-    // Collapsed by default and remembered across a rotation but not across the sheet closing:
-    // somebody who opened Advanced for one group has not said anything about the next.
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     var focusParticipantId by remember { mutableStateOf<String?>(null) }
     val advancedChevronRotation by animateFloatAsState(
@@ -197,9 +175,6 @@ internal fun GroupFormBody(
             )
         }
 
-        // Hidden, not removed: somebody creating a group on spliit.app should never see this
-        // field, but self-hosting is a first-class use case and needs a way to it without a
-        // detour through Settings. Create only, since a group cannot move servers.
         if (state.mode == GroupFormMode.CREATE) {
             Spacer(Modifier.height(16.dp))
             Row(
@@ -217,8 +192,6 @@ internal fun GroupFormBody(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(18.dp)
-                        // The same glyph in both states, turned, one drawable, and the
-                        // rotation animates where a swap between two would pop.
                         .rotate(advancedChevronRotation),
                 )
                 Text(
@@ -317,9 +290,6 @@ internal fun GroupFormBody(
         ) {
             FieldError("A group needs at least one participant.", testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
         } else if (state.mode != GroupFormMode.CREATE) {
-            // Only worth saying while editing. A group being created has no expenses for
-            // anyone to appear on, so on the create sheet this was a rule about a
-            // situation that cannot exist yet.
             Text(
                 text = "Anyone who already appears on an expense can't be removed.",
                 style = MaterialTheme.typography.bodySmall,
@@ -340,10 +310,6 @@ internal fun GroupFormBody(
         CurrencyPickerSheet(
             title = "Currency",
             selectedCode = draft.currencyCode,
-            // The phone's own currency, which is the likeliest answer for a group somebody is
-            // creating on it. `Currency.getInstance` throws for a locale with no country behind
-            // it, which a stripped-down emulator image really does have, hence the catch rather
-            // than a check on the locale.
             promotedCode = runCatching { Currency.getInstance(draft.locale).currencyCode }.getOrNull(),
             promotedSuffix = ", this phone's own",
             onSelect = {
@@ -361,13 +327,6 @@ internal fun GroupFormBody(
     }
 }
 
-/**
- * Why a participant could not be removed, said near the list it happened in.
- *
- * Informational, not a decision to make, never a protected-focus dialog. It clears itself on
- * the next tap. [GroupFormDraft.withParticipantRemoved] returns null rather than quietly doing
- * nothing precisely so there is something to say here.
- */
 @Composable
 internal fun BlockedParticipantNotice(message: String?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     AnimatedVisibility(visible = message != null, modifier = modifier) {
@@ -390,8 +349,6 @@ internal fun BlockedParticipantNotice(message: String?, onDismiss: () -> Unit, m
     }
 }
 
-/** What the currency row shows on the right, the currency and the symbol it puts beside every
- *  amount, or just the symbol when that is all the group has. */
 private fun currencySummary(draft: GroupFormDraft): String {
     val code = draft.currencyCode
     if (!code.isNullOrBlank()) {

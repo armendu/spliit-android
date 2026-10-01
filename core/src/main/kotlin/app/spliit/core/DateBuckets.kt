@@ -6,14 +6,6 @@ import java.time.YearMonth
 import java.time.Instant
 import java.time.temporal.WeekFields
 
-/**
- * The buckets an expense or activity list is divided into, newest first, one scheme for both.
- *
- * Boundaries follow the device's zone, not UTC: an expense logged at 11pm local is "today" on
- * the phone that logged it. [of] takes a [Clock] rather than reading the system one so that is
- * testable; a function that reaches for the system clock is zone-aware only by accident, and
- * looks correct on every laptop and on a UTC-pinned CI runner alike.
- */
 public enum class DateBucket {
     TODAY,
     YESTERDAY,
@@ -27,10 +19,6 @@ public enum class DateBucket {
     ;
 
     public companion object {
-        /**
-         * Which bucket [instant] falls into, as of [clock]. A future date, from clock skew or a
-         * recurring expense, lands in [TODAY]: this is a list of what happened, not a schedule.
-         */
         public fun of(instant: Instant, clock: Clock): DateBucket {
             val zone = clock.zone
             val today = LocalDate.now(clock)
@@ -54,11 +42,7 @@ public enum class DateBucket {
             return OLDER
         }
 
-        /**
-         * The (week-based year, week-of-year) pair for [date]. Comparing the pair, rather than
-         * just [WeekFields.weekOfWeekBasedYear], is what makes a week straddling New Year's Eve
-         * compare correctly, week 1 of one year and week 1 of the next both read "1" alone.
-         */
+        // Compare (week-based year, week), or a week spanning New Year compares wrong.
         private fun weekOf(date: LocalDate, weekFields: WeekFields): Pair<Int, Int> =
             date.get(weekFields.weekBasedYear()) to date.get(weekFields.weekOfWeekBasedYear())
     }

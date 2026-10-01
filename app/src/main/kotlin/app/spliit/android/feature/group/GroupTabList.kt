@@ -25,12 +25,6 @@ import app.spliit.android.ui.design.Monogram
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.api.Participant
 
-/**
- * The scrolling body of a group tab.
- *
- * Balances, Totals and Information are siblings under one FAB and one navigation bar, so their
- * margins and bottom clearance have to agree or one of them hides its last row.
- */
 @Composable
 fun GroupTabList(content: LazyListScope.() -> Unit) {
     LazyColumn(
@@ -40,12 +34,6 @@ fun GroupTabList(content: LazyListScope.() -> Unit) {
     )
 }
 
-/**
- * The row that opens the "who are you?" picker, on each of the three tabs that offers it.
- *
- * It was written out three times and had already drifted: two tabs said "Say who you are" and
- * the third said "Not set", for the same control under the same heading.
- */
 @Composable
 fun IdentityRow(
     you: Participant?,

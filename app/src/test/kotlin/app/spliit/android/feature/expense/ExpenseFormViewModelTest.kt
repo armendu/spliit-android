@@ -61,7 +61,6 @@ private val CATEGORIES_JSON = """
     {"id":8,"grouping":"Food and Drink","name":"Dining Out"}]}
 """.trimIndent()
 
-/** An expense as `groups.expenses.get` answers it, every field the form round-trips. */
 private val EXPENSE_JSON = """
     {"expense":{"id":"e1","groupId":"$GROUP_ID","title":"Dinner","amount":3000,"categoryId":8,
     "category":{"id":8,"grouping":"Food and Drink","name":"Dining Out"},
@@ -73,7 +72,6 @@ private val EXPENSE_JSON = """
     "conversionRate":null}}
 """.trimIndent()
 
-/** Routes by procedure path, and keeps every request so a test can read what was written. */
 private class Router(private val bodies: Map<String, String>) : Dispatcher() {
     val requests = CopyOnWriteArrayList<Pair<String, String>>()
 
@@ -85,7 +83,6 @@ private class Router(private val bodies: Map<String, String>) : Dispatcher() {
         return MockResponse.Builder().code(200).body(okBody(bodies.getValue(procedure))).build()
     }
 
-    /** The `json` half of the superjson envelope a mutation was sent with. */
     fun input(procedure: String): JsonObject =
         Json.parseToJsonElement(requests.last { it.first == procedure }.second)
             .jsonObject.getValue("json").jsonObject
@@ -94,7 +91,6 @@ private class Router(private val bodies: Map<String, String>) : Dispatcher() {
 }
 
 class ExpenseFormViewModelTest {
-
     private val server = MockWebServer()
 
     @BeforeEach
@@ -140,8 +136,6 @@ class ExpenseFormViewModelTest {
         now = Instant.parse("2025-06-10T12:00:00Z"),
     )
 
-    // ---- opening an expense ----------------------------------------------------------------
-
     @Test
     fun `opening an expense for editing round-trips every field`() = runBlocking {
         val router = router()
@@ -161,10 +155,8 @@ class ExpenseFormViewModelTest {
         assertEquals("MONTHLY", draft.recurrenceRule)
         assertFalse(draft.isReimbursement)
         assertEquals(Instant.parse("2025-06-01T00:00:00Z"), draft.expenseDate)
-        // Two of the three were paid for, at 1 and 2 shares, `shares` is ×100 in this mode.
         assertEquals(listOf(true, true, false), draft.participants.map { it.isIncluded })
         assertEquals(listOf("1", "2", "1"), draft.participants.map { it.valueText })
-        // The expense the row named, not whichever one the server felt like.
         assertTrue(router.requests.any { it.first == "groups.expenses.get" })
         assertEquals("EUR", draft.groupCurrencyCode)
     }
@@ -172,10 +164,6 @@ class ExpenseFormViewModelTest {
     @Test
     fun `re-opening the sheet starts from the expense again, not from where the last open ended`() =
         runBlocking {
-            // Editing is a sheet over the group screen, so this ViewModel is keyed on the
-            // expense and handed back for a second open. Two endings would otherwise leak into
-            // it: a savedExpenseId that closes the sheet the instant it opens, and a draft
-            // holding edits somebody discarded.
             router()
             val viewModel = viewModel(ExpenseFormMode.Edit("e1"), store())
             viewModel.refresh()
@@ -192,7 +180,6 @@ class ExpenseFormViewModelTest {
 
             viewModel.refresh()
 
-            // Back to what the server answers with, not what the last open left behind.
             assertEquals("Dinner", checkNotNull(viewModel.state.value.draft).title)
         }
 
@@ -207,7 +194,6 @@ class ExpenseFormViewModelTest {
 
             val input = router.input("groups.expenses.update")
             assertEquals("e1", input.getValue("expenseId").jsonPrimitive.content)
-            // participantId is the only thing the activity log can name anybody with.
             assertEquals("p3", input.getValue("participantId").jsonPrimitive.content)
             val values = input.getValue("expenseFormValues").jsonObject
             assertEquals("Dinner", values.getValue("title").jsonPrimitive.content)
@@ -236,8 +222,6 @@ class ExpenseFormViewModelTest {
         assertEquals(4550, values.getValue("amount").jsonPrimitive.content.toInt())
     }
 
-    // ---- creating ---------------------------------------------------------------------------
-
     @Test
     fun `creating carries the participant who made it`() = runBlocking {
         val router = router()
@@ -253,21 +237,16 @@ class ExpenseFormViewModelTest {
         assertEquals("new1", viewModel.state.value.savedExpenseId)
         val values = input.getValue("expenseFormValues").jsonObject
         assertEquals(2100, values.getValue("amount").jsonPrimitive.content.toInt())
-        // The remembered participant is who a new expense is paid by until somebody says otherwise.
         assertEquals("p2", values.getValue("paidBy").jsonPrimitive.content)
-        // A conversion that was never started is an explicit null, and the two figures that go
-        // with it are omitted rather than blanked, see ExpenseSubmission.Wire.
         assertEquals(JsonNull, values.getValue("originalCurrency"))
         assertFalse(values.containsKey("originalAmount"))
         assertFalse(values.containsKey("conversionRate"))
-        // notes is omitted, never a literal null: the schema answers 400 to one.
         assertFalse(values.containsKey("notes"))
     }
 
     @Test
     fun `a write by somebody who has left the group names nobody`() = runBlocking {
         val router = router()
-        // "gone" is not one of this group's three participants any more.
         val viewModel = viewModel(ExpenseFormMode.Create, store(participantId = "gone"))
         viewModel.refresh()
 
@@ -275,10 +254,7 @@ class ExpenseFormViewModelTest {
         viewModel.setAmountText("21.00")
         assertTrue(viewModel.submit())
 
-        // Omitted, so the log says "Someone", which is exactly what is known. A write must never
-        // claim to be a participant who has left.
         assertFalse(router.input("groups.expenses.create").containsKey("participantId"))
-        // And the payer falls back to the first participant rather than naming the stranger.
         val values = router.input("groups.expenses.create").getValue("expenseFormValues").jsonObject
         assertEquals("p1", values.getValue("paidBy").jsonPrimitive.content)
     }
@@ -297,7 +273,6 @@ class ExpenseFormViewModelTest {
         val draft = checkNotNull(viewModel.state.value.draft)
         assertEquals(SplitMode.BY_PERCENTAGE, draft.splitMode)
         assertEquals(listOf("70", "30", "1"), draft.participants.map { it.valueText })
-        // Chloé was not in the remembered split, so she is not in this expense either.
         assertEquals(listOf(true, true, false), draft.participants.map { it.isIncluded })
     }
 
@@ -312,7 +287,6 @@ class ExpenseFormViewModelTest {
 
         viewModel.refresh()
 
-        // Not trimmed to a 70% split nobody chose, back to the group's plain default.
         val draft = checkNotNull(viewModel.state.value.draft)
         assertEquals(SplitMode.EVENLY, draft.splitMode)
         assertEquals(3, draft.includedParticipants.size)
@@ -337,8 +311,6 @@ class ExpenseFormViewModelTest {
         assertEquals(mapOf("p1" to 200L, "p2" to 100L, "p3" to 100L), saved?.shares)
     }
 
-    // ---- settling up -------------------------------------------------------------------------
-
     @Test
     fun `a settle-up prefills payer, payee, amount and the reimbursement flag`() = runBlocking {
         val router = router()
@@ -354,20 +326,15 @@ class ExpenseFormViewModelTest {
         assertEquals(listOf("p1"), draft.includedParticipants.map { it.id })
         assertEquals("12.50", draft.amountText)
         assertTrue(draft.isReimbursement)
-        // A reimbursement is one person paying one other, never the group's usual split.
         assertFalse(draft.isSplitWorthRemembering)
 
         assertTrue(viewModel.submit())
-        // A settle-up is an ordinary create: Spliit has no "mark as paid" procedure.
         val values = router.input("groups.expenses.create").getValue("expenseFormValues").jsonObject
         assertTrue(values.getValue("isReimbursement").jsonPrimitive.content.toBoolean())
         assertEquals("p3", values.getValue("paidBy").jsonPrimitive.content)
         assertEquals(1250, values.getValue("amount").jsonPrimitive.content.toInt())
-        // Filed under "Payment", the category the web app and iOS both use for a settlement.
         assertEquals(1, values.getValue("category").jsonPrimitive.content.toInt())
     }
-
-    // ---- the split ----------------------------------------------------------------------------
 
     @Test
     fun `switching split mode keeps the participants and recomputes the shares`() = runBlocking {
@@ -381,9 +348,7 @@ class ExpenseFormViewModelTest {
         viewModel.setSplitMode(SplitMode.BY_AMOUNT)
 
         val draft = checkNotNull(viewModel.state.value.draft)
-        // The selection survives the change, who paid has nothing to do with how it divides.
         assertEquals(listOf("p1", "p2"), draft.includedParticipants.map { it.id })
-        // And the amounts arrive already adding up to the expense.
         assertEquals(listOf("5.00", "5.00"), draft.includedParticipants.map { it.valueText })
         assertTrue(draft.isValid)
 
@@ -400,13 +365,9 @@ class ExpenseFormViewModelTest {
         viewModel.refresh()
         viewModel.setAmountText("10.00")
 
-        // A third of 10.00 is 334 / 333 / 333, not 333.33 three times, `:core`'s apportionment,
-        // which the breakdown list draws straight from.
         val amounts = checkNotNull(viewModel.state.value.draft).splitAmounts()
         assertEquals(listOf(334L, 333L, 333L), amounts.map { it.amount })
     }
-
-    // ---- validation ---------------------------------------------------------------------------
 
     @Test
     fun `validation surfaces per field, and only once a save has been attempted`() = runBlocking {
@@ -415,7 +376,6 @@ class ExpenseFormViewModelTest {
         viewModel.refresh()
         viewModel.setTitle("x")
 
-        // Nothing red before a save is attempted, however wrong the draft already is.
         assertTrue(viewModel.state.value.problems(ExpenseFormDraft.Field.TITLE).isEmpty())
 
         assertFalse(viewModel.submit())
@@ -430,7 +390,6 @@ class ExpenseFormViewModelTest {
             listOf(ExpenseFormDraft.Problem.AmountMissing),
             state.problems(ExpenseFormDraft.Field.AMOUNT),
         )
-        // And these are `:core`'s own answers, not a second opinion assembled here.
         assertEquals(
             state.draft?.problems(ExpenseFormDraft.Field.TITLE),
             state.problems(ExpenseFormDraft.Field.TITLE),
@@ -458,8 +417,6 @@ class ExpenseFormViewModelTest {
             assertTrue(viewModel.state.value.problems(ExpenseFormDraft.Field.AMOUNT).isEmpty())
         }
 
-    // ---- deleting -----------------------------------------------------------------------------
-
     @Test
     fun `deleting carries the participant who did it, and can be undone`() = runBlocking {
         val router = router()
@@ -473,8 +430,6 @@ class ExpenseFormViewModelTest {
         val deleted = checkNotNull(viewModel.state.value.deleted)
         assertEquals("Dinner", deleted.title)
 
-        // The server has no undelete, so undo re-creates it, under a new ID, and carrying the
-        // same participantId so the log credits the same person.
         assertTrue(viewModel.submitUndoDelete())
         val recreated = router.input("groups.expenses.create")
         assertEquals("p1", recreated.getValue("participantId").jsonPrimitive.content)
@@ -499,8 +454,6 @@ class ExpenseFormViewModelTest {
         assertTrue(viewModel.state.value.isFinished)
     }
 
-    // ---- loading ------------------------------------------------------------------------------
-
     @Test
     fun `a configuration change does not throw away what has been typed`() = runBlocking {
         router()
@@ -508,9 +461,6 @@ class ExpenseFormViewModelTest {
         viewModel.refresh()
         viewModel.setTitle("Half-written")
 
-        // What the screen does on every composition, and a rotation, or the system flipping to
-        // dark, is a fresh composition. Before this was guarded it rebuilt the draft from the
-        // server and the title went with it.
         viewModel.load()
 
         assertEquals("Half-written", viewModel.state.value.draft?.title)
@@ -519,9 +469,6 @@ class ExpenseFormViewModelTest {
 
     @Test
     fun `a cancelled load does not surface as a network error`() = runBlocking {
-        // No dispatcher is installed, so the request hangs until this test cancels it. Catching
-        // Exception around the call would swallow the CancellationException and report the
-        // server unreachable.
         val viewModel = viewModel(ExpenseFormMode.Edit("e1"), store())
 
         val job = launch { viewModel.refresh() }

@@ -8,33 +8,17 @@ import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.time.Instant
 
-/**
- * What changed, when the server changes underneath us.
- *
- * The decode tests answer "does this still fit our models", which stays green for the most
- * dangerous change there is: a field quietly vanishing from a response the models declare
- * optional. `groups.stats.get` becoming `groups.stats.overview` is the version that shipped.
- *
- * So this compares the **shape** of a live response against the fixture, field by field.
- * `@Tag("live")`, so only `make test-live` and the nightly drift job run it.
- *
- * **A failure here is not a broken build**, it is a list of things to look at. When the change
- * is expected, `make fixtures` re-records and the diff in that commit is the changelog.
- */
+// Compares the shape of live responses with the recorded fixtures (@Tag("live")).
+// A failure lists what changed; when it's expected, `make fixtures` re-records.
 @Tag("live")
 class ApiContractDriftTest {
-
     private val baseUrl =
         System.getProperty("spliit.baseUrl")?.ifBlank { null } ?: "http://localhost:3009/"
     private val client = TrpcClient(baseUrl)
     private val http = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * The raw body, without going through a model: decoding first drops fields nothing declares,
-     * making a new one invisible to the check meant to find it. [TrpcClient.buildRequest] is
-     * reused so the envelope and encoding are the ones the app really uses.
-     */
+    // The raw body, not via a model: decoding would drop fields nothing declares.
     private fun raw(procedure: TrpcProcedure<*, *>): String =
         http.newCall(client.buildRequest(procedure)).execute().use { response ->
             val body = response.body.string()
@@ -51,9 +35,6 @@ class ApiContractDriftTest {
 
     @Test
     fun `every recorded response still has the shape the fixture recorded`() = runBlocking {
-        // Real data first, and created here rather than assumed: several of the procedures below
-        // answer with empty lists on a group that has nothing in it, and an empty list is the one
-        // thing this comparison cannot learn anything from.
         val form = GroupFormValues(
             name = "Contract drift ${Instant.now().toEpochMilli()}",
             information = "A group the drift check made.",
@@ -104,11 +85,6 @@ class ApiContractDriftTest {
         compare("groups.stats.overview", SpliitEndpoints.statsOverview(groupId, ana.id))
     }
 
-    /**
-     * The other half of drift: a procedure that stops existing, which shows up as an error rather
-     * than a shape difference. `groups.stats.get` is *expected* to be gone on a current server,
-     * so this asserts only that asking produces a clear answer, and prints which.
-     */
     @Test
     fun `the stats procedures report which of the two names this server answers to`() = runBlocking {
         val names = mutableListOf<String>()

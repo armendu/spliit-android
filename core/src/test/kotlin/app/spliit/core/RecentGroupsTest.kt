@@ -28,9 +28,6 @@ private fun group(
 )
 
 class RecentGroupsTest {
-
-    // ---- stamping ---------------------------------------------------------------------
-
     @Test
     fun `opening a new group stamps both updatedAt and lastOpenedAt`() {
         val snapshot = RecentGroupsSnapshot().opening(group("g1"), now = T0)
@@ -84,7 +81,6 @@ class RecentGroupsTest {
             .settingParticipantId("g1", "p1", now = T0.plusSeconds(1))
             .settingDefaultSplit("g1", split, now = T0.plusSeconds(2))
 
-        // A fresh row as a server response would build it: no participant, no split.
         val reopened = opened.opening(group("g1", name = "New Name"), now = T0.plusSeconds(10))
 
         val row = reopened.groups.single()
@@ -92,8 +88,6 @@ class RecentGroupsTest {
         assertEquals("p1", row.participantId, "the server response carries no participant, but ours must survive")
         assertEquals(split, row.defaultSplit, "the server response carries no split, but ours must survive")
     }
-
-    // ---- ordering -----------------------------------------------------------------------
 
     @Test
     fun `orderedGroups sorts by lastOpenedAt, most recent first`() {
@@ -111,14 +105,10 @@ class RecentGroupsTest {
         snapshot = snapshot.opening(group("g1"), now = T0)
         snapshot = snapshot.opening(group("g2"), now = T0.plusSeconds(10))
 
-        // g1 was opened before g2, so g2 leads. Setting g1's participant much later must not
-        // move it ahead of g2, only opening does that.
         snapshot = snapshot.settingParticipantId("g1", "p1", now = T0.plusSeconds(100))
 
         assertEquals(listOf("g2", "g1"), snapshot.orderedGroups.map { it.groupId })
     }
-
-    // ---- starring and archiving -----------------------------------------------------------
 
     @Test
     fun `settingStarred stamps updatedAt without moving lastOpenedAt`() {
@@ -129,8 +119,6 @@ class RecentGroupsTest {
 
         val row = updated.groups.single()
         assertTrue(row.isStarred)
-        // The stamp is the whole point: starring does not reorder anything, so nothing else on
-        // the row says this copy is newer than the one another device is holding.
         assertEquals(later, row.updatedAt, "settingStarred must stamp updatedAt")
         assertEquals(T0, row.lastOpenedAt, "starring must not touch lastOpenedAt")
     }
@@ -210,8 +198,6 @@ class RecentGroupsTest {
         var snapshot = RecentGroupsSnapshot().opening(group("g1"), now = T0)
         snapshot = snapshot.settingStarred("g1", isStarred = true, now = T0.plusSeconds(1))
 
-        // A server response carries no flags, so a refreshed row would unstar the group if
-        // `opening` did not keep what only this phone knows.
         snapshot = snapshot.opening(group("g1", name = "Renamed"), now = T0.plusSeconds(2))
 
         val row = snapshot.groups.single()
@@ -232,8 +218,6 @@ class RecentGroupsTest {
 
         assertTrue(merged.groups.single().isStarred)
     }
-
-    // ---- merging: union ------------------------------------------------------------------
 
     @Test
     fun `merging keeps the union of two disjoint lists`() {
@@ -277,8 +261,6 @@ class RecentGroupsTest {
         assertEquals("Mine", merged.groups.single().groupName)
     }
 
-    // ---- merging: tombstones --------------------------------------------------------------
-
     @Test
     fun `forget leaves a tombstone`() {
         val opened = RecentGroupsSnapshot().opening(group("g1"), now = T0)
@@ -292,7 +274,6 @@ class RecentGroupsTest {
     @Test
     fun `merging does not resurrect a tombstoned group`() {
         val mine = RecentGroupsSnapshot().opening(group("g1"), now = T0).forget("g1", now = T0.plusSeconds(1))
-        // The other phone never heard about the deletion, so it still has the row.
         val theirs = RecentGroupsSnapshot(groups = listOf(group("g1", updatedAt = T0, lastOpenedAt = T0)))
 
         val merged = RecentGroupsSnapshot.merging(mine, theirs, now = T0.plusSeconds(2))
@@ -345,9 +326,6 @@ class RecentGroupsTest {
 
     @Test
     fun `an older tombstone does not win against a row edited after it`() {
-        // The other device deleted g1 at T0, but then (from a third device, or undone locally)
-        // g1 was opened again at T0+10, an edit after the tombstone is evidence the deletion
-        // was undone, so the row must survive.
         val mine = RecentGroupsSnapshot(tombstones = mapOf("g1" to T0))
         val theirs = RecentGroupsSnapshot(
             groups = listOf(group("g1", updatedAt = T0.plusSeconds(10), lastOpenedAt = T0.plusSeconds(10))),
@@ -368,8 +346,6 @@ class RecentGroupsTest {
         assertTrue(reopened.tombstones.isEmpty())
         assertEquals(1, reopened.groups.size)
     }
-
-    // ---- actorId ----------------------------------------------------------------------
 
     @Test
     fun `actorId resolves the remembered participant`() {

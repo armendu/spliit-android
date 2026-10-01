@@ -21,21 +21,16 @@ import org.junit.jupiter.api.assertThrows
 import java.math.BigDecimal
 import java.time.Instant
 
-/** As an instance older than the *Shares* change sends it: a rounded sum of thirds. */
 @Serializable
 private data class StrictStatsResponse(val totalParticipantShare: Int)
 
 private fun <T> decode(serializer: kotlinx.serialization.DeserializationStrategy<T>, fixture: String): T =
     SuperJson.decodeResponse(serializer, Fixture.text(fixture))
 
-/** For the rules that no recorded response happens to exercise, e.g. a future activity type. */
 private fun <T> decodeBody(serializer: kotlinx.serialization.DeserializationStrategy<T>, json: String): T =
     SuperJson.decodeResponse(serializer, """{"result":{"data":{"json":$json}}}""")
 
 class ModelsTest {
-
-    // ---- one per recorded fixture ------------------------------------------------------
-
     @Test
     fun `a group carries its participants, its symbol and its ISO code`() {
         val group = decode(GroupResponse.serializer(), "groups.get").group!!
@@ -61,9 +56,6 @@ class ModelsTest {
 
     @Test
     fun `a group summary decodes its participant count from the _count aggregate`() {
-        // There is no `participantCount` on the wire: Prisma answers with a `_count` object, and
-        // that is the only place the number is. A model reading a plain field decodes nothing and
-        // every group in the list claims to have no members.
         val summaries = decode(GroupsListResponse.serializer(), "groups.list").groups
 
         val lisbon = summaries.single { it.name == "Weekend in Lisbon" }
@@ -72,11 +64,6 @@ class ModelsTest {
         assertEquals(2, summaries.single { it.name == "Book club" }.participantCount)
     }
 
-    /**
-     * `groups.list` builds `createdAt` with `.toISOString()` and sends it with no entry in
-     * `meta.values` at all, unlike every other endpoint. The models are statically typed, so it
-     * decodes anyway, which is what justifies ignoring the metadata rather than consulting it.
-     */
     @Test
     fun `a date the server did not annotate still decodes`() {
         val body = Fixture.text("groups.list")
@@ -117,8 +104,6 @@ class ModelsTest {
 
     @Test
     fun `an expense row decodes its document count from the _count aggregate`() {
-        // Same trap as the group summary's, on the field that decides whether a row shows a
-        // paperclip.
         val listed = decode(ExpensesListResponse.serializer(), "groups.expenses.list")
 
         assertEquals(0, listed.expenses.single { it.title == "Airport taxi" }.documentCount)
@@ -134,8 +119,6 @@ class ModelsTest {
         assertEquals("General", expense.category?.name)
         assertEquals("Ana", expense.paidBy.name)
         assertEquals(expense.paidBy.id, expense.paidById)
-        // The detail payload identifies each payee by ID alone, where the list nests a whole
-        // participant. The form screen needs the IDs, so this is the useful half.
         assertEquals(3, expense.paidFor.size)
         assertTrue(expense.paidFor.any { it.participantId == expense.paidById })
         assertNull(expense.notes)
@@ -151,9 +134,6 @@ class ModelsTest {
         val balances = decode(BalancesResponse.serializer(), "groups.balances.list")
 
         assertEquals(3, balances.balances.size)
-        // Only `total` means anything here: the server derives `paid` and `paidFor` from the
-        // suggested payments rather than from the expenses, so one of the two is always zero and
-        // the other is abs(total). The assertion pins that shape so nobody reads them as spending.
         balances.balances.values.forEach { balance ->
             assertEquals(balance.paid - balance.paidFor, balance.total)
             assertTrue(balance.paid == 0 || balance.paidFor == 0)
@@ -174,11 +154,8 @@ class ModelsTest {
         assertTrue(activities.any { it.activityType == ActivityType.CreateExpense })
         assertTrue(activities.any { it.activityType == ActivityType.UpdateExpense })
 
-        // The title is the expense's name *as it was* when the row was written; the server keeps
-        // it in a column called `data`.
         val deleted = activities.single { it.activityType == ActivityType.DeleteExpense }
         assertEquals("Pastéis de Belém", deleted.title)
-        // Deleted, so there is nothing left to open, the whole point of the flag.
         assertFalse(deleted.expenseStillExists)
         assertNotNull(deleted.expenseId)
 
@@ -194,8 +171,6 @@ class ModelsTest {
         assertEquals(63680, named.totalGroupSpendings)
         assertNotNull(named.totalParticipantShare)
 
-        // Without a participant the two per-person totals come back as superjson `undefined`,
-        // which reaches the payload as a JSON null.
         val anonymous = decode(GroupStatsResponse.serializer(), "groups.stats.overview.anonymous")
         assertEquals(63680, anonymous.totalGroupSpendings)
         assertNull(anonymous.totalParticipantShare)
@@ -211,18 +186,9 @@ class ModelsTest {
         val missingRoute = SuperJson.decodeError(Fixture.text("error.unknown-procedure"))!!
         assertTrue(missingRoute.isUnknownProcedure)
 
-        // This instance has the overview and not the old name, so its answer to the old one is a
-        // recorded example of the 404 the stats fallback has to recognise.
         assertTrue(SuperJson.decodeError(Fixture.text("groups.stats.get"))!!.isUnknownProcedure)
     }
 
-    // ---- the rules that bite ------------------------------------------------------------
-
-    /**
-     * An instance older than the web app's *Shares* change sums floating-point thirds and rounds
-     * to two decimals, sending `1416.67`. An `Int` field throws on it and takes the whole totals
-     * screen down, against real servers, for a subset of users.
-     */
     @Test
     fun `totalParticipantShare decodes a non-integer`() {
         val body = """{"totalGroupSpendings":4250,"totalParticipantShare":1416.67}"""
@@ -230,8 +196,6 @@ class ModelsTest {
         val decoded = decodeBody(GroupStatsResponse.serializer(), body)
 
         assertEquals(1416.67, decoded.totalParticipantShare)
-        // And what the mistake costs, so the reason this field is a Double is written down where
-        // somebody tidying types would read it.
         assertThrows<SerializationException> {
             decodeBody(StrictStatsResponse.serializer(), body)
         }
@@ -239,8 +203,6 @@ class ModelsTest {
 
     @Test
     fun `an unrecognised activity type decodes as unknown rather than throwing`() {
-        // Instances are self-hosted and may be ahead of us. A kind we have no sentence for should
-        // cost the log one row, not the whole tab.
         val body = """
             {"activities":[{"id":"a1","groupId":"g1","time":"2026-09-01T10:00:00.000Z",
             "activityType":"ARCHIVE_GROUP","participantId":null,"expenseId":null,
@@ -253,12 +215,6 @@ class ModelsTest {
         assertFalse(activity.activityType.isRecognised)
     }
 
-    /**
-     * The same decision as [ActivityType], and for the same reason turned up one notch: the rule
-     * is display-only in cycle 1, so an unreadable one should cost its own row a line of detail.
-     * As an enum it costs the whole screen, the other two expenses here decode perfectly and are
-     * lost anyway, which is what makes the trade so lopsided.
-     */
     @Test
     fun `an unrecognised recurrence rule decodes as unknown and leaves the other expenses intact`() {
         val listed = decodeBody(ExpensesListResponse.serializer(), expensesWithRules("NONE", "YEARLY", "MONTHLY"))
@@ -268,7 +224,6 @@ class ModelsTest {
         assertEquals(RecurrenceRule.Unknown("YEARLY"), unknown.recurrenceRule)
         assertFalse(unknown.recurrenceRule!!.isRecognised)
 
-        // The expenses either side of it are untouched, which is the whole point.
         assertEquals(RecurrenceRule.None, listed.expenses.single { it.title == "Expense 0" }.recurrenceRule)
         assertEquals(RecurrenceRule.Monthly, listed.expenses.single { it.title == "Expense 2" }.recurrenceRule)
         assertTrue(listed.expenses.all { it.amount == 1000 })
@@ -276,8 +231,6 @@ class ModelsTest {
 
     @Test
     fun `an unknown recurrence rule is sent back under the server's own name`() {
-        // An expense edited on a screen that could not name its rule must be saved with the rule
-        // it already had, rather than silently reset to NONE by the round trip.
         val rule: RecurrenceRule = RecurrenceRule.Unknown("YEARLY")
 
         val encoded = SuperJson.encodeEnvelope(RecurrenceRule.serializer(), rule)
@@ -285,12 +238,6 @@ class ModelsTest {
         assertTrue(encoded.contains("\"YEARLY\""), encoded)
     }
 
-    /**
-     * The opposite decision from [ActivityType] and [RecurrenceRule], on purpose: a split mode
-     * this client cannot read is money it would divide wrongly, so it fails loudly rather than
-     * guessing. The contrast with the test above is the point, these are three considered
-     * answers to the same question, not three inconsistent ones.
-     */
     @Test
     fun `an unrecognised split mode throws rather than guessing`() {
         val body = """
@@ -306,8 +253,6 @@ class ModelsTest {
 
     @Test
     fun `a conversion rate decodes from a Prisma decimal sent as a string`() {
-        // Recorded from the server: a `Prisma.Decimal` crosses superjson as a string, annotated
-        // `[["custom","decimal.js"]]` rather than as a number.
         assertTrue(Fixture.text("groups.expenses.get.converted").contains("\"conversionRate\":\"0.9241\""))
 
         val expense = decode(ExpenseResponse.serializer(), "groups.expenses.get.converted").expense
@@ -324,12 +269,8 @@ class ModelsTest {
         assertEquals(BigDecimal("0.9241"), expense.conversionRate?.value)
     }
 
-    // ---- money semantics -----------------------------------------------------------------
-
     @Test
     fun `an amount is carried as minor units, whatever the currency counts in`() {
-        // 1234 is 12.34 in a two-decimal currency and ¥1,234 in yen. Nothing in the model may
-        // assume hundredths, formatting is MoneyFormatter's job and needs the raw count intact.
         val body = """{"expense":${convertedExpenseJson(amount = 1234)}}"""
 
         assertEquals(1234, decodeBody(ExpenseResponse.serializer(), body).expense.amount)
@@ -339,19 +280,15 @@ class ModelsTest {
     fun `shares are a share value times 100 except under BY_AMOUNT, where they are minor units`() {
         val expenses = decode(ExpensesListResponse.serializer(), "groups.expenses.list").expenses
 
-        // Chloé took the double room and carries two of the four shares: 2 × 100.
         val apartment = expenses.single { it.title == "Apartment" }
         assertEquals(SplitMode.BY_SHARES, apartment.splitMode)
         assertEquals(200, apartment.paidFor.single { it.participant.name == "Chloé" }.shares)
         assertEquals(100, apartment.paidFor.single { it.participant.name == "Ana" }.shares)
 
-        // Same field, different unit: under BY_AMOUNT the shares are minor-unit amounts and sum
-        // to the expense total.
         val tram = expenses.single { it.title == "Tram tickets" }
         assertEquals(SplitMode.BY_AMOUNT, tram.splitMode)
         assertEquals(tram.amount, tram.paidFor.sumOf { it.shares })
 
-        // And percentages are also ×100: 60% is 6000.
         val internet = decodeBody(
             ExpensesListResponse.serializer(),
             """
@@ -369,8 +306,6 @@ class ModelsTest {
 
     @Test
     fun `a converted expense carries two amounts on two different scales`() {
-        // `originalAmount` is in `originalCurrency`'s minor units and `amount` is in the group's.
-        // Formatting either with the other's currency is a bug that looks plausible.
         val expense = decode(ExpenseResponse.serializer(), "groups.expenses.get.converted").expense
 
         assertEquals(20000, expense.originalAmount)
@@ -379,7 +314,6 @@ class ModelsTest {
         assertEquals(BigDecimal("0.9241"), expense.conversionRate?.value)
     }
 
-    /** Three valid rows differing only in their recurrence rule. */
     private fun expensesWithRules(vararg rules: String): String {
         val expenses = rules.mapIndexed { index, rule ->
             """

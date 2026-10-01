@@ -23,12 +23,6 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.theme.SpliitTheme
 
-/**
- * The screen with nothing on it: an icon tile, a title, an optional line of description.
- *
- * @param icon A short, tintable glyph. Text rather than an emoji, whose colour ignores `tint`.
- * @param iconRes One of the app's own glyphs, preferred where a drawing exists.
- */
 @Composable
 fun EmptyState(
     title: String,
@@ -45,18 +39,12 @@ fun EmptyState(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            // Decorative either way: the title beside it carries what a screen reader needs.
             modifier = Modifier.clearAndSetSemantics {},
             contentAlignment = Alignment.Center,
         ) {
             if (art != null) {
-                // The mark stands on its own and brings its own colour, so it takes no tile -
-                // a tinted tile behind a logo reads as two brand marks arguing.
                 art()
             } else if (iconRes != null || !icon.isNullOrBlank()) {
-                // Drawn only when there is something to put in it. Unconditionally, a call site
-                // passing `icon = ""` produced a 64dp green smudge above the title, which is what
-                // the "No expenses yet" screen showed.
                 Box(
                     modifier = Modifier
                         .size(64.dp)
