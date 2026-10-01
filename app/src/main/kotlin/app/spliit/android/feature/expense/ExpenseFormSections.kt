@@ -62,6 +62,7 @@ import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.MoneyFormatter
 import app.spliit.core.SplitMode
 import app.spliit.android.ui.design.FieldShape
+import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.FieldError
 
 /**
@@ -424,26 +425,12 @@ internal fun CurrencySection(
 ) {
     ExpenseSectionHeader("Currency")
     val paidIn = draft.originalCurrencyCode?.let { Currencies.named(it) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(FieldShape)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .clickable(onClick = onPickCurrency)
-            .testTag(TestTags.EXPENSE_FORM_CURRENCY_BUTTON)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("Paid in", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Text(
-            text = paidIn?.name ?: draft.originalCurrencyCode.orEmpty(),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    SelectField(
+        label = "Paid in",
+        value = paidIn?.name ?: draft.originalCurrencyCode.orEmpty(),
+        onClick = onPickCurrency,
+        testTag = TestTags.EXPENSE_FORM_CURRENCY_BUTTON,
+    )
 
     if (!draft.conversionRequired) return
 
@@ -525,24 +512,12 @@ internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
         "MONTHLY" to "Every month",
     )
     Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(FieldShape)
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .clickable { expanded = true }
-                .testTag(TestTags.EXPENSE_FORM_RECURRENCE_BUTTON)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Repeats", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(
-                text = known[rule] ?: rule,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        SelectField(
+            label = "Repeats",
+            value = known[rule] ?: rule,
+            onClick = { expanded = true },
+            testTag = TestTags.EXPENSE_FORM_RECURRENCE_BUTTON,
+        )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             for ((value, label) in known) {
                 DropdownMenuItem(

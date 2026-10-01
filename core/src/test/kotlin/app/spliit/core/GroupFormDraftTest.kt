@@ -233,9 +233,12 @@ class GroupFormDraftTest {
     }
 
     @Test
-    fun `a fresh draft has no currency code and is treated as a custom symbol`() {
-        assertTrue(GroupFormDraft.creating().usesCustomSymbol)
-        assertNull(GroupFormDraft.creating().currencyCode)
+    fun `a fresh draft is counted in euros`() {
+        val fresh = GroupFormDraft.creating(locale = AMERICAN)
+
+        assertEquals("EUR", fresh.currencyCode)
+        assertEquals("€", fresh.currency)
+        assertFalse(fresh.usesCustomSymbol)
     }
 
     // ---- editing round-trips everything, ids included ------------------------------------
@@ -308,17 +311,31 @@ class GroupFormDraftTest {
      * code points, cannot see.
      */
     @Test
-    fun `participant lists sort with a collator, not code-point order`() {
-        val frenchDraft = GroupFormDraft.creating(locale = FRENCH)
-            .copy(name = "Trip")
-            .withParticipantAdded("Zoé")
-            .withParticipantAdded("Émile")
-            .withParticipantAdded("Amir")
-
-        val collatedOrder = frenchDraft.sortedParticipants.map { it.name }
+    fun `a loaded group lists its participants with a collator, not code-point order`() {
+        val frenchDraft = GroupFormDraft.editing(
+            name = "Trip",
+            information = "",
+            currency = "€",
+            currencyCode = "EUR",
+            participants = listOf(Participant("z", "Zoé"), Participant("e", "Émile"), Participant("a", "Amir")),
+            locale = FRENCH,
+        )
 
         // What a French reader expects: Amir, Émile, Zoé, an accented initial sorted where it
         // sounds, not stranded after every plain-ASCII name the way code-point order puts it.
-        assertEquals(listOf("Amir", "Émile", "Zoé"), collatedOrder)
+        assertEquals(listOf("Amir", "Émile", "Zoé"), frenchDraft.participants.map { it.name })
+    }
+
+    @Test
+    fun `typing a name never moves a row`() {
+        val draft = GroupFormDraft.creating(locale = AMERICAN)
+            .withParticipantAdded("Zoe")
+            .withParticipantAdded("")
+        val order = draft.participants.map { it.id }
+
+        val typed = draft.withParticipantRenamed(order[1], "Amir")
+
+        assertEquals(order, typed.participants.map { it.id })
+        assertEquals(listOf("Zoe", "Amir"), typed.participants.map { it.name })
     }
 }
