@@ -105,7 +105,7 @@ private data class StoredGroup(
     val groupId: String,
     val instanceBaseUrl: String,
     val groupName: String,
-    /** Both default to false, so a list written before Part 12 added them reads back unchanged
+    /** Both default to false, so a list written before they existed reads back unchanged
      *  rather than failing to decode, see the note on `ignoreUnknownKeys` above. */
     val isStarred: Boolean = false,
     val isArchived: Boolean = false,

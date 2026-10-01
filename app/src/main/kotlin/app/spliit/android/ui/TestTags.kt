@@ -9,22 +9,18 @@ package app.spliit.android.ui
  * `Modifier.clickable` merges descendants, so a tag on a child needs `useUnmergedTree = true`.
  */
 object TestTags {
-    const val MONEY_AMOUNT = "money_amount"
-    const val MONOGRAM = "monogram"
     const val DATE_HEADER = "date_header"
     const val EMPTY_STATE_TITLE = "empty_state_title"
     const val EMPTY_STATE_DESCRIPTION = "empty_state_description"
 
-    // ---- groups list (Parts 10, 12) --------------------------------------------------------
+    // ---- groups list ----------------------------------------------------------------------
     const val GROUPS_LIST_FAB = "groups_list_fab"
     const val GROUPS_LIST_RETRY_BUTTON = "groups_list_retry_button"
     const val GROUPS_LIST_EMPTY_CREATE_BUTTON = "groups_list_empty_create_button"
     const val GROUPS_LIST_EMPTY_ADD_BY_LINK_BUTTON = "groups_list_empty_add_by_link_button"
     const val GROUPS_LIST_SKELETON = "groups_list_skeleton"
 
-    // The "+" menu and what it offers, plus the settings entry beside it (Part 12).
     const val GROUPS_LIST_ADD_MENU_BUTTON = "groups_list_add_menu_button"
-    const val GROUPS_LIST_MENU_CREATE_GROUP = "groups_list_menu_create_group"
     const val GROUPS_LIST_MENU_ADD_BY_LINK = "groups_list_menu_add_by_link"
     const val GROUPS_LIST_SETTINGS_BUTTON = "groups_list_settings_button"
     const val GROUPS_LIST_ARCHIVED_TOGGLE = "groups_list_archived_toggle"
@@ -43,13 +39,13 @@ object TestTags {
     fun groupsListRowRemove(groupId: String) = "groups_list_row_remove_$groupId"
     fun groupsListSectionHeader(label: String) = "groups_list_section_${label.lowercase()}"
 
-    // ---- add group by link, the sheet (Parts 10, 12) ---------------------------------------
+    // ---- add group by link, the sheet -----------------------------------------------------
     const val ADD_GROUP_URL_FIELD = "add_group_url_field"
     const val ADD_GROUP_URL_ERROR = "add_group_url_error"
     const val ADD_GROUP_URL_SUBMIT = "add_group_url_submit"
     const val ADD_GROUP_URL_CANCEL = "add_group_url_cancel"
 
-    // ---- group form (Part 10) --------------------------------------------------------------
+    // ---- group form -----------------------------------------------------------------------
     const val GROUP_FORM_NAME_FIELD = "group_form_name_field"
     const val GROUP_FORM_NAME_ERROR = "group_form_name_error"
     const val GROUP_FORM_CURRENCY_ROW = "group_form_currency_row"
@@ -74,7 +70,7 @@ object TestTags {
     fun groupFormParticipantError(index: Int) = "group_form_participant_error_$index"
     fun groupFormParticipantRemove(index: Int) = "group_form_participant_remove_$index"
 
-    // ---- group detail (Part 11) ------------------------------------------------------------
+    // ---- group detail ---------------------------------------------------------------------
     const val GROUP_DETAIL_BACK_BUTTON = "group_detail_back_button"
     const val GROUP_DETAIL_ADD_EXPENSE_FAB = "group_detail_add_expense_fab"
 
@@ -150,7 +146,7 @@ object TestTags {
      *  nobody, so a test that asserts on it must allow for a row that has none. */
     fun expenseRowPaidFor(expenseId: String) = "expense_row_paid_for_$expenseId"
 
-    // ---- expense form (Part 12) ------------------------------------------------------------
+    // ---- expense form ---------------------------------------------------------------------
     const val EXPENSE_FORM_CLOSE_BUTTON = "expense_form_close_button"
     const val EXPENSE_FORM_SAVE_BUTTON = "expense_form_save_button"
     const val EXPENSE_FORM_AMOUNT_FIELD = "expense_form_amount_field"
@@ -193,7 +189,7 @@ object TestTags {
     fun reimbursementRow(index: Int) = "reimbursement_row_$index"
     fun activeUserPickerOption(participantId: String) = "active_user_picker_option_$participantId"
 
-    // ---- settings (Part 13) ------------------------------------------------------------------
+    // ---- settings ---------------------------------------------------------------------------
     const val SETTINGS_BACK_BUTTON = "settings_back_button"
     const val SETTINGS_INSTANCE_FIELD = "settings_instance_field"
     const val SETTINGS_INSTANCE_ERROR = "settings_instance_error"

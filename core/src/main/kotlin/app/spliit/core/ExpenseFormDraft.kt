@@ -293,10 +293,6 @@ public data class ExpenseFormDraft(
         }
     }
 
-    /** Takes a looked-up rate as the one to use. */
-    public fun withRate(rate: BigDecimal): ExpenseFormDraft =
-        copy(conversionRateText = rateText(rate, locale))
-
     private fun seededShares(mode: SplitMode): List<ParticipantShareDraft> {
         val seeds: Map<String, String> = when (mode) {
             // Evenly divides without a per-row value, so there is nothing to seed.
@@ -798,10 +794,7 @@ public data class ExpenseFormDraft(
             return shares
         }
 
-        /**
-         * A canonical upper-case currency code, or null if the platform does not know it.
-         * Uppercased with `Locale.ROOT`: under a Turkish default, `"iqd".uppercase()` is `İQD`.
-         */
+        /** A canonical upper-case currency code, or null if the platform does not know it. */
         private fun isoCode(code: String?): String? = isoCurrency(code)?.currencyCode
     }
 }

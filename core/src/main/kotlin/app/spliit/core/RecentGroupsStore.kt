@@ -14,7 +14,6 @@ public interface RecentGroupsStore {
      *  device that has never written one. */
     public suspend fun load(): RecentGroupsSnapshot
 
-    /** Replaces the stored snapshot with [snapshot], in full. */
     /**
      * Persists [snapshot], answering false when it could not be written.
      *

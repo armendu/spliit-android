@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import app.spliit.android.AppSettingsHolder
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
+import app.spliit.android.ui.design.CapsLabel
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.EmptyState
 import app.spliit.android.ui.design.SpliitFab
@@ -365,7 +366,7 @@ private fun GroupsList(
 
         if (dashboard.archived.isNotEmpty()) {
             item(key = "archived-header") {
-                SectionHeader(
+                GroupsSectionHeader(
                     label = "Archived · ${dashboard.archived.size}",
                     action = if (isArchivedExpanded) "Hide" else "Show",
                     onAction = { isArchivedExpanded = !isArchivedExpanded },
@@ -390,27 +391,20 @@ private fun LazyListScope.groupSection(
 ) {
     if (groups.isEmpty()) return
     if (label != null) {
-        item(key = "header-$label") { SectionHeader(label = label) }
+        item(key = "header-$label") { GroupsSectionHeader(label = label) }
     }
     items(groups, key = { it.groupId }) { group ->
         GroupRow(group, onGroupClick, onSetStarred, onSetArchived, onRemove)
     }
 }
 
-/** DESIGN.md §2: `label-sm` is the bucket-header style, and §3 asks for more space above a
- *  heading than below it, a heading belongs to what follows. */
 @Composable
-private fun SectionHeader(label: String, action: String? = null, onAction: (() -> Unit)? = null) {
+private fun GroupsSectionHeader(label: String, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f).testTag(TestTags.groupsListSectionHeader(label)),
-        )
+        CapsLabel(label, Modifier.weight(1f).testTag(TestTags.groupsListSectionHeader(label)))
         if (action != null && onAction != null) {
             TextButton(onClick = onAction, modifier = Modifier.testTag(TestTags.GROUPS_LIST_ARCHIVED_TOGGLE)) {
                 Text(action, style = MaterialTheme.typography.labelLarge)

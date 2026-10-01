@@ -121,7 +121,7 @@ so tests need nothing.
 
 A test-only base URL is passed as the Gradle property **`spliit.baseUrl`**, dotted and
 namespaced, like `android.useAndroidX`, and spelled that way in both places the Makefile passes
-it. Nothing reads it yet; Parts 1-8 should read that name and not invent a second one.
+it. `app/build.gradle.kts` reads it as the default server; don't invent a second name.
 
 **AGP 9 compiles Kotlin itself, and applying `org.jetbrains.kotlin.android` alongside it is a
 hard error.** Not a deprecation warning, the build fails outright with "the plugin is no
@@ -192,10 +192,9 @@ Turkish default locale: `"iqd".uppercase()` is `IQD` and `"SPLIIT.APP".lowercase
 on a host or a currency code is safe, and the `Locale.ROOT` in `MoneyFormatter.isoCurrency` is
 belt-and-braces rather than load-bearing.
 
-The trap is the other way round. Text a **person reads** wants the reader's locale, explicitly:
-the four places that upper-case a heading pass `Locale.ROOT` today, which is invisible in English
-and wrong once this app is translated. Identifiers and codes take ROOT (which you get for free);
-display text takes `Locale.getDefault()`.
+The trap is the other way round. Text a **person reads** wants the reader's locale, explicitly.
+Identifiers and codes take ROOT (which you get for free); capitalised headings go through
+`CapsLabel` in `ui/design/Section.kt`, which uses the reader's locale.
 
 **`paidFor[].shares` changes meaning with the split mode.** It is the share value ×100 for
 `EVENLY`, `BY_SHARES` and `BY_PERCENTAGE`, whatever the currency, and a raw minor-unit amount
@@ -301,12 +300,9 @@ purpose, they describe how much data exists, not the contract, and `balances` is
 values because its keys are server-generated participant IDs. When a change is real, `make
 fixtures` re-records and the diff in that commit is the changelog.
 
-**Participant rows on the group form are sorted by name, so a row moves as you type into it.**
-`GroupFormDraft.sortedParticipants` re-sorts on every keystroke, which means a UI test that
-addresses `group_form_participant_field_1` because it was the second row added will type into
-whichever row is second *now*. The symptom is not a wrong name: it is the create sheet never
-closing, because the row left blank fails validation. The instrumented suite addresses the row by
-what is in it instead, see `blankParticipantFieldTag`.
+**Participant rows on the group form are sorted once, on load, never while typing.** Re-sorting
+per keystroke moved rows under the focused field, so typing into one box rewrote another. Rows
+are keyed by `ParticipantFormDraft.id`.
 
 **Never write an unbounded scroll loop in a UI test.** On iOS that turned a missing element into
 a CI job that swiped for forty minutes. Bound the loop and assert.

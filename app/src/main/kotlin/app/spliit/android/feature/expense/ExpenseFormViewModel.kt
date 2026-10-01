@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
 import java.time.Instant
 import java.util.Locale
 import app.spliit.api.ExpenseCategory as ApiCategory
@@ -317,8 +316,6 @@ class ExpenseFormViewModel(
     fun setOriginalAmountText(text: String) = edit { it.copy(originalAmountText = text) }
 
     fun setConversionRateText(text: String) = edit { it.copy(conversionRateText = text) }
-
-    fun useRate(rate: BigDecimal) = edit { it.withRate(rate) }
 
     private inline fun edit(transform: (ExpenseFormDraft) -> ExpenseFormDraft) {
         _state.update { state ->
