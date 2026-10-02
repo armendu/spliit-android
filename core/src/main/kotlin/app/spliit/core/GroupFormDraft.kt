@@ -22,8 +22,11 @@ public data class GroupFormDraft(
 ) {
     public val usesCustomSymbol: Boolean get() = currencyCode.isNullOrBlank()
 
-    public fun withCurrency(currency: Currency): GroupFormDraft =
-        copy(currencyCode = currency.code, currency = currency.symbol)
+    // Some locales' symbols exceed the server's limit (e.g. brx-IN); the code always fits.
+    public fun withCurrency(currency: Currency): GroupFormDraft = copy(
+        currencyCode = currency.code,
+        currency = currency.symbol.takeIf { it.length <= CURRENCY_SYMBOL_MAX_LENGTH } ?: currency.code,
+    )
 
     public fun withCustomSymbol(): GroupFormDraft = copy(currencyCode = null)
 
@@ -45,6 +48,7 @@ public data class GroupFormDraft(
 
     public enum class Field {
         NAME,
+        CURRENCY,
         PARTICIPANTS,
     }
 
@@ -57,11 +61,35 @@ public data class GroupFormDraft(
             override val field: Field get() = Field.NAME
         }
 
+        public data object NameTooShort : Problem {
+            override val field: Field get() = Field.NAME
+        }
+
+        public data object NameTooLong : Problem {
+            override val field: Field get() = Field.NAME
+        }
+
+        public data object CurrencySymbolRequired : Problem {
+            override val field: Field get() = Field.CURRENCY
+        }
+
+        public data object CurrencySymbolTooLong : Problem {
+            override val field: Field get() = Field.CURRENCY
+        }
+
         public data object NoParticipants : Problem {
             override val field: Field get() = Field.PARTICIPANTS
         }
 
         public data class ParticipantNameRequired(override val participantId: String) : Problem {
+            override val field: Field get() = Field.PARTICIPANTS
+        }
+
+        public data class ParticipantNameTooShort(override val participantId: String) : Problem {
+            override val field: Field get() = Field.PARTICIPANTS
+        }
+
+        public data class ParticipantNameTooLong(override val participantId: String) : Problem {
             override val field: Field get() = Field.PARTICIPANTS
         }
 
@@ -74,12 +102,28 @@ public data class GroupFormDraft(
         get() {
             val problems = mutableListOf<Problem>()
 
-            if (name.trim().isEmpty()) problems += Problem.NameRequired
+            when (lengthIssue(name)) {
+                LengthIssue.EMPTY -> problems += Problem.NameRequired
+                LengthIssue.TOO_SHORT -> problems += Problem.NameTooShort
+                LengthIssue.TOO_LONG -> problems += Problem.NameTooLong
+                null -> {}
+            }
+
+            val symbol = currency.trim()
+            if (symbol.isEmpty()) {
+                problems += Problem.CurrencySymbolRequired
+            } else if (symbol.length > CURRENCY_SYMBOL_MAX_LENGTH) {
+                problems += Problem.CurrencySymbolTooLong
+            }
+
             if (participants.isEmpty()) problems += Problem.NoParticipants
 
             for (participant in participants) {
-                if (participant.name.trim().isEmpty()) {
-                    problems += Problem.ParticipantNameRequired(participant.id)
+                when (lengthIssue(participant.name)) {
+                    LengthIssue.EMPTY -> problems += Problem.ParticipantNameRequired(participant.id)
+                    LengthIssue.TOO_SHORT -> problems += Problem.ParticipantNameTooShort(participant.id)
+                    LengthIssue.TOO_LONG -> problems += Problem.ParticipantNameTooLong(participant.id)
+                    null -> {}
                 }
             }
 
@@ -140,7 +184,24 @@ public data class GroupFormDraft(
             locale = locale,
         )
 
+        // The server's groupFormSchema limits, measured on trimmed text.
+        public const val NAME_MIN_LENGTH: Int = 2
+        public const val NAME_MAX_LENGTH: Int = 50
+        public const val CURRENCY_SYMBOL_MAX_LENGTH: Int = 5
+
         private fun foldedName(name: String): String = name.trim().lowercase(Locale.ROOT)
+
+        private enum class LengthIssue { EMPTY, TOO_SHORT, TOO_LONG }
+
+        private fun lengthIssue(name: String): LengthIssue? {
+            val length = name.trim().length
+            return when {
+                length == 0 -> LengthIssue.EMPTY
+                length < NAME_MIN_LENGTH -> LengthIssue.TOO_SHORT
+                length > NAME_MAX_LENGTH -> LengthIssue.TOO_LONG
+                else -> null
+            }
+        }
     }
 }
 

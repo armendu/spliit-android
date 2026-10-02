@@ -60,6 +60,26 @@ class GroupFormViewModelTest {
     }
 
     @Test
+    fun `submit refuses names the server would reject without making a network call`() = runBlocking {
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.CREATE,
+            groupId = null,
+            instanceBaseUrl = server.url("/").toString(),
+            recentGroupsStore = FakeRecentGroupsStore(),
+        )
+        viewModel.setName("A")
+        val participantId = viewModel.addParticipant()
+        viewModel.renameParticipant(participantId, "x".repeat(51))
+
+        assertFalse(viewModel.submit())
+
+        assertEquals(0, server.requestCount)
+        val draft = viewModel.state.value.draft
+        assertEquals(listOf(GroupFormDraft.Problem.NameTooShort), draft.problems(GroupFormDraft.Field.NAME))
+        assertEquals(listOf(GroupFormDraft.Problem.ParticipantNameTooLong(participantId)), draft.problems(participantId))
+    }
+
+    @Test
     fun `a valid create submits the group and remembers it locally`() = runBlocking {
         server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"groupId":"new-group"}""")).build())
         val store = FakeRecentGroupsStore()

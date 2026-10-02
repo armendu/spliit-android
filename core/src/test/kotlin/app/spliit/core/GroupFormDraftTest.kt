@@ -29,6 +29,50 @@ class GroupFormDraftTest {
     }
 
     @Test
+    fun `a group name must be 2 to 50 characters once trimmed`() {
+        assertEquals(listOf(GroupFormDraft.Problem.NameTooShort), draft().copy(name = "  A  ").problems)
+        assertTrue(draft().copy(name = "Ab").isValid)
+        assertTrue(draft().copy(name = "x".repeat(50)).isValid)
+        assertEquals(listOf(GroupFormDraft.Problem.NameTooLong), draft().copy(name = "x".repeat(51)).problems)
+    }
+
+    @Test
+    fun `a participant name must be 2 to 50 characters once trimmed`() {
+        val short = draft().withParticipantAdded(" J ")
+        val long = draft().withParticipantAdded("x".repeat(51))
+        val longest = draft().withParticipantAdded("x".repeat(50))
+
+        assertEquals(
+            listOf(GroupFormDraft.Problem.ParticipantNameTooShort(short.participants.last().id)),
+            short.problems,
+        )
+        assertEquals(
+            listOf(GroupFormDraft.Problem.ParticipantNameTooLong(long.participants.last().id)),
+            long.problems,
+        )
+        assertTrue(longest.isValid)
+    }
+
+    @Test
+    fun `a custom currency symbol must be 1 to 5 characters once trimmed`() {
+        val custom = draft().withCustomSymbol()
+
+        assertEquals(listOf(GroupFormDraft.Problem.CurrencySymbolRequired), custom.copy(currency = "  ").problems)
+        assertEquals(listOf(GroupFormDraft.Problem.CurrencySymbolTooLong), custom.copy(currency = "ABCDEF").problems)
+        assertTrue(custom.copy(currency = "CHF").isValid)
+        assertEquals(GroupFormDraft.Field.CURRENCY, GroupFormDraft.Problem.CurrencySymbolTooLong.field)
+    }
+
+    @Test
+    fun `a picked currency whose symbol is too long for the server falls back to its code`() {
+        val picked = draft().withCurrency(Currency("AED", "UAE Dirham", "ए.इ.दि", 2))
+
+        assertEquals("AED", picked.currency)
+        assertEquals("AED", picked.currencyCode)
+        assertTrue(picked.isValid)
+    }
+
+    @Test
     fun `a complete draft is valid`() {
         assertTrue(draft().isValid, "Unexpected problems: ${draft().problems}")
     }
