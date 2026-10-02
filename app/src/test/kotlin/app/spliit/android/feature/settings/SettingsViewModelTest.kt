@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test
 
 private const val BUILD_DEFAULT = "https://spliit.app/"
 
-/** An in-memory [SettingsStore], the same shape as `groups`' own `FakeRecentGroupsStore`. */
 private class FakeSettingsStore(private var settings: AppSettings = AppSettings()) : SettingsStore {
     override suspend fun load(): AppSettings = settings
     override suspend fun save(settings: AppSettings) {
@@ -24,12 +23,8 @@ private class FakeSettingsStore(private var settings: AppSettings = AppSettings(
     }
 }
 
-
 class SettingsViewModelTest {
-
-    // AppSettingsHolder writes a Compose-runtime singleton no plain JVM test should have to
-    // touch, see SettingsViewModel's own doc on why applySettings is injected. Tests supply a
-    // no-op so a run never depends on whether Compose's snapshot system happens to be installed.
+    // No-op applySettings: AppSettingsHolder is a Compose singleton JVM tests shouldn't touch.
     private fun viewModel(
         store: SettingsStore = FakeSettingsStore(),
         initial: AppSettings = AppSettings(),
@@ -44,8 +39,6 @@ class SettingsViewModelTest {
 
     @Test
     fun `follow system is the default on a fresh store`() {
-        // AppSettings() with no arguments is exactly what a device that has never written a
-        // settings row gets back from a real SettingsStore.load(), see its own doc.
         val viewModel = viewModel(initial = AppSettings())
 
         assertEquals(ThemeMode.FOLLOW_SYSTEM, viewModel.state.value.themeMode)
@@ -63,8 +56,6 @@ class SettingsViewModelTest {
         assertEquals(ThemeMode.DARK, viewModel.state.value.themeMode)
         assertEquals(ThemeMode.DARK, store.load().themeMode, "the choice must reach the store, not just memory")
 
-        // "reloads": a fresh ViewModel built against the same store, what a relaunch actually
-        // constructs, must see exactly what the first one saved.
         val reloaded = viewModel(store = store, initial = store.load())
         assertEquals(ThemeMode.DARK, reloaded.state.value.themeMode)
     }
@@ -113,8 +104,6 @@ class SettingsViewModelTest {
         viewModel.setInstanceAddressText("https://home.example.com/")
         viewModel.commitInstanceAddress()
 
-        // Changing the default only ever writes SettingsStore. A group already on the list is a
-        // RecentGroupsStore row that nothing here reads or rewrites, the two stores never touch.
         val row = recentGroupsStore.load().groups.single()
         assertEquals(BUILD_DEFAULT, row.instanceBaseUrl, "an existing group must keep its own instance")
         assertEquals("https://home.example.com/", settingsStore.load().instanceBaseUrlOverride)

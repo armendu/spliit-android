@@ -13,7 +13,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class AddGroupByUrlViewModelTest {
-
     private val server = MockWebServer()
 
     @BeforeEach
@@ -99,9 +98,6 @@ class AddGroupByUrlViewModelTest {
 
     @Test
     fun `a real group id, hyphens and all, is a bare id and not a hostname`() = runBlocking {
-        // The shape people actually paste out of an address bar: a nanoid, which may carry
-        // hyphens and underscores. Prefixing "https://" onto it, which is right for a
-        // scheme-less URL, would make the ID the hostname and look up a server that isn't there.
         server.enqueue(
             MockResponse.Builder().code(200).body(
                 okBody(
@@ -128,9 +124,6 @@ class AddGroupByUrlViewModelTest {
         viewModel.setUrlText("nope")
 
         assertFalse(viewModel.submit())
-        // "No group with that link exists" on its own leaves out the half that is actionable:
-        // which server was asked. A bare ID is looked up on the default instance, which may not
-        // be the one the group is on.
         val problem = viewModel.state.value.problem
         assertNotNull(problem)
         assertTrue(
@@ -156,8 +149,6 @@ class AddGroupByUrlViewModelTest {
 
         viewModel.reset()
 
-        // The sheet is opened against one long-lived ViewModel, so a stale error, or a stale
-        // addedGroupId, which would close it the moment it appeared, must not survive a reopen.
         assertEquals("", viewModel.state.value.urlText)
         assertNull(viewModel.state.value.problem)
         assertNull(viewModel.state.value.addedGroupId)
@@ -166,8 +157,6 @@ class AddGroupByUrlViewModelTest {
 
     @Test
     fun `a group that could not be stored is reported rather than silently dropped`() = runBlocking {
-        // Cheaper than the create path, the user still has the link they pasted, but saying
-        // "added" for a row that did not store sends them to a list without it.
         val store = FakeRecentGroupsStore(failSaves = true)
         server.enqueue(
             MockResponse.Builder().code(200).body(
@@ -184,5 +173,4 @@ class AddGroupByUrlViewModelTest {
         assertNull(viewModel.state.value.addedGroupId)
         assertNotNull(viewModel.state.value.problem)
     }
-
 }

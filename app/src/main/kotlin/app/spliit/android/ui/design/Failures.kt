@@ -7,10 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 
-/**
- * What a screen says when a load failed: a title, the server's own words if it gave any, and a
- * Retry button where retrying is possible. A screen that cannot retry passes `onRetry = null`.
- */
 @Composable
 fun LoadFailure(
     title: String,
@@ -36,15 +32,8 @@ fun LoadFailure(
     }
 }
 
-/** What to say when the server gave no reason of its own. */
 const val GENERIC_FAILURE: String = "Check your connection and try again."
 
-/**
- * One field's validation message, in the error colour.
- *
- * Six near-copies of this `Text` existed, differing only in a tag or a padding. `:core` produces
- * the sentence; this draws it.
- */
 @Composable
 fun FieldError(message: String, modifier: Modifier = Modifier, testTag: String? = null) {
     Text(

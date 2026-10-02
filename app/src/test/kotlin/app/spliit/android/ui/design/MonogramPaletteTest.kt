@@ -4,14 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-/**
- * A monogram colour that moves is worse than no colour at all, the whole point is learning to
- * recognise someone by it. These pin the two ways it could move: between launches (Swift's
- * `hashValue` is reseeded per process; `String.hashCode()` is stable per JVM run but not
- * specified across JVM versions), and between this app and the iOS one for the same ID.
- */
 class MonogramPaletteTest {
-
     @Test
     fun `index is stable for the same id`() {
         val id = "clx1v9m2h0000abcd"
@@ -28,13 +21,7 @@ class MonogramPaletteTest {
         }
     }
 
-    /**
-     * Not just internal stability, the values themselves, ported directly from the iOS app's
-     * checked-in expectations (`MonogramPaletteTests.swift`). The FNV-1a offset basis, prime and
-     * fold here are byte-for-byte the same algorithm, so a participant ID hashes to the same
-     * colour index on both platforms, verified against those numbers, not merely against
-     * itself.
-     */
+    // Expected values ported from the iOS app's MonogramPaletteTests.swift.
     @Test
     fun `mapping matches the iOS app's recorded values`() {
         assertEquals(0, MonogramPalette.colorIndex("participant-1"))

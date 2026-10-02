@@ -77,17 +77,6 @@ import app.spliit.android.ui.design.CardShape
 import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.ui.design.SkeletonBlock
 
-/** DESIGN.md §3: "Cards and surfaces" are 16dp radius, `surface-container-lowest` with a 1dp
- *  `border-subtle` (M3's `outline`) hairline, Level 1, the one step up from the bare canvas. */
-
-/**
- * The home screen: the groups this phone remembers, in three sections.
- *
- * The list is local, so it renders from the stored snapshot immediately and server detail fills
- * in; an unreachable server costs its own groups their detail, never the screen. Everything that
- * can be done to a group is in one menu per row, which names its actions rather than asking
- * anyone to learn a swipe colour.
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun GroupsListScreen(
@@ -104,25 +93,15 @@ fun GroupsListScreen(
     var isAddSheetOpen by rememberSaveable { mutableStateOf(false) }
     var isCreateSheetOpen by rememberSaveable { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
-    // Fully expanded: CreateGroupSheet *is* the whole form, so a partial anchor would put a drag
-    // between somebody and the participant they came to add.
     val createSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    // The form's ViewModel lives as long as the dashboard, so it is put back to a blank draft
-    // each time, re-reading the current default instance, which Settings can have changed.
     val openCreateSheet = {
         createGroupViewModel.resetForCreate(AppSettingsHolder.defaultInstanceBaseUrl)
         isCreateSheetOpen = true
     }
 
-    // Reruns whenever this screen is freshly composed, including on the way back from creating a
-    // group, when the ViewModel itself (scoped to the nav entry, so it survives) would otherwise
-    // keep showing what it loaded before. See GroupsListViewModel.load's own note.
     LaunchedEffect(Unit) { viewModel.load() }
 
-    // Shown for exactly as long as the removal is undoable: the ViewModel clearing
-    // `pendingRemoval` cancels this effect. A snackbar duration racing that window would leave
-    // either an offer that no longer works or a window with nothing offering it.
     LaunchedEffect(pendingRemoval) {
         val pending = pendingRemoval ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
@@ -138,12 +117,8 @@ fun GroupsListScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                // The wordmark sits where the title would, fixed-size so the bar never clips it
-                // as text scales. A screen reader still hears "Spliit", from the wordmark itself.
                 title = { SpliitWordmark() },
                 actions = {
-                    // Three entry points, none of them the same instruction twice: the FAB
-                    // creates, this joins a group somebody sent, the overflow holds the rest.
                     IconButton(
                         onClick = {
                             addGroupViewModel.reset()
@@ -164,9 +139,6 @@ fun GroupsListScreen(
                         ) {
                             Icon(painterResource(R.drawable.ic_more_vert), contentDescription = null)
                         }
-                        // iOS offers "Add by QR code" too. It needs the camera and a barcode
-                        // decoder, and cycle 1 defers both, an item that opens nothing is worse
-                        // than one that is not there, so it is left out rather than disabled.
                         DropdownMenu(expanded = isAddMenuOpen, onDismissRequest = { isAddMenuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text("Settings") },
@@ -185,13 +157,8 @@ fun GroupsListScreen(
             )
         },
         floatingActionButton = {
-            // Only once there is a list to sit beside: the empty state already leads with
-            // "Create group", and a FAB two inches below it is the same instruction twice.
             val dashboard = (state as? LoadState.Loaded)?.value
             if (dashboard != null && !dashboard.isEmpty) {
-                // Colour, shape, description and tooltip all come from SpliitFab, one
-                // definition, so this FAB and the group screen's cannot drift into two greens
-                // again, which is exactly what happened when only one of them passed its colours.
                 SpliitFab(
                     icon = R.drawable.ic_plus,
                     contentDescription = "Create group",
@@ -204,8 +171,6 @@ fun GroupsListScreen(
         Crossfade(
             targetState = state,
             animationSpec = tween(durationMillis = 220, easing = EaseInOut),
-            // Top only, the list below adds the navigation-bar inset to its own content padding
-            // so it scrolls under the bar rather than stopping above it. See ExpensesTab.
             modifier = Modifier.padding(top = contentPadding.calculateTopPadding()).fillMaxSize(),
             label = "groups_list_content",
         ) { current ->
@@ -224,7 +189,6 @@ fun GroupsListScreen(
                 is LoadState.Loaded -> if (current.value.isEmpty) {
                     CenteredScroll {
                         EmptyState(
-                            // No `icon`: `art` below is what this one draws.
                             title = "A trip. A flat. Dinner with friends.",
                             description = "Create a group and Spliit keeps track of who paid, " +
                                 "so nobody has to run the numbers.",
@@ -246,9 +210,6 @@ fun GroupsListScreen(
                                 ) {
                                     Text("Create group")
                                 }
-                                // The other half of the same decision, somebody else made the
-                                // group and this is how you get into it, rather than a second
-                                // thing to weigh up, so it is the quieter of the two.
                                 TextButton(
                                     onClick = {
                                         addGroupViewModel.reset()
@@ -283,7 +244,6 @@ fun GroupsListScreen(
             sheetState = createSheetState,
             onCreated = {
                 isCreateSheetOpen = false
-                // The group is on the stored list now; the dashboard is what shows it.
                 viewModel.load()
             },
             onDismiss = { isCreateSheetOpen = false },
@@ -297,7 +257,6 @@ fun GroupsListScreen(
             onAdded = {
                 isAddSheetOpen = false
                 addGroupViewModel.reset()
-                // The group is in the stored list now; the dashboard is what shows it.
                 viewModel.load()
             },
             onDismiss = {
@@ -308,10 +267,6 @@ fun GroupsListScreen(
     }
 }
 
-/** Centres short content vertically, and falls back to scrolling it when it doesn't fit, the
- *  largest accessibility text sizes can make a title, a description and a button taller than the
- *  screen, and an empty state whose only action has fallen off the bottom is worse than none. */
-
 @Composable
 private fun GroupsList(
     dashboard: GroupsDashboard,
@@ -320,17 +275,10 @@ private fun GroupsList(
     onSetArchived: (String, Boolean) -> Unit,
     onRemove: (String) -> Unit,
 ) {
-    // Archived groups are collapsed by default: they are on the list precisely because somebody
-    // asked them to stop taking up room, and the header still says how many there are.
     var isArchivedExpanded by rememberSaveable { mutableStateOf(false) }
 
-    // Each group is its own card on the canvas, as the design's group cards are. The decoration
-    // belongs to the row and not to the LazyColumn: painted on the column it covers the whole
-    // scrolling viewport, so one group drew a card the full height of the screen.
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // The extended FAB and then the navigation bar sit over the foot of this list, and the
-        // last group card is the one somebody scrolled down to reach.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -350,12 +298,8 @@ private fun GroupsList(
             }
         }
 
-        // A header only where there is something under it: a list with nothing starred and
-        // nothing archived looks exactly as it did before either existed.
         groupSection("Starred", dashboard.starred, onGroupClick, onSetStarred, onSetArchived, onRemove)
         groupSection(
-            // Named only when it is not the whole list, a lone "Recent groups" header over
-            // everything on the screen labels nothing.
             if (dashboard.starred.isEmpty() && dashboard.archived.isEmpty()) null else "Recent groups",
             dashboard.recent,
             onGroupClick,
@@ -453,8 +397,6 @@ private fun GroupRow(
                 GroupMetadataRow(group)
             }
 
-            // The same menu the long press opens. A long press alone is an action nobody can see,
-            // and these three are the only way to star, put away or remove a group.
             IconButton(
                 onClick = { isMenuOpen = true },
                 modifier = Modifier
@@ -483,9 +425,6 @@ private fun GroupRow(
                 modifier = Modifier.testTag(TestTags.groupsListRowArchive(group.groupId)),
             )
             DropdownMenuItem(
-                // "Remove" on its own sounds like it deletes the group for everybody. It only
-                // takes it off this list, but with no account and no other record, the link is
-                // the only way back, which is why this one is offered with an undo.
                 text = { Text("Remove from this list") },
                 onClick = {
                     isMenuOpen = false
@@ -497,8 +436,6 @@ private fun GroupRow(
     }
 }
 
-/** The row's metadata line: icon-led pairs that wrap rather than truncate. [FlowRow], because
- *  at the largest text sizes these will not fit on one line. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GroupMetadataRow(group: GroupListItem) {
@@ -517,22 +454,12 @@ private fun GroupMetadataRow(group: GroupListItem) {
                 icon = R.drawable.ic_calendar,
                 text = createdDateText(createdAt),
                 testTag = TestTags.groupsListRowCreatedDate(group.groupId),
-                // The visible text is abbreviated and leans on the calendar icon for context,
-                // and that icon has no contentDescription, so the spoken string carries it.
                 contentDescription = createdDateContentDescription(createdAt),
             )
         }
-        // No server here: it wrapped the row onto a second line for a fact most people never
-        // need, and the Information tab states it. The real cost is that two groups of the same
-        // name on two servers look identical here until one is opened.
     }
 }
 
-/**
- * One glyph-and-caption pair. The icon is decorative, so its `contentDescription` is null: the
- * text beside it already says what it is. Baseline-aligned rather than centred, since centring
- * against a taller sibling in the same [FlowRow] line makes a small icon look like it floats.
- */
 @Composable
 private fun IconTextPair(icon: Int, text: String, testTag: String, contentDescription: String? = null) {
     Row {
@@ -561,21 +488,15 @@ private fun IconTextPair(icon: Int, text: String, testTag: String, contentDescri
     }
 }
 
-/** DESIGN.md has no rule for this row specifically; `FormatStyle.MEDIUM` matches the abbreviated
- *  date ExpensesTab's own row caption already draws ("14 Sep 2026"), so a date reads the same way
- *  everywhere in this app rather than picking a fresh format per screen. */
 private val createdDateFormatterMedium: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 private val createdDateFormatterLong: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)
 
 private fun createdDateText(createdAt: Instant): String =
     createdAt.atZone(ZoneId.systemDefault()).toLocalDate().format(createdDateFormatterMedium)
 
-/** The fuller, unabbreviated form for the icon-less accessible string, see [IconTextPair]. */
 private fun createdDateContentDescription(createdAt: Instant): String =
     "Created " + createdAt.atZone(ZoneId.systemDefault()).toLocalDate().format(createdDateFormatterLong)
 
-/** An instance that did not answer costs its own groups a count, not their row, so the count is
- *  the thing that goes missing, and the note above the list says which server owes it. */
 private fun participantsLabel(count: Int?): String = when (count) {
     null -> "…"
     1 -> "1 participant"
@@ -591,14 +512,8 @@ private fun unreachableMessage(instances: List<String>): String {
     return "Couldn't reach $names, so some group details may be out of date."
 }
 
-// ---- loading ------------------------------------------------------------------------------
-
-/** The shape of the rows about to arrive, not a spinner that tells the reader nothing about
- *  what's coming. */
 @Composable
 private fun GroupsListSkeleton() {
-    // A skeleton is only worth having if it is the shape of what replaces it: same cards, same
-    // spacing, same row metrics, so the list settles into place instead of jumping.
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -633,8 +548,6 @@ private fun GroupRowSkeleton() {
     }
 }
 
-/** A text stand-in until there is a real wordmark. Sized via `LocalDensity` rather than `sp`,
- *  so it never outgrows the app bar's fixed height. */
 @Composable
 private fun SpliitWordmark() {
     val fixedSize = with(LocalDensity.current) { 20.dp.toSp() }

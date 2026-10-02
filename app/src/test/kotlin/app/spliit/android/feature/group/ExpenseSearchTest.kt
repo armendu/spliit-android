@@ -18,15 +18,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
-/**
- * The search field on its own, without a ViewModel around it.
- *
- * The cases here are the ones the ViewModel's own tests cannot reach comfortably: what happens
- * when an answer arrives after the question changed, and what a failed background reload is
- * allowed to put on screen.
- */
 class ExpenseSearchTest {
-
     private val server = MockWebServer()
 
     @BeforeEach fun start() = server.start()
@@ -55,9 +47,6 @@ class ExpenseSearchTest {
 
     @Test
     fun `an answer to a question that has moved on is discarded`() = runBlocking {
-        // Staleness develops *during* a request: the user keeps typing while it is in flight.
-        // The dispatcher edits the query as the request arrives, which reproduces that without
-        // racing a timer.
         val state = MutableStateFlow(GroupDetailUiState())
         val search = searcher(state)
         search.onQueryChanged("taxi")
@@ -79,9 +68,6 @@ class ExpenseSearchTest {
 
     @Test
     fun `a failed background reload leaves the results that are on screen`() = runBlocking {
-        // reload runs because an expense changed underneath the field, not because the user
-        // asked. What is showing is a moment out of date rather than wrong, and an error panel
-        // over it would be the worse of the two.
         val state = MutableStateFlow(GroupDetailUiState())
         val search = searcher(state)
         server.dispatcher = object : Dispatcher() {
@@ -105,8 +91,6 @@ class ExpenseSearchTest {
 
     @Test
     fun `a failed search the user asked for does say so`() = runBlocking {
-        // The mirror of the case above: this one was requested, so silence would look like a
-        // search that found nothing.
         val state = MutableStateFlow(GroupDetailUiState())
         val search = searcher(state)
         server.dispatcher = object : Dispatcher() {
@@ -152,7 +136,6 @@ class ExpenseSearchTest {
 
         assertNull(state.value.search.results)
         assertEquals(asked, server.requestCount, "an emptied field should not query the server")
-        // Still open, just empty: closing it is a different gesture.
         assertTrue(state.value.search.isActive)
     }
 }

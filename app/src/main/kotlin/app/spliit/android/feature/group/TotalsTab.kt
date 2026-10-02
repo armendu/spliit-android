@@ -46,14 +46,6 @@ import app.spliit.android.ui.design.Footnote
 import app.spliit.android.ui.design.SectionDivider
 import app.spliit.android.ui.design.SectionHeader
 
-/**
- * What the group has spent, and how much of it is yours. The group's own total leads, then
- * "You", then where the money went: here the personal figure answers the second half of a
- * question the group has already answered.
- *
- * **Reimbursements are excluded from every figure**, said once rather than per number. **Every
- * bar is measured against the group's total**, so their lengths compare straight down the page.
- */
 @Composable
 internal fun TotalsTab(
     state: GroupDetailUiState,
@@ -65,8 +57,6 @@ internal fun TotalsTab(
     val groupState = state.group
 
     when {
-        // Not a failure and not a retry: an instance that has never heard of either procedure
-        // will not have heard of them a second time either. There is no button.
         state.statsUnavailable -> CenteredScroll {
             EmptyState(
                 icon = "%",
@@ -76,8 +66,6 @@ internal fun TotalsTab(
             )
         }
 
-        // The group counts as loading here too: its currency is what these are drawn in, and a
-        // number in no currency is not a number worth showing.
         groupState is LoadState.Loading || state.stats is LoadState.Loading -> TotalsSkeleton()
 
         groupState is LoadState.Failed || state.stats is LoadState.Failed -> {
@@ -86,7 +74,6 @@ internal fun TotalsTab(
                 ?: (state.stats as? LoadState.Failed)?.message
             CenteredScroll {
                 LoadFailure(
-                    // The group can arrive and its totals still fail, so name whichever is missing.
                     title = if (groupFailed) "Couldn't load this group" else "Couldn't load the totals",
                     message = message,
                     retryTestTag = TestTags.GROUP_DETAIL_RETRY_BUTTON,
@@ -121,8 +108,6 @@ private fun TotalsContent(
         }
         item(key = "group_total") {
             Figure(
-                // A group that has taken in more than it spent is not "spending", the caption
-                // carries the direction so the amount below it can stay unsigned.
                 label = if (stats.totalGroupSpendings < 0) "Total group earnings" else "Total group spending",
                 minorUnits = abs(stats.totalGroupSpendings),
                 formatter = formatter,
@@ -183,8 +168,6 @@ private fun TotalsContent(
             SectionDivider()
         }
 
-        // A group with no expenses has no breakdown to draw, and an instance answering the
-        // removed procedure sends none, neither is a failure, and neither gets a heading.
         if (stats.categories.isNotEmpty()) {
             item(key = "categories_header") { SectionHeader("By category") }
             items(
@@ -208,12 +191,6 @@ private fun TotalsContent(
     }
 }
 
-/**
- * A caption, the amount under it, and how big a slice of the group's total it is.
- *
- * Unsigned: the caption already says which way it goes, and "Total group earnings −€40.00" says
- * it twice while contradicting itself. A total has no direction, so no ledger colour either.
- */
 @Composable
 private fun Figure(
     label: String,
@@ -251,8 +228,6 @@ private fun Figure(
     }
 }
 
-/** What the new overview payload knows that the sum alone does not. Absent on an instance still
- *  answering the removed `groups.stats.get`, in which case nothing is drawn here. */
 @Composable
 private fun SummaryLines(summary: SpliitEndpoints.StatsSummary, formatter: MoneyFormatter) {
     Column(modifier = Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -260,8 +235,6 @@ private fun SummaryLines(summary: SpliitEndpoints.StatsSummary, formatter: Money
             val average = summary.averageExpense
             SummaryLine(
                 label = if (count == 1) "1 expense" else "$count expenses",
-                // Already divided by the server. Dividing anything by 100 here is exactly the
-                // bug CLAUDE.md names; this figure is minor units like every other.
                 value = average?.let { "average ${formatter.format(it.toLong())}" },
             )
         }
@@ -293,12 +266,6 @@ private fun SummaryLine(label: String, value: String?) {
     }
 }
 
-
-/**
- * One category, its spend, and how much of the group that is. Laid out like a balance row,
- * because it is the same shape of statement and the tabs sit next to each other. The percentage
- * is not written out, a dozen down a list is noise, but a screen reader still gets it.
- */
 @Composable
 private fun CategoryRow(
     category: SpliitEndpoints.CategoryTotal,
@@ -325,8 +292,6 @@ private fun CategoryRow(
                         },
                 )
                 Spacer(Modifier.width(8.dp))
-                // Signed, unlike the figures above: nothing here states a direction, so the
-                // minus has to. A total is not a direction, so it takes no colour either.
                 Money(
                     value = formatter.format(category.total.toLong()),
                     size = MoneySize.ROW,
@@ -341,11 +306,6 @@ private fun CategoryRow(
     }
 }
 
-/**
- * A slice of the group's spending, drawn as a length. A [Layout] rather than
- * `fillMaxWidth(fraction)` so a slice of zero still draws a sliver of track, and so the fill can
- * never round wider than the track it sits in.
- */
 @Composable
 private fun ShareBar(fraction: Float) {
     Box(
@@ -354,7 +314,6 @@ private fun ShareBar(fraction: Float) {
             .height(6.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            // The percentage beside every one of these already says what the length says.
             .clearAndSetSemantics {},
     ) {
         Layout(
@@ -380,11 +339,6 @@ private fun ShareBar(fraction: Float) {
     }
 }
 
-/**
- * How much of the group's spending a figure is, or null when there is no answer: a group that
- * has spent nothing has no slices. Clamped, because neither end is impossible, a group netting
- * out below what one person paid would put a bar past its own track.
- */
 private fun groupSlice(value: Long, groupTotal: Long): Float? {
     if (groupTotal <= 0L) return null
     return (value.toDouble() / groupTotal.toDouble()).coerceIn(0.0, 1.0).toFloat()
@@ -394,11 +348,6 @@ private fun percentText(fraction: Float): String = "${Math.round(fraction * 100)
 
 private val summaryDateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
-/**
- * "11 Aug 2025 – 14 Sept 2026", from the summary's two ISO date strings. Parsed rather than
- * printed, since a date a person reads belongs in their locale's order; anything that does not
- * parse is dropped, because the range is a nicety and a wrong date is worse than none.
- */
 private fun dateRangeText(firstDate: String?, lastDate: String?): String? {
     val first = firstDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
     val last = lastDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return null
@@ -406,7 +355,6 @@ private fun dateRangeText(firstDate: String?, lastDate: String?): String? {
     val end = last.format(summaryDateFormatter)
     return if (start == end) start else "$start – $end"
 }
-
 
 @Composable
 private fun TotalsSkeleton() {

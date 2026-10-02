@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class GroupLinkTest {
-
     @Test
     fun `a spliit app group URL parses to its id`() {
         val link = GroupLink.parse("https://spliit.app/groups/abc123")
@@ -69,9 +68,6 @@ class GroupLinkTest {
 
     @Test
     fun `a real group id keeps its hyphens instead of being read as a hostname`() {
-        // Spliit's IDs are nanoids, so a pasted one can carry hyphens and underscores and still
-        // be a bare ID rather than an address. The scheme is only ever assumed for text with a
-        // slash in it, which is what keeps this from becoming "https://ZaeM1TyDC-5K8D-PFkICV".
         val link = GroupLink.parse("ZaeM1TyDC-5K8D-PFkICV")
 
         assertEquals("ZaeM1TyDC-5K8D-PFkICV", link?.groupId)

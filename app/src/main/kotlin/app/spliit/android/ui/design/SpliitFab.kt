@@ -19,15 +19,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.annotation.DrawableRes
 
-/**
- * The app's floating action button, defined once so a third cannot drift into a different green:
- * M3 defaults to `primaryContainer`, a tone this theme never tunes, and the two FABs were
- * visibly different until both came through here.
- *
- * Icon-only, so [contentDescription] and its tooltip are the screen reader's only text.
- *
- * @param contentDescription what the button does, as a sentence: "Add expense", not "plus".
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpliitFab(
@@ -38,17 +29,12 @@ fun SpliitFab(
     testTag: String? = null,
 ) {
     TooltipBox(
-        // Explicitly above: a FAB sits at the bottom of the screen, so the default
-        // positioning (which M3 now asks callers to state) has nowhere below to go.
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = { PlainTooltip { Text(contentDescription) } },
         state = rememberTooltipState(),
     ) {
         FloatingActionButton(
             onClick = onClick,
-            // Circular, per DESIGN.md §4. M3's own default is a 16dp rounded square, which next
-            // to this app's 16dp cards reads as one more card rather than as the screen's single
-            // action, verified on the emulator before this line was added.
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,

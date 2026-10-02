@@ -41,12 +41,6 @@ import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.ui.design.SectionDivider
 import app.spliit.android.ui.design.SectionHeader
 
-/**
- * The balances tab: your own standing, then everyone's, then the payments that would settle up.
- *
- * Both the group and the balances have to be in before any of it draws: a participant list
- * without balances is a row of zeroes reading as "everyone is settled up".
- */
 @Composable
 internal fun BalancesTab(
     state: GroupDetailUiState,
@@ -132,8 +126,6 @@ private fun BalancesContent(
         if (reimbursements.isNotEmpty()) {
             item(key = "reimbursements_hint") {
                 Text(
-                    // Spliit has no "mark as paid", settling up is recorded as a reimbursement
-                    // expense, which is what tapping one of these rows opens prefilled.
                     text = "Tap one to record it as a payment.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -182,7 +174,6 @@ private fun YouSection(you: Participant?, yourBalance: Long?, formatter: MoneyFo
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(4.dp))
-            // Unsigned: the caption above already carries the direction, DESIGN.md §3.
             Money(
                 value = formatter.format(abs(yourBalance)),
                 size = MoneySize.HERO,
@@ -279,9 +270,6 @@ private fun ReimbursementRow(
             modifier = Modifier.weight(1f),
         )
 
-        // Signed is redundant here, a suggested payment never carries the negative case, but
-        // it is still a fact with a direction, so this is not drawn with MoneySign.NONE the way
-        // an ordinary expense amount is.
         Money(value = formatter.format(reimbursement.amount.toLong()), size = MoneySize.LEAD)
     }
 }
@@ -291,7 +279,6 @@ private fun direction(balanceMinorUnits: Long): String = when {
     balanceMinorUnits < 0 -> "You owe"
     else -> "You're settled up"
 }
-
 
 @Composable
 private fun BalancesSkeleton() {

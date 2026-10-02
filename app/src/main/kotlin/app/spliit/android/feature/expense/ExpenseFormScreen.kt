@@ -71,14 +71,6 @@ import app.spliit.android.ui.design.SectionHeader
 import app.spliit.android.ui.design.DiscardChangesDialog
 import app.spliit.android.ui.design.FieldError
 
-
-/**
- * Creating and editing an expense: who paid, how much, and how it divides.
- *
- * **A modal task, not a destination**, so it takes an ✕ rather than an up arrow, and the back
- * gesture goes the same way. Every number comes from [ExpenseFormDraft] and every complaint from
- * `draft.problems(field)`; nothing here parses an amount or divides one.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseFormScreen(
@@ -91,7 +83,6 @@ fun ExpenseFormScreen(
 
     LaunchedEffect(Unit) { viewModel.load() }
 
-    // One exit, whichever way it was reached: saved, undone, deleted-and-let-go, or closed.
     LaunchedEffect(state.savedExpenseId, state.isFinished) {
         if (state.savedExpenseId != null || state.isFinished) onClose()
     }
@@ -106,7 +97,6 @@ fun ExpenseFormScreen(
             duration = SnackbarDuration.Long,
         )
         when (result) {
-            // The server has no undelete, so this writes the expense back, under a new ID.
             SnackbarResult.ActionPerformed -> viewModel.undoDelete()
             SnackbarResult.Dismissed -> viewModel.dismissDeleted()
         }
@@ -122,8 +112,6 @@ fun ExpenseFormScreen(
     val close = {
         if (state.isDirty) showDiscardDialog = true else viewModel.close()
     }
-    // Back is a gesture here, so the confirmation hangs off the gesture rather than the ✕ alone.
-    // Disabled once there is nothing to lose, so the gesture is then unobstructed.
     BackHandler(enabled = state.deleted == null) { close() }
 
     Scaffold(
@@ -191,12 +179,6 @@ fun ExpenseFormScreen(
     }
 }
 
-/**
- * The form itself, every field in order, with the amount and title first.
- *
- * Drawn by two containers, the full-screen form and the edit sheet. The field order is
- * load-bearing for the second: the sheet opens collapsed, showing whatever is at the top.
- */
 @Composable
 internal fun ExpenseFormBody(
     state: ExpenseFormUiState,
@@ -278,9 +260,6 @@ internal fun ExpenseFormBody(
             onSaveSplitAsDefault = viewModel::setSaveSplitAsDefault,
         )
 
-        // Only where a conversion is possible at all: it needs an ISO code on both sides, and a
-        // group carrying only a free-text symbol has nothing to convert *to*. A row that could
-        // never do anything is worse than no row, the same call the iOS form makes.
         if (Currencies.named(group.currencyCode.orEmpty()) != null) {
             CurrencySection(
                 state = state,
@@ -317,18 +296,12 @@ internal fun ExpenseFormBody(
         )
 
         if (state.isEditing) {
-            // Well below the last field and behind a rule of its own: deleting is the one action
-            // here that cannot be taken back the way a mistyped amount can, and the save action
-            // is at the top of the sheet rather than beside this, so the two are never adjacent.
             Spacer(Modifier.height(32.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(16.dp))
             FilledTonalButton(
                 onClick = viewModel::delete,
                 enabled = !state.isSaving && state.deleted == null,
-                // The tonal error pair, not a solid `error` fill, see Color.kt for both
-                // measurements. A filled red bar is how an app shouts; this is an action that
-                // belongs to the form, offered at the end of it.
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -370,8 +343,6 @@ internal fun ExpenseFormBody(
     }
 }
 
-// ---- date ------------------------------------------------------------------------------------
-
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
 @Composable
@@ -396,11 +367,8 @@ private fun DateRow(date: Instant, onClick: () -> Unit) {
     }
 }
 
-/**
- * The date, picked in UTC on purpose: an expense date is a *day*, stored as midnight UTC.
- * Reading the picker's millis in the phone's zone moves the day by one west of Greenwich.
- */
 @OptIn(ExperimentalMaterial3Api::class)
+// Picked in UTC: an expense date is a day, stored as midnight UTC.
 @Composable
 private fun ExpenseDatePicker(date: Instant, onPick: (Instant) -> Unit, onDismiss: () -> Unit) {
     val pickerState = rememberDatePickerState(initialSelectedDateMillis = date.toEpochMilli())
@@ -425,19 +393,12 @@ private fun ExpenseDatePicker(date: Instant, onPick: (Instant) -> Unit, onDismis
 private fun Instant.truncatedToUtcDay(): Instant =
     atZone(ZoneOffset.UTC).toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant()
 
-/** The form's headings carry a lead-in the group tabs do not need; the heading itself is shared. */
 @Composable
 internal fun ExpenseSectionHeader(title: String) {
     Spacer(Modifier.height(24.dp))
     SectionHeader(title)
 }
 
-/**
- * Whatever the draft says is wrong with one field, under that field.
- *
- * Reads [ExpenseFormUiState.problems], which is [ExpenseFormDraft.problems] filtered by field and
- * gated on a save having been attempted. There is no rule here.
- */
 @Composable
 internal fun FieldProblems(
     state: ExpenseFormUiState,
@@ -455,7 +416,6 @@ internal fun FieldProblems(
     }
 }
 
-/** Shared with the edit sheet, which shows the same shape while it reads the expense. */
 @Composable
 internal fun ExpenseFormSkeleton(modifier: Modifier = Modifier) {
     Column(

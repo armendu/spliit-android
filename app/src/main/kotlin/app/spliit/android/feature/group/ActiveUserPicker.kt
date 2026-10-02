@@ -27,13 +27,6 @@ import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.Monogram
 import app.spliit.api.Participant
 
-/**
- * "Who are you in this group?", offered beside the balance it unlocks rather than gating the way
- * into a group somebody just tapped.
- *
- * [app.spliit.core.RecentGroup.participantId] is a plain nullable ID, so "none of these" and
- * "never answered" are one value here, and this offers exactly what it can hold.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveUserPickerSheet(

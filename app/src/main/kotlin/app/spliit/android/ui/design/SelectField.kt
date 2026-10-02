@@ -20,7 +20,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
 
-/** A field showing the current choice; tapping it opens whatever picks the next one. */
 @Composable
 fun SelectField(
     label: String,

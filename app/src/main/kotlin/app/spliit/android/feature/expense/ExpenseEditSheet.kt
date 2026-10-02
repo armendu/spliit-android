@@ -33,19 +33,6 @@ import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.ui.design.SheetHeader
 import app.spliit.android.ui.design.DiscardChangesDialog
 
-
-/**
- * Editing an expense, as a sheet over the group screen rather than a screen of its own. It opens
- * partially expanded on the title and amount, with save pinned above them.
- *
- * The point is what does not happen: the group screen stays composed, so its load effect does
- * not re-run, the list keeps its scroll and paged-in rows, and no skeleton flashes.
- *
- * @param snackbarHostState the *group screen's* host; a snackbar in a closing sheet has nowhere
- *   to be.
- * @param onSaved a write landed. Also fires for an undone delete, which returns under a new ID.
- * @param onDone the sheet and its undo window are both finished.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExpenseEditSheet(
@@ -57,23 +44,16 @@ fun ExpenseEditSheet(
     onDone: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
-    // skipPartiallyExpanded = false is the whole design: the partially-expanded anchor is what
-    // the sheet opens at, and what the user drags up from.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val scope = rememberCoroutineScope()
     var isSheetVisible by remember { mutableStateOf(true) }
     var showDiscardDialog by remember { mutableStateOf(false) }
 
-    // Keyed on the expense rather than Unit: the same ViewModel instance is handed back for the
-    // same row, so a second open has to start from the expense again rather than from wherever
-    // the first one stopped. See ExpenseFormViewModel.reopen.
     LaunchedEffect(expenseId) { viewModel.reopen() }
 
     val deleted = state.deleted
     LaunchedEffect(deleted) {
         if (deleted == null) return@LaunchedEffect
-        // The row goes as soon as the server says it has: leaving it under an "Undo" snackbar
-        // would be showing an expense that no longer exists.
         onDeleted(expenseId)
         sheetState.hide()
         isSheetVisible = false
@@ -84,7 +64,6 @@ fun ExpenseEditSheet(
             duration = SnackbarDuration.Long,
         )
         when (result) {
-            // The server has no undelete, so this writes the expense back, under a new ID.
             SnackbarResult.ActionPerformed -> viewModel.undoDelete()
             SnackbarResult.Dismissed -> viewModel.dismissDeleted()
         }
@@ -118,9 +97,6 @@ fun ExpenseEditSheet(
 
     if (isSheetVisible) {
         ModalBottomSheet(
-            // A drag down, a tap on the scrim and the back gesture all arrive here, the sheet's
-            // own back handling calls this too, so the unsaved-changes question is asked once,
-            // for all three, rather than hung off a close button that a sheet does not have.
             onDismissRequest = {
                 if (state.isDirty) {
                     showDiscardDialog = true
@@ -131,17 +107,12 @@ fun ExpenseEditSheet(
             },
             sheetState = sheetState,
             shape = SheetShape,
-            // The sheet consumes the navigation-bar inset by default, leaving the padding below
-            // nothing to apply, so the last row drew under the gesture bar. Handed to the content
-            // instead, where one modifier pads for the bar and the keyboard together.
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
             modifier = Modifier.testTag(TestTags.EXPENSE_EDIT_SHEET),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Fills the sheet whatever it currently holds, so the partially-expanded
-                    // anchor does not move between the skeleton and the loaded form.
                     .fillMaxHeight()
                     .navigationBarsPadding()
                     .imePadding(),
@@ -183,8 +154,6 @@ fun ExpenseEditSheet(
     }
 
     if (showDiscardDialog) {
-        // Dismissing the question is not answering it, and the sheet has already animated away
-        // underneath, so both ways out of the dialog bring it back.
         val keepEditing = {
             showDiscardDialog = false
             scope.launch { sheetState.show() }
@@ -203,4 +172,3 @@ fun ExpenseEditSheet(
         )
     }
 }
-

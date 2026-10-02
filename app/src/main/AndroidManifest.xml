@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Spliit has no local mode: a group lives on a server, either spliit.app or an instance
-         the user hosts. Without this the app has nothing to show. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application

@@ -31,16 +31,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.spliit.core.Currencies
 
-
-/**
- * Every ISO currency the platform knows, filtered as you type. Shared by the expense and group
- * forms, which differ only in these two parameters.
- *
- * @param promotedCode Pinned above the list, hidden once the search box has text, where it would
- *   be a duplicate hit.
- * @param onUseCustomSymbol An escape hatch for a group counted in a bare symbol with no ISO code,
- *   which the web app's default `$` is. The expense form passes null: no code, no minor units.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrencyPickerSheet(

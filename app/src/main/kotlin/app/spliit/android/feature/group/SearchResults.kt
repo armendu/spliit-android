@@ -24,15 +24,6 @@ import app.spliit.core.MoneyFormatter
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.LoadFailure
 
-/**
- * What the search field is currently answering, in place of the expense list.
- *
- * Their own list rather than a filter over the loaded pages: the server matches, so a search
- * covers the whole group and not only what has been paged in.
- *
- * Three empty-ish states and three different sentences: nothing typed, nothing matched, and the
- * request failed. Collapsing the first two puts "no expenses" up before anybody has asked.
- */
 @Composable
 internal fun SearchResults(
     search: SearchUiState,
@@ -60,7 +51,6 @@ internal fun SearchResults(
         }
 
         results is LoadState.Failed -> Centered {
-            // No retry: the next keystroke re-runs the search anyway.
             LoadFailure(title = "Couldn't search", message = results.message)
         }
 

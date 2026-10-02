@@ -50,8 +50,6 @@ private fun expenseJson(id: String, title: String, amount: Int, expenseDate: Str
     "paidBy":{"id":"p1","name":"Ana"},"paidFor":[],"_count":{"documents":0}}
 """.trimIndent()
 
-/** One expense as `groups.expenses.get` answers it, payees by ID, where a row nests a whole
- *  participant. The gap the in-place update has to bridge from the group it already holds. */
 private fun expenseDetailJson(id: String, title: String, amount: Int, expenseDate: String) = """
     {"expense":{"id":"$id","groupId":"g1","title":"$title","amount":$amount,"categoryId":0,
     "category":null,"expenseDate":"$expenseDate","createdAt":"$expenseDate",
@@ -67,12 +65,7 @@ private fun expensesListJson(expensesJson: String, hasMore: Boolean, nextCursor:
 private fun balancesListJson(balancesJson: String, reimbursementsJson: String = "[]") =
     """{"balances":{$balancesJson},"reimbursements":$reimbursementsJson}"""
 
-/**
- * Routes each request to the right canned body by tRPC procedure path, since [GroupDetailViewModel
- * .refresh] fires the group, the first expense page and the balances all at once, a plain FIFO
- * queue would hand a concurrent request whichever response happens to be next, not the one that
- * matches it.
- */
+// Routed by path: refresh() fires several requests at once, so a FIFO queue would mismatch them.
 private class ProcedureDispatcher(private val bodies: Map<String, String>) : Dispatcher() {
     override fun dispatch(request: RecordedRequest): MockResponse {
         val path = request.url.encodedPath
@@ -83,7 +76,6 @@ private class ProcedureDispatcher(private val bodies: Map<String, String>) : Dis
 }
 
 class GroupDetailViewModelTest {
-
     private val server = MockWebServer()
 
     @BeforeEach
@@ -119,8 +111,6 @@ class GroupDetailViewModelTest {
         assertTrue(firstPage.hasMore)
         assertEquals(20, firstPage.nextCursor)
 
-        // The next page is asked for at the offset cursor the first page handed back, 20, not
-        // a key derived from the last expense's id.
         var sentCursor: String? = null
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
@@ -145,12 +135,6 @@ class GroupDetailViewModelTest {
         assertTrue(sentCursor?.contains("\"cursor\":20") == true, "expected cursor 20 in $sentCursor")
     }
 
-    /**
-     * Both paged lists go through one helper now, and these are the two things it does beyond
-     * appending: drop a row the fetched page repeats, and clear the loading flag on the way out
-     * of a failure. Neither was covered before, and both are invisible when wrong, a duplicated
-     * row reads as a real second expense, and a stuck flag is a footer spinner that never stops.
-     */
     @Test
     fun `a page that repeats a row does not duplicate it`() = runBlocking {
         val instance = server.url("/").toString()
@@ -169,8 +153,6 @@ class GroupDetailViewModelTest {
         val viewModel = GroupDetailViewModel("g1", store)
         viewModel.refresh()
 
-        // What the server sends when an expense was added at the top while somebody was paging:
-        // the window slides, and e1 arrives a second time.
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
                 MockResponse.Builder().code(200).body(
@@ -226,9 +208,6 @@ class GroupDetailViewModelTest {
     @Test
     fun `saving an edit reads one expense and the balances, never the expense list again`() =
         runBlocking {
-            // The whole reason editing is a sheet: the group screen stays composed, so nothing
-            // re-runs on its own and only what changed is read. A `groups.expenses.list` here
-            // would be the skeleton-and-lost-scroll-position bug coming back.
             val instance = server.url("/").toString()
             val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
             route(
@@ -274,15 +253,10 @@ class GroupDetailViewModelTest {
             )
             assertTrue(asked.contains("groups.balances.list"), "the balances were not recomputed: $asked")
             val page = (viewModel.state.value.expenses as LoadState.Loaded).value
-            // The edited row carries the new values, and its new date moved it to the top.
             assertEquals(listOf("e2", "e1"), page.expenses.map { it.id })
             val edited = page.expenses.first()
             assertEquals("Dinner, amended", edited.title)
             assertEquals(4200, edited.amount)
-            // Payee names come from the group already loaded, in the order the detail payload
-            // gives them, not the group's, which would make this row read differently from the
-            // same row after a reload. One the group no longer has is dropped rather than drawn
-            // as a blank.
             assertEquals(listOf("Bruno", "Ana"), edited.paidFor.map { it.participant.name })
             assertEquals(1700L, (viewModel.state.value.balances as LoadState.Loaded).value.balances["p1"])
         }
@@ -294,8 +268,6 @@ class GroupDetailViewModelTest {
             decodeExpense("e2", "2025-06-02T00:00:00.000Z"),
             decodeExpense("e3", "2025-06-01T00:00:00.000Z"),
         )
-        // Several expenses share a day routinely, and their order within it is the server's -
-        // so an edit that left the date alone leaves the row exactly where it was.
         val sameDay = listOf(
             decodeExpense("a", "2025-06-02T00:00:00.000Z"),
             decodeExpense("b", "2025-06-02T00:00:00.000Z"),
@@ -305,12 +277,10 @@ class GroupDetailViewModelTest {
             listOf("a", "b", "c"),
             placed(sameDay, decodeExpense("a", "2025-06-02T00:00:00.000Z")).map { it.id },
         )
-        // An edit that moved the date moves exactly one row.
         assertEquals(
             listOf("e1", "e3", "e2"),
             placed(rows, decodeExpense("e2", "2025-05-31T00:00:00.000Z")).map { it.id },
         )
-        // An undone delete comes back under a new ID and lands by its date, not at the end.
         assertEquals(
             listOf("e1", "e4", "e2", "e3"),
             placed(rows, decodeExpense("e4", "2025-06-02T12:00:00.000Z")).map { it.id },
@@ -345,8 +315,7 @@ class GroupDetailViewModelTest {
             mapOf(
                 "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
                 "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
-                // paid and paidFor are deliberately implausible next to total, so a bug reading
-                // either would be caught immediately rather than by coincidence.
+                // Deliberately implausible next to total, so reading either is caught.
                 "groups.balances.list" to balancesListJson(""""p1":{"paid":999999,"paidFor":888888,"total":-1234}"""),
             ),
         )
@@ -394,7 +363,6 @@ class GroupDetailViewModelTest {
         val unidentified = identified.copy(activeParticipantId = null)
         assertNull(unidentified.yourBalanceMinorUnits())
 
-        // No activity for this participant is a real zero, not a missing answer.
         val noActivity = identified.copy(activeParticipantId = "p2")
         assertEquals(0L, noActivity.yourBalanceMinorUnits())
     }
@@ -420,7 +388,6 @@ class GroupDetailViewModelTest {
     fun `actorId resolves, and is null when the participant has left`() = runBlocking {
         val instance = server.url("/").toString()
 
-        // p1 is remembered as this phone's participant, and the group still has them.
         val store = FakeRecentGroupsStore(
             RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance, participantId = "p1"))),
         )
@@ -435,8 +402,6 @@ class GroupDetailViewModelTest {
         viewModel.refresh()
         assertEquals("p1", viewModel.state.value.activeParticipantId)
 
-        // Now the remembered participant has left the group, the fresh response no longer
-        // names them, so the write must never claim to be someone who is gone.
         val store2 = FakeRecentGroupsStore(
             RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance, participantId = "p1"))),
         )
@@ -454,7 +419,6 @@ class GroupDetailViewModelTest {
 
     @Test
     fun `a cancelled load does not surface as a network error`() = runBlocking {
-        // No response is ever enqueued, the request hangs until this test cancels it.
         val instance = server.url("/").toString()
         val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
         val viewModel = GroupDetailViewModel("g1", store)
@@ -468,8 +432,6 @@ class GroupDetailViewModelTest {
         assertEquals(LoadState.Loading, viewModel.state.value.expenses)
         assertEquals(LoadState.Loading, viewModel.state.value.balances)
     }
-
-    // ---- what a loaded group costs to re-enter -------------------------------------------------
 
     @Test
     fun `loadIfNeeded asks for nothing once the group is loaded`() = runBlocking {
@@ -487,9 +449,6 @@ class GroupDetailViewModelTest {
         val afterFirstLoad = server.requestCount
         assertEquals(3, afterFirstLoad, "the first load is the group, the first expense page and the balances")
 
-        // The screen's own LaunchedEffect(Unit) re-runs on every fresh composition, coming back
-        // from the expense form, from the group editor, from anywhere. This is the guard that
-        // makes that free.
         viewModel.loadIfNeeded()
         yield()
 
@@ -547,7 +506,6 @@ class GroupDetailViewModelTest {
         val viewModel = GroupDetailViewModel("g1", store)
         viewModel.refresh()
 
-        // Both names 404 with the shape tRPC uses for a route it has never heard of.
         val unknownProcedure = """{"error":{"json":{"message":"No procedure found on path \"x\"",
             "code":-32004,"data":{"code":"NOT_FOUND","httpStatus":404,"path":"x"}}}}""".trimIndent()
         server.dispatcher = object : Dispatcher() {
@@ -586,17 +544,12 @@ class GroupDetailViewModelTest {
         val viewModel = GroupDetailViewModel("g1", store)
         viewModel.refresh()
 
-        // Nobody has opened Totals or the activity log, so an expense change reads neither, and
-        // the group and the categories are never read by this path at all.
         asked.clear()
         viewModel.applyExpenseChange()
-        // A set, not a list: the two go out concurrently and finish in whatever order the
-        // server answers them.
         assertEquals(setOf("groups.expenses.list", "groups.balances.list"), asked.toSet())
         assertFalse(asked.contains("groups.get"))
         assertFalse(asked.contains("categories.list"))
 
-        // Open Totals once, and from then on it is kept current.
         viewModel.loadStats(app.spliit.api.TrpcClient(instance), participantId = null)
         asked.clear()
         viewModel.applyExpenseChange()
@@ -619,13 +572,10 @@ class GroupDetailViewModelTest {
         viewModel.refresh()
 
         val group = (viewModel.state.value.group as LoadState.Loaded).value
-        // Everything the information tab needs comes off the same read.
         assertEquals(instance, group.instanceBaseUrl)
         assertEquals("EUR", group.currencyCode)
         assertNull(group.information)
     }
-
-    // ---- search --------------------------------------------------------------------------------
 
     @Test
     fun `search sends the typed text as the server-side filter`() = runBlocking {
@@ -658,7 +608,6 @@ class GroupDetailViewModelTest {
         }
 
         viewModel.search("  taxi  ")
-        // The field keeps exactly what was typed; only the query sent is trimmed.
         assertEquals("  taxi  ", viewModel.state.value.search.query)
         viewModel.runSearch("taxi")
 
@@ -669,10 +618,6 @@ class GroupDetailViewModelTest {
 
     @Test
     fun `a cancelled search does not report a failure`() = runBlocking {
-        // The keystroke after this one is already searching. CLAUDE.md: TrpcClient propagates a
-        // real CancellationException rather than dressing it up as a network failure, and a
-        // cancelled search has nothing to say, reporting it put "Couldn't search" on screen
-        // between characters for anyone typing slower than the debounce.
         val instance = server.url("/").toString()
         val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
         route(
@@ -688,7 +633,6 @@ class GroupDetailViewModelTest {
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
                 MockResponse.Builder().code(200).body(okBody(expensesListJson("", hasMore = false, nextCursor = 0)))
-                    // Long enough that the cancellation below lands inside the request.
                     .bodyDelay(5, java.util.concurrent.TimeUnit.SECONDS)
                     .build()
         }
@@ -726,8 +670,6 @@ class GroupDetailViewModelTest {
         assertEquals(before, server.requestCount)
     }
 
-    // ---- the activity log ----------------------------------------------------------------------
-
     @Test
     fun `the activity log is not read until it is opened`() = runBlocking {
         val instance = server.url("/").toString()
@@ -757,9 +699,7 @@ class GroupDetailViewModelTest {
         assertTrue(asked.contains("groups.activities.list"))
         val page = (viewModel.state.value.activities as LoadState.Loaded).value
         assertEquals(listOf("a1", "a2"), page.activities.map { it.id })
-        // The title is the activity's own `data` column, the expense's title *as it was*.
         assertEquals("Taxi", page.activities[0].title)
-        // `expense` beside the row, not `expenseId`, is what says a row can be opened.
         assertTrue(page.activities[0].expenseStillExists)
         assertFalse(page.activities[1].expenseStillExists)
     }
@@ -781,7 +721,6 @@ class GroupDetailViewModelTest {
                         val input = request.url.queryParameter("input")
                         if (input?.contains("\"cursor\":2") == true) {
                             cursor = input
-                            // a1 again, because the log grows at the top.
                             activityRowsJson("a1", "a3", hasMore = false, nextCursor = 4)
                         } else {
                             activityRowsJson("a1", "a2", hasMore = true, nextCursor = 2)
@@ -805,12 +744,6 @@ class GroupDetailViewModelTest {
         assertTrue(cursor?.contains("\"cursor\":2") == true, "expected the offset cursor, got $cursor")
     }
 
-    // ---- who you are in this group -------------------------------------------------------
-
-    /**
-     * The participant answer is what every later write carries, and the only thing the activity
-     * log can name anybody with, so it has to reach the store rather than only the screen.
-     */
     @Test
     fun `saying who you are reaches the store, which is what later writes read`() = runBlocking {
         val instance = server.url("/").toString()
@@ -848,7 +781,6 @@ class GroupDetailViewModelTest {
         val viewModel = GroupDetailViewModel("g1", store)
         viewModel.refresh()
 
-        // The row still names pGone, but the group does not, so nothing should claim to be them.
         assertNull(viewModel.state.value.activeParticipantId)
 
         viewModel.applyActiveParticipant(null)
@@ -857,9 +789,6 @@ class GroupDetailViewModelTest {
         assertNull(store.load().groups.single().participantId, "clearing has to be written, not just shown")
     }
 
-    // ---- rate limiting ------------------------------------------------------------------
-
-    /** A clock the test moves by hand, so none of this waits for real time to pass. */
     private class FakeClock(var millis: Long = 0) {
         operator fun invoke(): Long = millis
     }
@@ -887,7 +816,6 @@ class GroupDetailViewModelTest {
         viewModel.refresh()
         val afterLoad = server.requestCount
 
-        // The first pull consumes the window.
         viewModel.refreshInPlace()
         val afterAllowed = server.requestCount
         assertTrue(afterAllowed > afterLoad, "the first pull should have fetched")
@@ -896,8 +824,6 @@ class GroupDetailViewModelTest {
         viewModel.refreshInPlace()
         assertEquals(afterAllowed, server.requestCount, "the refused pull should fetch nothing")
 
-        // And once the window has passed, pulling works again, a limiter that latched shut
-        // would satisfy the assertion above and still be a bug.
         clock.millis = 10_000
         viewModel.refreshInPlace()
         assertTrue(server.requestCount > afterAllowed, "a pull after the window should fetch")
@@ -909,7 +835,7 @@ class GroupDetailViewModelTest {
         val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
         routeWholeGroup()
         val limiter = RefreshLimiter(5.seconds, FakeClock()::invoke)
-        limiter.allow() // consumed, so the pull below is refused
+        limiter.allow()
         val viewModel = GroupDetailViewModel(
             groupId = "g1",
             recentGroupsStore = store,
@@ -918,8 +844,6 @@ class GroupDetailViewModelTest {
 
         viewModel.refreshInPlace()
 
-        // PullToRefreshBox keeps its indicator up until the state says otherwise, so a dropped
-        // refresh that left this true would spin over nothing until the user navigated away.
         assertFalse(viewModel.state.value.isRefreshing)
     }
 
@@ -938,18 +862,13 @@ class GroupDetailViewModelTest {
         viewModel.refresh()
         val before = server.requestCount
 
-        // Editing an expense and immediately pulling must not be refused: the screen is known to
-        // be stale, which is the case the window's reasoning does not cover.
         viewModel.applyExpenseChange()
         viewModel.refreshInPlace()
 
         assertTrue(server.requestCount > before)
     }
-
 }
 
-/** Two rows: one whose expense is still there, one whose expense has been deleted, which is the
- *  distinction an activity row's tappability turns on. */
 private val activitiesJson = """
     {"activities":[
       {"id":"a1","groupId":"g1","time":"2025-06-02T10:00:00.000Z","activityType":"CREATE_EXPENSE",
@@ -968,8 +887,7 @@ private fun activityRowsJson(vararg ids: String, hasMore: Boolean, nextCursor: I
     return """{"activities":[$rows],"hasMore":$hasMore,"nextCursor":$nextCursor}"""
 }
 
-// ExpenseListItem's trailing `_count` field is a private property, Prisma's aggregate, per its
-// own doc, so it (and everything after it) must be supplied positionally rather than by name.
+// `_count` is private, so it and everything after it are passed positionally.
 private fun decodeExpense(id: String, expenseDate: String) = app.spliit.api.ExpenseListItem(
     id,
     id,

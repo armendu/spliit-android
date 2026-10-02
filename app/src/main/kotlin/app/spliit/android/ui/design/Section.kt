@@ -17,10 +17,6 @@ import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.sp
 import java.util.Locale as JavaLocale
 
-// Six file-private copies of this chrome existed and had drifted: headers 4dp apart between
-// sibling tabs, dividers 4dp apart. One definition each, so the next change moves all of them.
-
-/** The heading above a run of rows. */
 @Composable
 fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     Text(
@@ -32,10 +28,6 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier) {
     )
 }
 
-/**
- * A heading drawn in capitals. Screen readers get the natural-case [text], and the capitals
- * follow Compose's observable [Locale.current] rather than `Locale.getDefault()`.
- */
 @Composable
 fun CapsLabel(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -48,7 +40,6 @@ fun CapsLabel(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** A form's heading. */
 @Composable
 fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
     Spacer(Modifier.height(topSpace))
@@ -56,7 +47,6 @@ fun FormSectionHeader(text: String, topSpace: Dp = 24.dp) {
     Spacer(Modifier.height(8.dp))
 }
 
-/** The hairline between two sections. */
 @Composable
 fun SectionDivider() {
     HorizontalDivider(
@@ -65,7 +55,6 @@ fun SectionDivider() {
     )
 }
 
-/** The small print under a section, explaining where a figure came from. */
 @Composable
 fun Footnote(text: String) {
     Text(

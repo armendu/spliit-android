@@ -47,15 +47,6 @@ import app.spliit.android.ui.design.CardShape
 import app.spliit.android.ui.design.FormSectionHeader
 import app.spliit.android.ui.design.FieldError
 
-
-
-/**
- * Settings: appearance, the default instance, and the static About/Feedback/Version rows.
- *
- * **The theme picker is not on iOS**, where an app follows the system by convention. Android has
- * no equivalent convention and the choice was asked for by name, so this is a documented
- * divergence rather than an oversight to reconcile later.
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -121,8 +112,6 @@ fun SettingsScreen(
 
             FormSectionHeader("Feedback")
             FeedbackCard(
-                // Points at the org page, not a repo, there is no spliit-android repository yet.
-                // See this part's own report for the follow-up once one exists.
                 onReport = { openUrl(context, "https://github.com/spliit-app") },
             )
 
@@ -141,9 +130,6 @@ private fun AppearanceCard(themeMode: ThemeMode, onSelect: (ThemeMode) -> Unit) 
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
-            // Groups the three rows for accessibility services as one radio group, the same
-            // relationship RadioButton implies visually, a real Material selection control, not
-            // three independently-focusable rows that happen to look related.
             .selectableGroup(),
     ) {
         ThemeOption("Follow system", ThemeMode.FOLLOW_SYSTEM, themeMode, onSelect)
@@ -163,8 +149,6 @@ private fun ThemeOption(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // The row is the tap target, per Material's own radio-list-item pattern; the
-            // RadioButton below is `onClick = null` so the click isn't handled twice.
             .selectable(selected = isSelected, onClick = { onSelect(mode) }, role = Role.RadioButton)
             .testTag(TestTags.settingsThemeOption(mode.name))
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -214,9 +198,6 @@ private fun InstanceCard(
             ) {
                 Text("Save")
             }
-            // Disabled rather than hidden while already on the build default: a control that
-            // disappears the moment it would do nothing is harder to find the one time it's
-            // needed again than one that is simply greyed out.
             TextButton(
                 onClick = onReset,
                 enabled = !state.isUsingBuildDefault,
@@ -287,8 +268,6 @@ private fun LinkRow(label: String, onClick: () -> Unit, testTag: String) {
     }
 }
 
-/** Best-effort: a device with literally no browser would otherwise crash the app for tapping a
- *  link, and there is nothing more useful to do about that from here. */
 private fun openUrl(context: Context, url: String) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
 }

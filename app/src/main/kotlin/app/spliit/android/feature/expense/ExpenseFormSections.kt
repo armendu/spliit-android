@@ -65,11 +65,6 @@ import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.FieldError
 
-/**
- * The oversized, centred amount entry from DESIGN.md §4. Under a conversion the total is not
- * typed but derived from the rate, so the field becomes a read-out: an editable field bound to
- * [ExpenseFormDraft.amountText] would show a number the expense does not have.
- */
 @Composable
 internal fun AmountEntry(
     draft: ExpenseFormDraft,
@@ -84,11 +79,6 @@ internal fun AmountEntry(
         Text(
             text = formatter.currencySymbol.ifBlank { draft.groupCurrencyCode.orEmpty() },
             style = MaterialTheme.typography.headlineMedium,
-            // `primary`, not grey: the symbol says which money this is. In grey it reads as
-            // decoration and gets skipped, on the screen where the currency is a real question.
-            //
-            // The figure stays `on-surface`. An expense *row*'s amount takes `primary` and this
-            // one does not: a tinted value being edited reads as a state, not a value.
             color = MaterialTheme.colorScheme.primary,
         )
         Spacer(Modifier.width(8.dp))
@@ -112,8 +102,6 @@ internal fun AmountEntry(
                     )
                 },
                 textStyle = MaterialTheme.typography.displaySmall.copy(
-                    // DESIGN.md §2: tabular figures on every amount, the entry field included -
-                    // without them the caret walks as the digits change.
                     fontFeatureSettings = "tnum",
                     fontWeight = FontWeight.Bold,
                 ),
@@ -131,10 +119,7 @@ internal fun AmountEntry(
     }
 }
 
-/** Wide enough for a five-figure amount at the display size, and it scrolls within itself after. */
 private val IntrinsicAmountWidth = 220.dp
-
-// ---- who paid --------------------------------------------------------------------------------
 
 @Composable
 internal fun PaidByChips(
@@ -161,13 +146,6 @@ internal fun PaidByChips(
     }
 }
 
-// ---- category --------------------------------------------------------------------------------
-
-/**
- * Every category the server offers, as a scrolling strip of DESIGN.md §4 chips. In the order
- * `categories.list` sends them, which is grouped: sorting alphabetically would scatter each
- * grouping's members and cost the glyphs their only visual grouping.
- */
 @Composable
 internal fun CategoryChips(
     categories: List<ExpenseCategory>,
@@ -186,8 +164,6 @@ internal fun CategoryChips(
             ) {
                 Icon(
                     painter = painterResource(CategoryGlyphs.drawable(category.grouping)),
-                    // The chip's own label names the category; a second reading of it here would
-                    // be the same word twice to a screen reader.
                     contentDescription = null,
                     modifier = Modifier.width(18.dp),
                 )
@@ -198,7 +174,6 @@ internal fun CategoryChips(
     }
 }
 
-/** DESIGN.md §4's chip: 32dp, full radius, `surface-container` idle, `primary` when chosen. */
 @Composable
 private fun SelectableChip(
     isSelected: Boolean,
@@ -230,10 +205,6 @@ private fun SelectableChip(
     }
 }
 
-// ---- the split -------------------------------------------------------------------------------
-
-/** How the expense divides, and what that comes to per person. The figures are
- *  [ExpenseFormDraft.splitAmounts], which is what gets stored, not an approximation. */
 @Composable
 internal fun SplitSection(
     state: ExpenseFormUiState,
@@ -255,7 +226,6 @@ internal fun SplitSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
-        // One control, not two: with everyone already in, "select all" has nothing left to do.
         TextButton(
             onClick = { onAllIncluded(!draft.allParticipantsIncluded) },
             modifier = Modifier.testTag(TestTags.EXPENSE_FORM_SELECT_ALL_BUTTON),
@@ -267,8 +237,6 @@ internal fun SplitSection(
     SplitModeTabs(selected = draft.splitMode, onSelect = onSplitMode)
     Spacer(Modifier.height(8.dp))
 
-    // Keyed by participant so a row's amount is read off the same apportionment the submission
-    // will carry, rather than recomputed per row.
     val amounts = remember(draft) { draft.splitAmounts().associate { it.participantId to it.amount } }
 
     for (participant in draft.participants) {
@@ -289,8 +257,6 @@ internal fun SplitSection(
 
     FieldProblems(state, ExpenseFormDraft.Field.PAID_FOR, formatter)
 
-    // Before a save has been attempted this is a running tally rather than a complaint, showing
-    // what is left to allocate is what stops a refused save being the first news of it.
     val remainder = draft.remainderText(formatter)
     Spacer(Modifier.height(4.dp))
     Text(
@@ -312,11 +278,6 @@ internal fun SplitSection(
     }
 }
 
-/**
- * Choosing one of four ways to divide the expense, on Material's segmented buttons. Not tabs,
- * which navigate between views. Labels stay short enough to survive the largest system font:
- * shorten the label rather than truncating it or changing control.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SplitModeTabs(selected: SplitMode, onSelect: (SplitMode) -> Unit) {
@@ -386,8 +347,6 @@ private fun ParticipantSplitRow(
                     shape = FieldShape,
                     modifier = Modifier
                         .width(128.dp)
-                        // Position alone says whose share this is, and position is exactly what a
-                        // screen reader flattens away.
                         .semanticsLabel("$name's share")
                         .testTag(TestTags.expenseFormParticipantValue(participantId)),
                 )
@@ -408,12 +367,6 @@ private fun ParticipantSplitRow(
     }
 }
 
-// ---- currency conversion ---------------------------------------------------------------------
-
-/**
- * What the expense was paid in, and at what rate when that is not the group's currency. The two
- * amounts are on different scales; this draws each at its own currency's precision.
- */
 @Composable
 internal fun CurrencySection(
     state: ExpenseFormUiState,
@@ -465,8 +418,6 @@ internal fun CurrencySection(
     FieldProblems(state, ExpenseFormDraft.Field.CONVERSION_RATE, formatter)
 }
 
-// ---- odds and ends ---------------------------------------------------------------------------
-
 @Composable
 internal fun SwitchRow(
     label: String,
@@ -500,8 +451,6 @@ internal fun SwitchRow(
     }
 }
 
-/** How often the expense repeats. Only the four cadences this client knows are offered; a
- *  fifth from a newer instance is kept and shown by its raw name. */
 @Composable
 internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -532,7 +481,5 @@ internal fun RecurrenceRow(rule: String, onSelect: (String) -> Unit) {
     }
 }
 
-/** A label for a control that means nothing on its own. `semantics`, not
- *  `clearAndSetSemantics`, which would take the field's value and tag with it. */
 private fun Modifier.semanticsLabel(label: String): Modifier =
     this.semantics { contentDescription = label }

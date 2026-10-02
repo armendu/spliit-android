@@ -16,12 +16,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-/**
- * The one row of a sheet that never scrolls: what it is, and the button that finishes it.
- *
- * The action sits here rather than at the foot of the form because a sheet can open collapsed,
- * and an action below the fold would put a drag between somebody and the thing they came to do.
- */
 @Composable
 fun SheetHeader(
     title: String,
@@ -51,12 +45,6 @@ fun SheetHeader(
     }
 }
 
-/**
- * "Discard changes?", asked before a dirty form is thrown away.
- *
- * The two callers answer it differently, one is a sheet that has already animated away and has
- * to come back, so keeping and dismissing are separate callbacks rather than one.
- */
 @Composable
 fun DiscardChangesDialog(
     dialogTestTag: String,

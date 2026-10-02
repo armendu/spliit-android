@@ -31,7 +31,6 @@ private val LoadState<GroupsDashboard>.dashboard: GroupsDashboard
     get() = (this as LoadState.Loaded).value
 
 class GroupsListViewModelTest {
-
     private val server = MockWebServer()
 
     @BeforeEach
@@ -64,7 +63,6 @@ class GroupsListViewModelTest {
 
         val recent = viewModel.state.value.dashboard.recent
         assertEquals(2, recent.size)
-        // g2 was opened more recently, so it sorts first.
         assertEquals("g2", recent[0].groupId)
         assertEquals("Flat 3B", recent[0].name)
         assertEquals(2, recent[0].participantCount)
@@ -84,8 +82,6 @@ class GroupsListViewModelTest {
                 ),
             ),
         )
-        // The server only answers for g1, deleted-group is silently absent, exactly as a real
-        // groups.list response omits an id it no longer recognises.
         server.enqueue(
             MockResponse.Builder().code(200)
                 .body(okBody("""{"groups":[${summaryJson("g1", "Weekend in Lisbon", 3)}]}"""))
@@ -108,8 +104,6 @@ class GroupsListViewModelTest {
 
         viewModel.refresh()
 
-        // Not Failed: the names are local, and a screen that replaced them with an error would
-        // cost somebody the only route back to a group they do have.
         val dashboard = viewModel.state.value.dashboard
         val row = dashboard.recent.single()
         assertEquals("local name for g1", row.name)
@@ -142,7 +136,6 @@ class GroupsListViewModelTest {
         val rows = viewModel.state.value.dashboard.recent.associateBy { it.groupId }
         assertEquals(4, rows.getValue("live").participantCount)
         assertNull(rows.getValue("dead").participantCount)
-        // One request each: groups.list only ever answers for the server it was sent to.
         assertEquals(1, server.requestCount)
     }
 
@@ -183,8 +176,6 @@ class GroupsListViewModelTest {
         assertTrue(row.lastOpenedAt!!.isAfter(Instant.parse("2025-01-01T00:00:00Z")))
     }
 
-    // ---- sections ---------------------------------------------------------------------------
-
     @Test
     fun `starring moves a group into the starred section, and archiving out of both`() = runBlocking {
         val instance = server.url("/").toString()
@@ -209,7 +200,6 @@ class GroupsListViewModelTest {
         var dashboard = viewModel.state.value.dashboard
         assertEquals(listOf("g1"), dashboard.starred.map { it.groupId })
         assertEquals(listOf("g2"), dashboard.recent.map { it.groupId })
-        // Redrawn from what was already fetched: starring changes nothing a server knows.
         assertEquals(1, server.requestCount)
         assertEquals(3, dashboard.starred.single().participantCount)
 
@@ -221,8 +211,6 @@ class GroupsListViewModelTest {
         assertTrue(store.load().groups.single { it.groupId == "g1" }.isArchived)
     }
 
-    // ---- removal, and taking it back --------------------------------------------------------
-
     @Test
     fun `a removed group leaves the list at once but is only forgotten when the window closes`() = runBlocking {
         val store = storeWithOneGroup()
@@ -233,8 +221,6 @@ class GroupsListViewModelTest {
 
         assertTrue(viewModel.state.value.dashboard.isEmpty, "the row goes as soon as it is removed")
         assertEquals("g1", viewModel.pendingRemoval.value?.groupId)
-        // The irreversible half has not happened: a group is reachable only by its link, so the
-        // `forget` waits out the undo window.
         assertEquals(listOf("g1"), store.load().groups.map { it.groupId })
         assertTrue(store.load().tombstones.isEmpty())
     }
@@ -281,8 +267,6 @@ class GroupsListViewModelTest {
         )
     }
 
-    /** A port nothing is listening on, a real network failure, the same shape TrpcClientTest
-     *  pins for TrpcClientError.Network. */
     private fun deadInstance(): String {
         val deadServer = MockWebServer()
         deadServer.start()
@@ -291,18 +275,12 @@ class GroupsListViewModelTest {
         return url
     }
 
-    // ---- rate limiting ----------------------------------------------------------------------
-
-    /** A clock the test moves by hand, so none of this waits for real time to pass. */
     private class FakeClock(var millis: Long = 0) {
         operator fun invoke(): Long = millis
     }
 
     @Test
     fun `retry is rate-limited, load is not`() = runBlocking {
-        // This screen has no pull gesture, so the button beside a failure is the only thing a
-        // user can repeat, and it is the most expensive thing in the app when they do: one
-        // request per stored group. `load` runs once per composition and is left alone.
         val instance = server.url("/").toString()
         val store = FakeRecentGroupsStore(
             RecentGroupsSnapshot(groups = listOf(group("g1", instance, Instant.parse("2025-01-01T00:00:00Z")))),
@@ -334,11 +312,8 @@ class GroupsListViewModelTest {
         viewModel.retryNow()
         assertTrue(server.requestCount > afterFirstRetry, "a retry after the window should fetch")
 
-        // `load` is the composition path and must never be dropped, however recently the button
-        // was tapped.
         val beforeLoad = server.requestCount
         viewModel.refresh()
         assertTrue(server.requestCount > beforeLoad, "load must not be rate-limited")
     }
-
 }

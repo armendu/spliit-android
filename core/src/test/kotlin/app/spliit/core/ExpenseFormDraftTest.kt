@@ -11,11 +11,7 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.util.Locale
 
-/**
- * Every test here passes an explicit [Locale], for the reason [MoneyFormatterTest] gives: a
- * suite that reads the machine's default passes here and fails on a runner set to another
- * region. The default locale is never consulted in this file.
- */
+// Every test passes an explicit Locale; the machine default is never consulted.
 private val AMERICAN = Locale.of("en", "US")
 private val FRENCH = Locale.of("fr", "FR")
 
@@ -24,10 +20,6 @@ private val THE_DATE: Instant = Instant.parse("2025-03-04T18:30:00Z")
 private fun members(count: Int): List<Participant> =
     (1..count).map { Participant("p$it", "Participant $it") }
 
-/**
- * A draft with everyone in, ready to submit, the state a screen reaches once a title and an
- * amount have been typed. Tests change only what they are about.
- */
 private fun draft(
     currencyCode: String? = "EUR",
     participantCount: Int = 3,
@@ -53,13 +45,6 @@ private fun ExpenseFormDraft.wire(): ExpenseSubmission.Wire =
 private fun ExpenseSubmission.Wire.shares(): List<Int> = paidFor.map { it.shares }
 
 class ExpenseFormDraftTest {
-
-    // ---- what `shares` means, mode by mode ---------------------------------------------
-    //
-    // The single most expensive thing in this file to get wrong, and the cheapest to get
-    // wrong quietly: three of the four modes scale by 100 whatever the currency, and the
-    // fourth is raw minor units that follow the group's precision.
-
     @Test
     fun `an evenly split expense sends 100 per participant`() {
         val wire = draft().wire()
@@ -99,10 +84,6 @@ class ExpenseFormDraftTest {
         assertEquals(10_000, wire.shares().sum())
     }
 
-    /**
-     * The one mode whose shares are money. `12.34` in a two-decimal group is 1234 minor units -
-     * not 123_400, which is what scaling it by 100 like the other three modes would send.
-     */
     @Test
     fun `BY_AMOUNT sends raw minor units rather than the value times 100`() {
         val wire = draft()
@@ -114,7 +95,6 @@ class ExpenseFormDraftTest {
         assertEquals(1000, wire.amount)
     }
 
-    /** Proves [SplitMode.BY_AMOUNT] scales with the group: a yen share is a whole yen. */
     @Test
     fun `BY_AMOUNT in a yen group sends whole yen`() {
         val wire = draft(currencyCode = "JPY", amountText = "1000")
@@ -126,7 +106,6 @@ class ExpenseFormDraftTest {
         assertEquals(1000, wire.amount)
     }
 
-    /** And that the scale is asked for rather than assumed to be hundredths. */
     @Test
     fun `BY_AMOUNT in a three-decimal currency sends thousandths`() {
         val wire = draft(currencyCode = "KWD", amountText = "10.000")
@@ -138,10 +117,7 @@ class ExpenseFormDraftTest {
         assertEquals(10_000, wire.amount)
     }
 
-    /**
-     * The other half of the same rule, and the half that is easy to "fix" into a bug: the ×100
-     * modes do **not** follow the currency. An even split in a yen group is still 100 a head.
-     */
+    // Easy to "fix" into a bug: the x100 modes don't follow the currency.
     @Test
     fun `EVENLY in a yen group still sends 100 per participant`() {
         val wire = draft(currencyCode = "JPY", amountText = "1000").wire()
@@ -170,8 +146,6 @@ class ExpenseFormDraftTest {
         assertEquals(listOf(3000, 2000, 5000), wire.shares())
     }
 
-    // ---- apportioning an even split ----------------------------------------------------
-
     @Test
     fun `an even split apportions the remainder in whole minor units`() {
         val amounts = draft().splitAmounts()
@@ -180,12 +154,6 @@ class ExpenseFormDraftTest {
         assertEquals(1000L, amounts.sumOf { it.amount })
     }
 
-    /**
-     * Whoever comes first in the group's participant order pays the extra minor unit, see
-     * [ExpenseFormDraft.splitAmounts]. Pinned because "deterministic" is the whole point: an
-     * implementation apportioning out of a map would be right about the *amounts* and free to
-     * hand the extra cent to a different person on the next run.
-     */
     @Test
     fun `the extra minor unit goes to the first included participant`() {
         val amounts = draft().splitAmounts()
@@ -195,7 +163,6 @@ class ExpenseFormDraftTest {
         assertEquals(listOf("p1", "p2", "p3"), amounts.map { it.participantId })
     }
 
-    /** And it follows the *included* order rather than the group's, when they differ. */
     @Test
     fun `the extra minor unit goes to the first participant actually in the split`() {
         val amounts = draft(participantCount = 4)
@@ -241,12 +208,6 @@ class ExpenseFormDraftTest {
         assertEquals(listOf(500L, 300L, 200L), amounts.map { it.amount })
     }
 
-    // ---- currency conversion -----------------------------------------------------------
-
-    /**
-     * A €40.00 dinner in a yen group: 4000 in the euro's minor units and ¥6,540 in the group's.
-     * Two amounts, two scales, and each currency asked for its own precision.
-     */
     @Test
     fun `a converted expense keeps two amounts on two different scales`() {
         val wire = draft(currencyCode = "JPY", amountText = "")
@@ -260,7 +221,6 @@ class ExpenseFormDraftTest {
         assertEquals(BigDecimal("163.5"), wire.conversionRate)
     }
 
-    /** The other direction: a yen expense in a euro group rounds to whole cents. */
     @Test
     fun `a yen expense in a euro group converts at the euro's precision`() {
         val wire = draft(currencyCode = "EUR", amountText = "")
@@ -269,7 +229,6 @@ class ExpenseFormDraftTest {
             .wire()
 
         assertEquals(6540, wire.originalAmount)
-        // 6540 yen × 0.0061 = 39.894 euros, to the cent.
         assertEquals(3989, wire.amount)
     }
 
@@ -281,10 +240,6 @@ class ExpenseFormDraftTest {
         assertEquals(1000L, draft.amountMinorUnits)
     }
 
-    /**
-     * Uppercasing with the root locale rather than the default: under a Turkish default
-     * `"iqd".uppercase()` is `İQD`, which is not a currency any more.
-     */
     @Test
     fun `a lowercase currency code is normalised before it is sent`() {
         val wire = draft(currencyCode = "JPY", amountText = "")
@@ -295,11 +250,6 @@ class ExpenseFormDraftTest {
         assertEquals("EUR", wire.originalCurrency)
     }
 
-    /**
-     * `originalCurrency` is the only conversion field whose schema takes a null, and the only
-     * way to stop an expense being converted; the other two answer 400 to one and clear with
-     * `''`. See `ExpenseFormValues` in :api, which spells the same three notions of empty.
-     */
     @Test
     fun `dropping the conversion sends a null currency and omits the other two`() {
         val wire = draft(currencyCode = "EUR").withCurrency(null).wire()
@@ -318,10 +268,6 @@ class ExpenseFormDraftTest {
         assertNull(wire.conversionRate)
     }
 
-    /**
-     * Coming back to the group's own currency keeps the total that was showing, rather than
-     * snapping back to whatever had been typed before the conversion.
-     */
     @Test
     fun `dropping the conversion keeps the converted total in the amount field`() {
         val converted = draft(currencyCode = "JPY", amountText = "")
@@ -342,7 +288,6 @@ class ExpenseFormDraftTest {
         assertEquals("", moved.conversionRateText)
     }
 
-    /** A group with only a free-text symbol has nothing to convert *to*. */
     @Test
     fun `a group with no ISO code cannot convert`() {
         val draft = draft(currencyCode = null).withCurrency("EUR")
@@ -350,15 +295,11 @@ class ExpenseFormDraftTest {
         assertFalse(draft.conversionRequired)
     }
 
-    // ---- editing an existing expense ---------------------------------------------------
-
     @Test
     fun `editing round-trips every field unchanged`() {
         val existing = ExpenseFormDraft.ExistingExpense(
             title = "Hotel",
             expenseDate = THE_DATE,
-            // What the rate produces, because that is what the form derives: an expense whose
-            // stored rate does not come to its stored amount is not a thing this form can hold.
             amount = 18_482,
             categoryId = 7,
             paidById = "p2",
@@ -397,7 +338,6 @@ class ExpenseFormDraftTest {
         assertEquals(BigDecimal("0.9241"), wire.conversionRate)
     }
 
-    /** A cadence this client has no word for survives an edit rather than being reset. */
     @Test
     fun `editing round-trips a recurrence rule this client cannot name`() {
         val wire = ExpenseFormDraft.editing(
@@ -449,12 +389,6 @@ class ExpenseFormDraftTest {
         assertEquals(listOf(600, 400), wire.shares())
     }
 
-    /**
-     * The stored amount is deliberately **not** what the rate comes to, which is the only way
-     * this can tell deriving the total from trusting it. A converted expense's total is what its
-     * amount and rate produce, that is what makes it impossible to save one whose rate does not
-     * come to its own amount, so the stored 999.99 is recomputed to 184.82.
-     */
     @Test
     fun `editing a converted expense derives the total from the rate rather than trusting it`() {
         val wire = ExpenseFormDraft.editing(
@@ -487,11 +421,6 @@ class ExpenseFormDraftTest {
         assertEquals(listOf("p2"), draft.includedParticipants.map { it.id })
     }
 
-    /**
-     * **The currency is what says an expense was converted.** An expense that stopped being
-     * converted keeps the other two columns in the database with nothing reading them, the
-     * server has no way to clear them, so loading one for editing must ignore them.
-     */
     @Test
     fun `editing an expense with no original currency ignores the other two fields`() {
         val draft = ExpenseFormDraft.editing(
@@ -515,7 +444,6 @@ class ExpenseFormDraftTest {
         assertNull(wire.conversionRate)
     }
 
-    /** An expense converted from a currency counted in whole units, edited back intact. */
     @Test
     fun `editing a converted expense reads the original amount at its own precision`() {
         val draft = ExpenseFormDraft.editing(
@@ -530,7 +458,6 @@ class ExpenseFormDraftTest {
             locale = AMERICAN,
         )
 
-        // The group's two digits would read this back as 65.40 yen, which is not a thing.
         assertEquals("6540", draft.originalAmountText)
         assertEquals(6540L, draft.originalAmountMinorUnits)
     }
@@ -547,8 +474,6 @@ class ExpenseFormDraftTest {
         assertEquals(123_456L, draft.amountMinorUnits)
         assertTrue(draft.amountText.contains(','), "French writes 1234,56, found ${draft.amountText}")
     }
-
-    // ---- validation --------------------------------------------------------------------
 
     @Test
     fun `a complete draft is valid`() {
@@ -589,12 +514,6 @@ class ExpenseFormDraftTest {
         assertTrue(draft(amountText = "0.00").problems.contains(ExpenseFormDraft.Problem.AmountZero))
     }
 
-    /**
-     * A leading minus is something [MoneyFormatter.parseMinorUnits] deliberately reads, so an
-     * amount can arrive negative, and an expense of minus ten euros is not a correction, it is
-     * a balances screen with the signs inverted for everybody it was paid for. Per-participant
-     * shares have always been guarded; the total was not.
-     */
     @Test
     fun `a negative amount is rejected`() {
         val problems = draft(amountText = "-10.00").problems
@@ -618,7 +537,6 @@ class ExpenseFormDraftTest {
         assertTrue(problems.any { it.field == ExpenseFormDraft.Field.ORIGINAL_AMOUNT })
     }
 
-    /** A negative rate would flip the sign just as surely, and was already refused. */
     @Test
     fun `a negative conversion rate is rejected`() {
         val problems = draft(currencyCode = "JPY", amountText = "")
@@ -701,7 +619,6 @@ class ExpenseFormDraftTest {
         assertTrue(draft.isValid, "Unexpected problems: ${draft.problems}")
     }
 
-    /** The sum is checked in the *group's* minor units, so a yen split sums whole yen. */
     @Test
     fun `by-amount shares in a yen group total whole yen`() {
         val draft = draft(currencyCode = "JPY", amountText = "1000")
@@ -737,7 +654,6 @@ class ExpenseFormDraftTest {
         assertTrue(problems.contains(ExpenseFormDraft.Problem.ShareNotPositive("p2")))
     }
 
-    /** A share belonging to somebody who is not in the split is nobody's problem. */
     @Test
     fun `a share typed by an excluded participant is ignored`() {
         val draft = draft()
@@ -772,7 +688,6 @@ class ExpenseFormDraftTest {
         assertTrue(problems.contains(ExpenseFormDraft.Problem.ConversionRateNotPositive))
     }
 
-    /** A rate small enough to round a real payment down to nothing is still a zero expense. */
     @Test
     fun `a conversion that rounds to nothing is a zero amount`() {
         val problems = draft(currencyCode = "JPY", amountText = "")
@@ -788,8 +703,6 @@ class ExpenseFormDraftTest {
         assertNull(draft().copy(title = "").submission())
         assertNotNull(draft().submission())
     }
-
-    // ---- the rest of the draft ---------------------------------------------------------
 
     @Test
     fun `switching split mode keeps the participants`() {
@@ -808,7 +721,6 @@ class ExpenseFormDraftTest {
         }
     }
 
-    /** Switching mode recomputes the share texts, so the new mode starts out adding up. */
     @Test
     fun `switching to by-amount seeds shares that total the expense`() {
         val after = draft().withSplitMode(SplitMode.BY_AMOUNT)
@@ -848,7 +760,6 @@ class ExpenseFormDraftTest {
         assertEquals("EUR", draft.originalCurrencyCode)
     }
 
-    /** A remembered payer who has left the group falls back rather than naming a stranger. */
     @Test
     fun `a new draft falls back to the first participant when the payer has left`() {
         val draft = ExpenseFormDraft.creating(
@@ -895,13 +806,6 @@ class ExpenseFormDraftTest {
         assertTrue(draft().copy(saveSplitAsDefault = true).wire().saveDefaultSplittingOptions)
     }
 
-    // ---- the Int/Long boundary ---------------------------------------------------------
-
-    /**
-     * `:core` counts in [Long] because a sum of amounts overflows 32 bits in a zero-decimal
-     * currency well before the figure is unreasonable; the wire counts in [Int]. [MinorUnits]
-     * is the only place the two meet, and it refuses rather than wrapping.
-     */
     @Test
     fun `minor units narrow to the wire's Int in one place`() {
         assertEquals(1234, MinorUnits.toWire(1234L))
@@ -910,8 +814,6 @@ class ExpenseFormDraftTest {
             MinorUnits.toWire(Int.MAX_VALUE.toLong() + 1)
         }
     }
-
-    // ---- starting from a saved split, and from a suggested payment -------------------------
 
     @Test
     fun `a new draft starts from the group's saved split`() {
@@ -930,11 +832,9 @@ class ExpenseFormDraftTest {
 
         assertEquals(SplitMode.BY_PERCENTAGE, draft.splitMode)
         assertEquals(listOf("70", "30", "1"), draft.participants.map { it.valueText })
-        // Participant 3 was not in the remembered split, so they are not in this expense either.
         assertEquals(listOf("p1", "p2"), draft.includedParticipants.map { it.id })
     }
 
-    /** Rule 2: a split naming somebody who has left is dropped whole, never trimmed. */
     @Test
     fun `a saved split naming a departed participant falls back to the group's default`() {
         val stale = DefaultSplit(
@@ -953,7 +853,6 @@ class ExpenseFormDraftTest {
         assertEquals(3, draft.includedParticipants.size)
     }
 
-    /** Rule 3: an even split of the whole group is membership alone, so a newcomer is in it. */
     @Test
     fun `an even split of the whole group covers somebody who joined since`() {
         val remembered = DefaultSplit(splitMode = SplitMode.EVENLY, shares = null)
@@ -985,7 +884,6 @@ class ExpenseFormDraftTest {
         assertEquals("12.50", draft.amountText)
         assertEquals(SplitMode.EVENLY, draft.splitMode)
         assertTrue(draft.isReimbursement)
-        // Never the shape of the group's ordinary expenses, so never offered as its usual split.
         assertFalse(draft.isSplitWorthRemembering)
         assertTrue(draft.isValid)
 
@@ -994,7 +892,6 @@ class ExpenseFormDraftTest {
         assertEquals(listOf(ExpenseSubmission.PaidFor("p1", 100L)), submission.paidFor)
     }
 
-    /** The amount is the group's, at the group's own precision, not the reader's two digits. */
     @Test
     fun `a settle-up in a zero-decimal currency is not divided by a hundred`() {
         val draft = ExpenseFormDraft.settling(
