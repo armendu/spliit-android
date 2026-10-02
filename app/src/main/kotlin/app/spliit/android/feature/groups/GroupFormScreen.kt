@@ -144,17 +144,18 @@ internal fun GroupFormBody(
 
         FormSectionHeader("Group information", topSpace = 0.dp)
 
+        val nameProblem = draft.problems(GroupFormDraft.Field.NAME).firstOrNull()?.takeIf { state.hasAttemptedSave }
         OutlinedTextField(
             value = draft.name,
             onValueChange = viewModel::setName,
             label = { Text("Group name") },
             singleLine = true,
-            isError = state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty(),
+            isError = nameProblem != null,
             modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_NAME_FIELD),
             shape = FieldShape,
         )
-        if (state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty()) {
-            FieldError("A group needs a name.", testTag = TestTags.GROUP_FORM_NAME_ERROR)
+        if (nameProblem != null) {
+            FieldError(nameProblem.message(), testTag = TestTags.GROUP_FORM_NAME_ERROR)
         }
 
         Spacer(Modifier.height(12.dp))
@@ -165,6 +166,7 @@ internal fun GroupFormBody(
             onClick = { showCurrencyPicker = true },
             testTag = TestTags.GROUP_FORM_CURRENCY_ROW,
         )
+        val currencyProblem = draft.problems(GroupFormDraft.Field.CURRENCY).firstOrNull()?.takeIf { state.hasAttemptedSave }
         if (draft.usesCustomSymbol) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
@@ -172,9 +174,13 @@ internal fun GroupFormBody(
                 onValueChange = viewModel::setCustomSymbol,
                 label = { Text("Currency symbol") },
                 singleLine = true,
+                isError = currencyProblem != null,
                 modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_CUSTOM_SYMBOL_FIELD),
                 shape = FieldShape,
             )
+        }
+        if (currencyProblem != null) {
+            FieldError(currencyProblem.message(), testTag = TestTags.GROUP_FORM_CURRENCY_ERROR)
         }
 
         if (state.mode == GroupFormMode.CREATE) {
@@ -243,6 +249,7 @@ internal fun GroupFormBody(
         FormSectionHeader("Participants")
         draft.participants.forEachIndexed { index, participant ->
             key(participant.id) {
+                val participantProblem = draft.problems(participant.id).firstOrNull()?.takeIf { state.hasAttemptedSave }
                 val canRemove = draft.canRemoveParticipant(participant.id)
                 val focusRequester = remember { FocusRequester() }
                 if (participant.id == focusParticipantId) {
@@ -261,6 +268,7 @@ internal fun GroupFormBody(
                         onValueChange = { viewModel.renameParticipant(participant.id, it) },
                         label = { Text("Name") },
                         singleLine = true,
+                        isError = participantProblem != null,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
                         modifier = Modifier
                             .weight(1f)
@@ -276,8 +284,8 @@ internal fun GroupFormBody(
                         Text("Remove")
                     }
                 }
-                if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
-                    FieldError("This participant needs a name.", testTag = TestTags.groupFormParticipantError(index))
+                if (participantProblem != null) {
+                    FieldError(participantProblem.message(), testTag = TestTags.groupFormParticipantError(index))
                 }
             }
         }
@@ -290,7 +298,7 @@ internal fun GroupFormBody(
         if (state.hasAttemptedSave &&
             draft.problems(GroupFormDraft.Field.PARTICIPANTS).contains(GroupFormDraft.Problem.NoParticipants)
         ) {
-            FieldError("A group needs at least one participant.", testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
+            FieldError(GroupFormDraft.Problem.NoParticipants.message(), testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
         } else if (state.mode != GroupFormMode.CREATE) {
             Text(
                 text = "Anyone who already appears on an expense can't be removed.",

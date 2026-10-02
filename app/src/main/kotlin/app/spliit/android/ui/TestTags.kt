@@ -37,6 +37,7 @@ object TestTags {
     const val GROUP_FORM_CURRENCY_ROW = "group_form_currency_row"
     const val GROUP_FORM_CURRENCY_SEARCH_FIELD = "group_form_currency_search_field"
     const val GROUP_FORM_CUSTOM_SYMBOL_FIELD = "group_form_custom_symbol_field"
+    const val GROUP_FORM_CURRENCY_ERROR = "group_form_currency_error"
     const val GROUP_FORM_INFORMATION_FIELD = "group_form_information_field"
 
     const val GROUP_FORM_ADVANCED_TOGGLE = "group_form_advanced_toggle"
