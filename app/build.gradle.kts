@@ -8,8 +8,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
-    // Only for the recent-groups DataStore adapter (Part 8), see
-    // data/DataStoreRecentGroupsStore.kt for why JSON is the on-disk shape.
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -46,11 +44,7 @@ android {
         versionCode = libs.versions.appVersionCode.get().toInt()
         versionName = libs.versions.appVersionName.get()
 
-        // Where a link that names no server, a bare group ID, is looked up, and what the "add
-        // by link" placeholder is built from. `spliit.baseUrl` is the property CLAUDE.md reserves
-        // for a test-only base URL and the one `make e2e` already passes, so pointing a build at
-        // a throwaway instance needs no second spelling. Settings (Part 13) makes this a stored
-        // preference; until then the default below is spliit.app, exactly as it was.
+        // The default server; Settings can override it at runtime.
         val defaultInstance = (providers.gradleProperty("spliit.baseUrl").orNull ?: "https://spliit.app/")
             .let { if (it.endsWith("/")) it else "$it/" }
         buildConfigField("String", "DEFAULT_INSTANCE_BASE_URL", "\"$defaultInstance\"")
@@ -145,8 +139,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    // viewModelScope, used by Part 10's ViewModels (GroupsListViewModel and friends) to launch
-    // their suspend work off the composable that owns them.
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)

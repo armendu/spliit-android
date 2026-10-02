@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,15 +29,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
@@ -47,16 +53,9 @@ import app.spliit.core.GroupFormDraft
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.FieldError
 import app.spliit.android.ui.design.FormSectionHeader
+import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.SkeletonBlock
 
-
-/**
- * The group editor as a full screen, "Group settings". Every rule about what makes a group valid
- * comes from [GroupFormDraft.problems]; this only renders it.
- *
- * **Creating a group does not come through here**, it is [CreateGroupSheet] over the dashboard.
- * Both draw the same [GroupFormBody].
- */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun GroupFormScreen(
@@ -65,6 +64,8 @@ fun GroupFormScreen(
     onCancel: () -> Unit,
 ) {
     val state by viewModel.state.collectAsState()
+
+    LaunchedEffect(Unit) { viewModel.load() }
 
     LaunchedEffect(state.savedGroupId) {
         state.savedGroupId?.let(onSaved)
@@ -75,9 +76,6 @@ fun GroupFormScreen(
             topBar = {
                 TopAppBar(
                     title = { Text(if (state.mode == GroupFormMode.CREATE) "Create group" else "Group settings") },
-                    // A modal task, not a destination: Material's full-screen dialog takes an ✕
-                    // and a confirming action, which is also what the iOS Cancel/Save pair means.
-                    // An up arrow here would promise a parent screen this form does not have.
                     navigationIcon = {
                         IconButton(
                             onClick = onCancel,
@@ -110,8 +108,6 @@ fun GroupFormScreen(
             )
         }
 
-        // Informational, not a decision to make, never a protected-focus dialog. A refused
-        // removal says why, near the list it happened in, and clears itself on the next tap.
         BlockedParticipantNotice(
             message = state.blockedParticipantMessage,
             onDismiss = viewModel::dismissBlockedParticipantMessage,
@@ -120,10 +116,6 @@ fun GroupFormScreen(
     }
 }
 
-/**
- * The fields themselves, without any chrome, so the full screen and [CreateGroupSheet] draw the
- * same form rather than two forms that have to be kept in step.
- */
 @Composable
 internal fun GroupFormBody(
     state: GroupFormUiState,
@@ -131,13 +123,9 @@ internal fun GroupFormBody(
     modifier: Modifier = Modifier,
 ) {
     val draft = state.draft
-    // A sheet the form opens over itself, not a route. Navigating left the create *sheet* with
-    // no way to reach a currency at all, since it has no NavController to push onto, so that row
-    // was wired to `{}` and silently did nothing.
     var showCurrencyPicker by rememberSaveable { mutableStateOf(false) }
-    // Collapsed by default and remembered across a rotation but not across the sheet closing:
-    // somebody who opened Advanced for one group has not said anything about the next.
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
+    var focusParticipantId by remember { mutableStateOf<String?>(null) }
     val advancedChevronRotation by animateFloatAsState(
         targetValue = if (showAdvanced) 90f else 0f,
         label = "group_form_advanced_chevron",
@@ -156,37 +144,29 @@ internal fun GroupFormBody(
 
         FormSectionHeader("Group information", topSpace = 0.dp)
 
+        val nameProblem = draft.problems(GroupFormDraft.Field.NAME).firstOrNull()?.takeIf { state.hasAttemptedSave }
         OutlinedTextField(
             value = draft.name,
             onValueChange = viewModel::setName,
             label = { Text("Group name") },
             singleLine = true,
-            isError = state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty(),
+            isError = nameProblem != null,
             modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_NAME_FIELD),
             shape = FieldShape,
         )
-        if (state.hasAttemptedSave && draft.problems(GroupFormDraft.Field.NAME).isNotEmpty()) {
-            FieldError("A group needs a name.", testTag = TestTags.GROUP_FORM_NAME_ERROR)
+        if (nameProblem != null) {
+            FieldError(nameProblem.message(), testTag = TestTags.GROUP_FORM_NAME_ERROR)
         }
 
         Spacer(Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showCurrencyPicker = true }
-                .testTag(TestTags.GROUP_FORM_CURRENCY_ROW)
-                .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Currency", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = currencySummary(draft),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        SelectField(
+            label = "Currency",
+            value = currencySummary(draft),
+            onClick = { showCurrencyPicker = true },
+            testTag = TestTags.GROUP_FORM_CURRENCY_ROW,
+        )
+        val currencyProblem = draft.problems(GroupFormDraft.Field.CURRENCY).firstOrNull()?.takeIf { state.hasAttemptedSave }
         if (draft.usesCustomSymbol) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
@@ -194,14 +174,15 @@ internal fun GroupFormBody(
                 onValueChange = viewModel::setCustomSymbol,
                 label = { Text("Currency symbol") },
                 singleLine = true,
+                isError = currencyProblem != null,
                 modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_CUSTOM_SYMBOL_FIELD),
                 shape = FieldShape,
             )
         }
+        if (currencyProblem != null) {
+            FieldError(currencyProblem.message(), testTag = TestTags.GROUP_FORM_CURRENCY_ERROR)
+        }
 
-        // Hidden, not removed: somebody creating a group on spliit.app should never see this
-        // field, but self-hosting is a first-class use case and needs a way to it without a
-        // detour through Settings. Create only, since a group cannot move servers.
         if (state.mode == GroupFormMode.CREATE) {
             Spacer(Modifier.height(16.dp))
             Row(
@@ -219,8 +200,6 @@ internal fun GroupFormBody(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .size(18.dp)
-                        // The same glyph in both states, turned, one drawable, and the
-                        // rotation animates where a swap between two would pop.
                         .rotate(advancedChevronRotation),
                 )
                 Text(
@@ -268,35 +247,50 @@ internal fun GroupFormBody(
         )
 
         FormSectionHeader("Participants")
-        draft.sortedParticipants.forEachIndexed { index, participant ->
-            val canRemove = draft.canRemoveParticipant(participant.id)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedTextField(
-                    value = participant.name,
-                    onValueChange = { viewModel.renameParticipant(participant.id, it) },
-                    label = { Text("Name") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f).testTag(TestTags.groupFormParticipantField(index)),
-                    shape = FieldShape,
-                )
-                TextButton(
-                    onClick = { viewModel.removeParticipant(participant.id) },
-                    enabled = canRemove,
-                    modifier = Modifier.testTag(TestTags.groupFormParticipantRemove(index)),
-                ) {
-                    Text("Remove")
+        draft.participants.forEachIndexed { index, participant ->
+            key(participant.id) {
+                val participantProblem = draft.problems(participant.id).firstOrNull()?.takeIf { state.hasAttemptedSave }
+                val canRemove = draft.canRemoveParticipant(participant.id)
+                val focusRequester = remember { FocusRequester() }
+                if (participant.id == focusParticipantId) {
+                    LaunchedEffect(Unit) {
+                        focusRequester.requestFocus()
+                        focusParticipantId = null
+                    }
                 }
-            }
-            if (state.hasAttemptedSave && draft.problems(participant.id).isNotEmpty()) {
-                FieldError("This participant needs a name.", testTag = TestTags.groupFormParticipantError(index))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = participant.name,
+                        onValueChange = { viewModel.renameParticipant(participant.id, it) },
+                        label = { Text("Name") },
+                        singleLine = true,
+                        isError = participantProblem != null,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester)
+                            .testTag(TestTags.groupFormParticipantField(index)),
+                        shape = FieldShape,
+                    )
+                    TextButton(
+                        onClick = { viewModel.removeParticipant(participant.id) },
+                        enabled = canRemove,
+                        modifier = Modifier.testTag(TestTags.groupFormParticipantRemove(index)),
+                    ) {
+                        Text("Remove")
+                    }
+                }
+                if (participantProblem != null) {
+                    FieldError(participantProblem.message(), testTag = TestTags.groupFormParticipantError(index))
+                }
             }
         }
         TextButton(
-            onClick = viewModel::addParticipant,
+            onClick = { focusParticipantId = viewModel.addParticipant() },
             modifier = Modifier.testTag(TestTags.GROUP_FORM_ADD_PARTICIPANT_BUTTON),
         ) {
             Text("Add participant")
@@ -304,11 +298,8 @@ internal fun GroupFormBody(
         if (state.hasAttemptedSave &&
             draft.problems(GroupFormDraft.Field.PARTICIPANTS).contains(GroupFormDraft.Problem.NoParticipants)
         ) {
-            FieldError("A group needs at least one participant.", testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
+            FieldError(GroupFormDraft.Problem.NoParticipants.message(), testTag = TestTags.GROUP_FORM_PARTICIPANTS_ERROR)
         } else if (state.mode != GroupFormMode.CREATE) {
-            // Only worth saying while editing. A group being created has no expenses for
-            // anyone to appear on, so on the create sheet this was a rule about a
-            // situation that cannot exist yet.
             Text(
                 text = "Anyone who already appears on an expense can't be removed.",
                 style = MaterialTheme.typography.bodySmall,
@@ -329,10 +320,6 @@ internal fun GroupFormBody(
         CurrencyPickerSheet(
             title = "Currency",
             selectedCode = draft.currencyCode,
-            // The phone's own currency, which is the likeliest answer for a group somebody is
-            // creating on it. `Currency.getInstance` throws for a locale with no country behind
-            // it, which a stripped-down emulator image really does have, hence the catch rather
-            // than a check on the locale.
             promotedCode = runCatching { Currency.getInstance(draft.locale).currencyCode }.getOrNull(),
             promotedSuffix = ", this phone's own",
             onSelect = {
@@ -350,13 +337,6 @@ internal fun GroupFormBody(
     }
 }
 
-/**
- * Why a participant could not be removed, said near the list it happened in.
- *
- * Informational, not a decision to make, never a protected-focus dialog. It clears itself on
- * the next tap. [GroupFormDraft.withParticipantRemoved] returns null rather than quietly doing
- * nothing precisely so there is something to say here.
- */
 @Composable
 internal fun BlockedParticipantNotice(message: String?, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     AnimatedVisibility(visible = message != null, modifier = modifier) {
@@ -379,8 +359,6 @@ internal fun BlockedParticipantNotice(message: String?, onDismiss: () -> Unit, m
     }
 }
 
-/** What the currency row shows on the right, the currency and the symbol it puts beside every
- *  amount, or just the symbol when that is all the group has. */
 private fun currencySummary(draft: GroupFormDraft): String {
     val code = draft.currencyCode
     if (!code.isNullOrBlank()) {

@@ -13,11 +13,6 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonNull
 
-/**
- * One call to the Spliit API: which procedure, whether it reads or writes, and the input it
- * carries. [TrpcClient] is the only thing that reads these fields, everything about turning
- * them into bytes on the wire lives there, not here.
- */
 public class TrpcProcedure<I, O> private constructor(
     internal val path: String,
     internal val kind: Kind,
@@ -25,22 +20,16 @@ public class TrpcProcedure<I, O> private constructor(
     internal val inputSerializer: SerializationStrategy<I>,
     internal val outputSerializer: DeserializationStrategy<O>,
 ) {
-
     public enum class Kind {
-        /** Sent as `GET`, with the input in the query string. */
         Query,
 
-        /** Sent as `POST`, with the input as the body. */
         Mutation,
     }
 
     public companion object {
-
-        /** A query, sent as `GET`, that takes no input. */
         public fun <O> query(path: String, output: DeserializationStrategy<O>): TrpcProcedure<NoInput, O> =
             TrpcProcedure(path, Kind.Query, NoInput, NoInput.serializer(), output)
 
-        /** A query, sent as `GET` with [input] in the query string. */
         public fun <I, O> query(
             path: String,
             input: I,
@@ -48,11 +37,9 @@ public class TrpcProcedure<I, O> private constructor(
             output: DeserializationStrategy<O>,
         ): TrpcProcedure<I, O> = TrpcProcedure(path, Kind.Query, input, inputSerializer, output)
 
-        /** A mutation, sent as `POST`, that takes no input. */
         public fun <O> mutation(path: String, output: DeserializationStrategy<O>): TrpcProcedure<NoInput, O> =
             TrpcProcedure(path, Kind.Mutation, NoInput, NoInput.serializer(), output)
 
-        /** A mutation, sent as `POST` with [input] as the body. */
         public fun <I, O> mutation(
             path: String,
             input: I,
@@ -62,24 +49,15 @@ public class TrpcProcedure<I, O> private constructor(
     }
 }
 
-/**
- * Input for a procedure that takes none. [TrpcClient] recognises this singleton by reference and
- * omits the `input` parameter entirely on a query, rather than sending an encoded null, which is
- * a different request to a tRPC router. A mutation still needs a body, so it sends `{"json":null}`.
- */
+// Recognised by reference: a query sends no `input` at all; a mutation sends {"json":null}.
 @Serializable(with = NoInputSerializer::class)
 public object NoInput
 
 internal object NoInputSerializer : KSerializer<NoInput> {
-    // Nominal, like TrpcVoidSerializer's: this type is never read back, only ever written (or,
-    // for a query, not written at all, see NoInput's own doc).
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("app.spliit.api.NoInput", PrimitiveKind.STRING)
 
     override fun serialize(encoder: Encoder, value: NoInput) {
-        // Mirrors SuperJson's own JsonDecoder cast: SuperJson.encodeEnvelope always drives this
-        // through a Json encoder, so the cast is safe and lets a "no input" mutation encode to a
-        // real `null` rather than to a placeholder string.
         (encoder as JsonEncoder).encodeJsonElement(JsonNull)
     }
 

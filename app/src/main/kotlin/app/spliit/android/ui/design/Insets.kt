@@ -14,24 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** A FAB plus the margin it floats on. Named because it appeared as a bare `88.dp` nine times. */
 val FabClearance: Dp = 88.dp
 
-/**
- * What a scrolling list on a screen with a FAB needs below its last row.
- *
- * DESIGN.md §6: the navigation-bar inset goes on top of the FAB clearance, not instead of it.
- */
 @Composable
 fun fabAndNavigationBarPadding(): Dp =
     FabClearance + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-/**
- * A single centred thing on a scrolling screen: an empty state, an error panel, a spinner.
- *
- * Scrollable rather than a plain `Box` so the content is still reachable at the largest font
- * sizes, where an error panel and its button are taller than the viewport.
- */
 @Composable
 fun CenteredScroll(content: @Composable () -> Unit) {
     Box(

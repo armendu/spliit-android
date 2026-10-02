@@ -12,7 +12,6 @@ private val AMERICAN = Locale.of("en", "US")
 private val FRENCH = Locale.of("fr", "FR")
 private val TURKISH = Locale.of("tr", "TR")
 
-/** A draft with a name and three participants, the state a screen reaches once typed into. */
 private fun draft(locale: Locale = AMERICAN): GroupFormDraft =
     GroupFormDraft.creating(locale = locale)
         .copy(name = "Lisbon Trip")
@@ -21,9 +20,6 @@ private fun draft(locale: Locale = AMERICAN): GroupFormDraft =
         .withParticipantAdded("Chloé")
 
 class GroupFormDraftTest {
-
-    // ---- name ------------------------------------------------------------------------
-
     @Test
     fun `a name is required`() {
         val problems = draft().copy(name = "   ").problems
@@ -33,11 +29,53 @@ class GroupFormDraftTest {
     }
 
     @Test
+    fun `a group name must be 2 to 50 characters once trimmed`() {
+        assertEquals(listOf(GroupFormDraft.Problem.NameTooShort), draft().copy(name = "  A  ").problems)
+        assertTrue(draft().copy(name = "Ab").isValid)
+        assertTrue(draft().copy(name = "x".repeat(50)).isValid)
+        assertEquals(listOf(GroupFormDraft.Problem.NameTooLong), draft().copy(name = "x".repeat(51)).problems)
+    }
+
+    @Test
+    fun `a participant name must be 2 to 50 characters once trimmed`() {
+        val short = draft().withParticipantAdded(" J ")
+        val long = draft().withParticipantAdded("x".repeat(51))
+        val longest = draft().withParticipantAdded("x".repeat(50))
+
+        assertEquals(
+            listOf(GroupFormDraft.Problem.ParticipantNameTooShort(short.participants.last().id)),
+            short.problems,
+        )
+        assertEquals(
+            listOf(GroupFormDraft.Problem.ParticipantNameTooLong(long.participants.last().id)),
+            long.problems,
+        )
+        assertTrue(longest.isValid)
+    }
+
+    @Test
+    fun `a custom currency symbol must be 1 to 5 characters once trimmed`() {
+        val custom = draft().withCustomSymbol()
+
+        assertEquals(listOf(GroupFormDraft.Problem.CurrencySymbolRequired), custom.copy(currency = "  ").problems)
+        assertEquals(listOf(GroupFormDraft.Problem.CurrencySymbolTooLong), custom.copy(currency = "ABCDEF").problems)
+        assertTrue(custom.copy(currency = "CHF").isValid)
+        assertEquals(GroupFormDraft.Field.CURRENCY, GroupFormDraft.Problem.CurrencySymbolTooLong.field)
+    }
+
+    @Test
+    fun `a picked currency whose symbol is too long for the server falls back to its code`() {
+        val picked = draft().withCurrency(Currency("AED", "UAE Dirham", "ए.इ.दि", 2))
+
+        assertEquals("AED", picked.currency)
+        assertEquals("AED", picked.currencyCode)
+        assertTrue(picked.isValid)
+    }
+
+    @Test
     fun `a complete draft is valid`() {
         assertTrue(draft().isValid, "Unexpected problems: ${draft().problems}")
     }
-
-    // ---- participant names -------------------------------------------------------------
 
     @Test
     fun `an empty participant name is rejected`() {
@@ -50,11 +88,6 @@ class GroupFormDraftTest {
         assertFalse(withBlank.isValid)
     }
 
-    /**
-     * Pinning the case/whitespace decision: uniqueness is checked trimmed and case-folded, so
-     * "Ana" and "ana " collide even though neither is a byte-for-byte repeat of the other, the
-     * real mistake a person actually makes when they add someone twice.
-     */
     @Test
     fun `duplicate participant names are rejected, ignoring case and surrounding whitespace`() {
         val withDuplicate = GroupFormDraft.creating(locale = AMERICAN)
@@ -70,15 +103,7 @@ class GroupFormDraftTest {
         assertFalse(withDuplicate.isValid)
     }
 
-    /**
-     * The pair that actually distinguishes [Locale.ROOT] folding from the reader's own locale.
-     * An ASCII pair like "Ana"/"ana " collides identically under either choice and proves
-     * nothing about which one is in use; "İsmail" (dotted capital I) and "ismail" collide only
-     * under Turkish folding, and *not* under ROOT, verified against the JDK directly, not
-     * assumed. Running this under a Turkish [Locale] and still seeing no collision is what pins
-     * the fold as locale-invariant rather than reading the device's own language, which is the
-     * actual reason ROOT was chosen, see the note at the top of [GroupFormDraft].
-     */
+    // "İsmail"/"ismail" collide only under Turkish folding; an ASCII pair can't tell ROOT from the default.
     @Test
     fun `a Turkish dotted-I name does not collide with its ASCII form, even under a Turkish locale`() {
         val withTurkishPair = GroupFormDraft.creating(locale = TURKISH)
@@ -94,7 +119,6 @@ class GroupFormDraftTest {
         assertTrue(withTurkishPair.isValid, "Unexpected problems: $problems")
     }
 
-    /** [problems] recomputes from current state, so a rename into a collision is caught too. */
     @Test
     fun `renaming a participant into a collision with an existing name is rejected`() {
         val before = draft()
@@ -123,8 +147,6 @@ class GroupFormDraftTest {
         assertTrue(withBlank.problems(GroupFormDraft.Field.NAME).isEmpty())
     }
 
-    // ---- removing a participant with expenses ------------------------------------------
-
     @Test
     fun `a participant with an expense cannot be removed`() {
         val existing = GroupFormDraft.editing(
@@ -140,8 +162,6 @@ class GroupFormDraftTest {
 
         assertFalse(existing.canRemoveParticipant(anaId))
 
-        // Null, not the unchanged draft: a same-type no-op is a return value a call site could
-        // drop without noticing, which is exactly the bug this signature exists to rule out.
         assertNull(existing.withParticipantRemoved(anaId))
     }
 
@@ -166,7 +186,6 @@ class GroupFormDraftTest {
         assertEquals("ana", afterRemoval.participants.single().serverId)
     }
 
-    /** A participant this edit is creating has no server ID at all, and so no expenses either. */
     @Test
     fun `a newly added participant can always be removed`() {
         val withNewcomer = draft().withParticipantAdded("Dimitri")
@@ -178,11 +197,6 @@ class GroupFormDraftTest {
         assertEquals(3, afterRemoval!!.participants.size)
     }
 
-    /**
-     * Removing the last participant is allowed by [withParticipantRemoved] itself, it is a
-     * refusal about expense history, not about the group staying non-empty, but the resulting
-     * draft is correctly invalid via [Problem.NoParticipants].
-     */
     @Test
     fun `removing a group's only participant is allowed, but leaves the draft invalid`() {
         val single = GroupFormDraft.editing(
@@ -205,13 +219,6 @@ class GroupFormDraftTest {
         assertFalse(afterRemoval.isValid)
     }
 
-    // ---- currency ------------------------------------------------------------------------
-
-    /**
-     * `GroupFormValues.currencyCode` is a non-null `String` in :api, there is no null to send
-     * even by mistake, but the value has to actually be `""`, not, say, left as whatever the
-     * symbol-only state's Kotlin `null` would stringify to.
-     */
     @Test
     fun `a cleared currency code is sent as empty text, not null or omitted`() {
         val submission = draft()
@@ -233,12 +240,13 @@ class GroupFormDraftTest {
     }
 
     @Test
-    fun `a fresh draft has no currency code and is treated as a custom symbol`() {
-        assertTrue(GroupFormDraft.creating().usesCustomSymbol)
-        assertNull(GroupFormDraft.creating().currencyCode)
-    }
+    fun `a fresh draft is counted in euros`() {
+        val fresh = GroupFormDraft.creating(locale = AMERICAN)
 
-    // ---- editing round-trips everything, ids included ------------------------------------
+        assertEquals("EUR", fresh.currencyCode)
+        assertEquals("€", fresh.currency)
+        assertFalse(fresh.usesCustomSymbol)
+    }
 
     @Test
     fun `editing round-trips every field, ids included`() {
@@ -273,7 +281,6 @@ class GroupFormDraftTest {
         )
     }
 
-    /** A newly typed participant has no server ID, this is how the server is told to create one. */
     @Test
     fun `a new participant is submitted with a null id`() {
         val submission = draft().submission()
@@ -300,25 +307,30 @@ class GroupFormDraftTest {
         assertEquals(original.serverId, renamed.participants.first().serverId)
     }
 
-    // ---- sorting ---------------------------------------------------------------------------
-
-    /**
-     * A French reader's collation puts an accented name in its alphabetic place rather than
-     * after every plain-ASCII one, the difference `String.compareTo`, which compares Unicode
-     * code points, cannot see.
-     */
     @Test
-    fun `participant lists sort with a collator, not code-point order`() {
-        val frenchDraft = GroupFormDraft.creating(locale = FRENCH)
-            .copy(name = "Trip")
-            .withParticipantAdded("Zoé")
-            .withParticipantAdded("Émile")
-            .withParticipantAdded("Amir")
+    fun `a loaded group lists its participants with a collator, not code-point order`() {
+        val frenchDraft = GroupFormDraft.editing(
+            name = "Trip",
+            information = "",
+            currency = "€",
+            currencyCode = "EUR",
+            participants = listOf(Participant("z", "Zoé"), Participant("e", "Émile"), Participant("a", "Amir")),
+            locale = FRENCH,
+        )
 
-        val collatedOrder = frenchDraft.sortedParticipants.map { it.name }
+        assertEquals(listOf("Amir", "Émile", "Zoé"), frenchDraft.participants.map { it.name })
+    }
 
-        // What a French reader expects: Amir, Émile, Zoé, an accented initial sorted where it
-        // sounds, not stranded after every plain-ASCII name the way code-point order puts it.
-        assertEquals(listOf("Amir", "Émile", "Zoé"), collatedOrder)
+    @Test
+    fun `typing a name never moves a row`() {
+        val draft = GroupFormDraft.creating(locale = AMERICAN)
+            .withParticipantAdded("Zoe")
+            .withParticipantAdded("")
+        val order = draft.participants.map { it.id }
+
+        val typed = draft.withParticipantRenamed(order[1], "Amir")
+
+        assertEquals(order, typed.participants.map { it.id })
+        assertEquals(listOf("Zoe", "Amir"), typed.participants.map { it.name })
     }
 }

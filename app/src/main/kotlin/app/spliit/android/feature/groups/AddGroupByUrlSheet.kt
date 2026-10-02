@@ -39,15 +39,6 @@ import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.FieldError
 
-
-
-/**
- * Adds a group someone shared, by pasting its link.
- *
- * Spliit has no accounts: a group URL *is* the invitation, so this is how a second device learns
- * about a group. The link names the server as well as the group, which is what lets somebody be
- * handed one on an instance this phone has never talked to.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddGroupByUrlSheet(
@@ -62,8 +53,6 @@ fun AddGroupByUrlSheet(
     LaunchedEffect(state.addedGroupId) {
         state.addedGroupId?.let(onAdded)
     }
-    // The one thing this sheet is for is receiving a paste, so the field is ready for one without
-    // a second tap.
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, shape = SheetShape) {
@@ -94,8 +83,6 @@ fun AddGroupByUrlSheet(
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
                     .testTag(TestTags.ADD_GROUP_URL_FIELD),
-                // The instance this phone would look a bare ID up on, not a hardcoded spliit.app:
-                // somebody running their own server should be shown their own address here.
                 placeholder = { Text("${state.defaultInstanceBaseUrl}groups/…") },
                 singleLine = true,
                 isError = state.problem != null,
@@ -103,14 +90,10 @@ fun AddGroupByUrlSheet(
                 shape = FieldShape,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
-                    // A link is never capitalised and rarely a dictionary word; a group ID that
-                    // autocorrect has "fixed" names nothing at all.
                     capitalization = KeyboardCapitalization.None,
                     autoCorrectEnabled = false,
                     imeAction = ImeAction.Go,
                 ),
-                // Submitting from the keyboard does what the button does, the hands are already
-                // there, and the alternative is dismissing the keyboard to reach a button.
                 keyboardActions = KeyboardActions(onGo = { viewModel.add() }),
             )
             val problem = state.problem
@@ -140,8 +123,6 @@ fun AddGroupByUrlSheet(
                 }
                 Button(
                     onClick = viewModel::add,
-                    // Nothing to check, or a check already in flight: a second tap would start a
-                    // second lookup of the same link.
                     enabled = !state.isChecking && state.urlText.isNotBlank(),
                     modifier = Modifier.testTag(TestTags.ADD_GROUP_URL_SUBMIT),
                 ) {

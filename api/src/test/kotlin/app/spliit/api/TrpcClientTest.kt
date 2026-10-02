@@ -28,7 +28,6 @@ private data class GroupInput(val groupId: String)
 @Serializable
 private data class GroupOutput(val id: String, val name: String)
 
-/** A tRPC success envelope carrying [json] as its payload, unparsed so tests can inline it. */
 private fun okBody(json: String): String = """{"result":{"data":{"json":$json}}}"""
 
 private fun RequestBody.readUtf8(): String {
@@ -38,7 +37,6 @@ private fun RequestBody.readUtf8(): String {
 }
 
 class TrpcClientTest {
-
     private val server = MockWebServer()
     private lateinit var client: TrpcClient
 
@@ -52,8 +50,6 @@ class TrpcClientTest {
     fun stopServer() {
         server.close()
     }
-
-    // ---- request building --------------------------------------------------------------
 
     @Test
     fun `a query goes as GET with the envelope in input`() {
@@ -93,12 +89,6 @@ class TrpcClientTest {
         )
     }
 
-    /**
-     * The trap this whole part warns about: `URLComponents`-style query builders leave `+` and
-     * `&` alone inside a value, and Spliit's Next.js server decodes query strings the
-     * `URLSearchParams` way, where a literal `+` means a space. Round-tripping through the actual
-     * request line, not just through our own encoder, is what proves the escaping survives.
-     */
     @Test
     fun `percent-encodes a payload containing plus and ampersand so the server receives them intact`() {
         val input = GroupInput("a+b&c d")
@@ -107,24 +97,19 @@ class TrpcClientTest {
         val request = client.buildRequest(procedure)
         val rawTarget = request.url.encodedQuery.orEmpty()
 
-        // The wire form must carry no literal + or & inside the value, only inside the escapes.
         assertTrue(rawTarget.contains("%2B"), "expected an escaped + in $rawTarget")
         assertTrue(rawTarget.contains("%26"), "expected an escaped & in $rawTarget")
-        // Strip the legitimate escapes back out first, so a real literal + left over is what
-        // this actually catches, asserting against the un-stripped string can never fail, since
-        // the %2B check above already guarantees a "+" substring is present inside it.
+        // Strip the legitimate escapes first, or this assertion could never fail.
         assertFalse(
             rawTarget.removePrefix("input=").replace("%2B", "").contains("+"),
             "a literal + reached the wire: $rawTarget",
         )
-        // And decoding the escapes back out reproduces the exact envelope we intended to send.
         assertEquals(
             SuperJson.encodeEnvelope(GroupInput.serializer(), input),
             request.url.queryParameter("input"),
         )
     }
 
-    /** The same round-trip, but over an actual socket, proving nothing decodes early in transit. */
     @Test
     fun `a real request over the wire carries the escaped payload intact`() {
         server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"id":"g1","name":"A"}""")).build())
@@ -142,12 +127,7 @@ class TrpcClientTest {
         )
     }
 
-    /**
-     * The byte-wise encoder in [percentEncodeQueryValue] walks UTF-8 bytes, not chars, a
-     * char-wise refactor (e.g. checking `Character.isLetterOrDigit`) would silently mis-encode
-     * anything outside ASCII, one multi-byte sequence at a time, with no test noticing until a
-     * real accented name or currency symbol hit it.
-     */
+    // The encoder walks UTF-8 bytes; a char-wise version would mis-encode anything non-ASCII.
     @Test
     fun `percent-encodes a non-ascii payload so it round-trips intact`() {
         val input = GroupInput("Café éè ¥100 🎉")
@@ -170,14 +150,7 @@ class TrpcClientTest {
         assertFalse(request.url.encodedPath.contains("//api/trpc"))
     }
 
-    /**
-     * `server.url("/")` is already `http://localhost:PORT/`, its path is bare `/` either way a
-     * trailing slash is added or removed from the string, so a root-URL test alone never actually
-     * exercises the `endsWith("/")` branch in [TrpcClient.buildRequest]; deleting that check
-     * entirely would still leave a root-URL test green. A path prefix is what forces the branch:
-     * `/spliit` (no trailing slash) must gain one before `api/trpc`, and `/spliit/` must not gain
-     * a second.
-     */
+    // A path prefix is what exercises the trailing-slash branch; a root URL never does.
     @Test
     fun `a base URL with a path prefix keeps the prefix and gains one slash`() {
         for (base in listOf("https://host.example/spliit", "https://host.example/spliit/")) {
@@ -210,8 +183,6 @@ class TrpcClientTest {
         assertTrue(request.url.encodedPath.endsWith("/api/trpc/groups.getDetails"))
         assertFalse(request.url.encodedQuery.orEmpty().contains("groups.getDetails"))
     }
-
-    // ---- responses ------------------------------------------------------------------------
 
     @Test
     fun `a 200 decodes the payload`() = runBlocking {
@@ -258,12 +229,6 @@ class TrpcClientTest {
         assertFalse(missingResource.isUnknownProcedure)
     }
 
-    /**
-     * The specific case a Spliit instance with no S3 bucket answers its document-signing route
-     * with: HTTP 500, nothing in the body. It has to come out as something a caller can recognize
-     * without mistaking it for a tRPC error (there's no error envelope to parse) or for a generic
-     * unexpected-response failure indistinguishable from a broken proxy.
-     */
     @Test
     fun `a 500 with an empty body is distinguishable from a trpc error`() {
         server.enqueue(MockResponse.Builder().code(500).body("").build())
@@ -288,19 +253,11 @@ class TrpcClientTest {
         assertEquals(502, error.status)
         assertEquals(TrpcClientError.BODY_PREFIX_LIMIT, error.bodyPrefix.length)
         assertTrue(error.bodyPrefix.startsWith("<html>"))
-        // Not the same shape as the meaningful empty-500 case above.
         assertFalse(error.status == 500 && error.bodyPrefix.isEmpty())
     }
 
-    /**
-     * A 2xx whose payload doesn't match the model, most likely a self-hosted instance running a
-     * different server version. This must not leak a raw `SerializationException` out of `call`:
-     * `:app` catches `TrpcServerError | TrpcClientError`, and an uncaught kotlinx.serialization
-     * exception would crash instead of showing the version-skew message.
-     */
     @Test
     fun `a 200 whose payload does not match the model throws Decoding rather than crashing`() {
-        // Missing the required "name" field.
         server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"id":"g1"}""")).build())
 
         assertThrows<TrpcClientError.Decoding> {
@@ -319,16 +276,7 @@ class TrpcClientTest {
         assertEquals("not a url at all", error.url)
     }
 
-    /**
-     * Pinned, not fixed: OkHttp, like `URLSession`, follows a 301/302 by re-issuing the request
-     * as `GET`, silently dropping a mutation's body. A redirecting proxy can therefore turn a
-     * write into a no-op that still reports success, with nothing in the response to say the
-     * mutation itself never reached the server. This is inherited from the HTTP client's default
-     * behaviour, not something this part introduced, and changing it is a deliberate decision
-     * (disabling redirects entirely, or rejecting a redirected mutation) deferred until a real
-     * deployment needs it, this test exists so that decision is made on purpose, not discovered
-     * by accident.
-     */
+    // Pinned, not fixed: a redirect turns a mutation into a GET that still reports success.
     @Test
     fun `a redirected mutation silently becomes a GET that still reports success`() = runBlocking {
         server.enqueue(
@@ -346,12 +294,12 @@ class TrpcClientTest {
             TrpcVoid.serializer(),
         )
 
-        client.call(procedure) // does not throw, that is precisely the danger being pinned here
+        client.call(procedure)
 
         val first = server.takeRequest()
         val second = server.takeRequest()
         assertEquals("POST", first.method)
-        assertEquals("GET", second.method) // the mutation's body never reached the server
+        assertEquals("GET", second.method)
     }
 
     @Test
@@ -359,7 +307,7 @@ class TrpcClientTest {
         val deadServer = MockWebServer()
         deadServer.start()
         val deadUrl = deadServer.url("/").toString()
-        deadServer.close() // nothing is listening on this port anymore
+        deadServer.close()
 
         val deadClient = TrpcClient(deadUrl)
 
@@ -368,12 +316,6 @@ class TrpcClientTest {
         }
     }
 
-    /**
-     * The bug this whole rule exists to prevent: on iOS, reporting a cancelled request as a
-     * network error told people their server was unreachable when all they had done was type
-     * another character into a search field. `CancellationException` must reach the caller
-     * unmolested.
-     */
     @Test
     fun `a cancelled call propagates cancellation rather than a network error`() = runBlocking {
         server.enqueue(
@@ -392,20 +334,13 @@ class TrpcClientTest {
                 caught = e
             }
         }
-        delay(200) // give the request time to actually reach the (slow-to-answer) server
+        delay(200)
         job.cancelAndJoin()
 
         assertTrue(caught is CancellationException, "expected CancellationException, got $caught")
     }
 
-    /**
-     * The half of cancellation that the previous test can't see: that cancelling the coroutine
-     * also cancels OkHttp's own in-flight [okhttp3.Call], instead of leaving it to run to
-     * completion (and hold a connection) in the background. Removing `invokeOnCancellation` in
-     * [TrpcClient.execute] still throws `CancellationException` at the suspension point, the
-     * previous test alone stays green, but the underlying call leaks. A dedicated
-     * [OkHttpClient] with its own dispatcher is what makes that leak observable.
-     */
+    // A dedicated client, so a leaked in-flight call is observable on its dispatcher.
     @Test
     fun `cancelling a call also cancels the underlying OkHttp call`() = runBlocking {
         server.enqueue(

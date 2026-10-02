@@ -41,16 +41,6 @@ import app.spliit.android.ui.design.Footnote
 import app.spliit.android.ui.design.SectionDivider
 import app.spliit.android.ui.design.SectionHeader
 
-/**
- * What a group *is*, beside what it costs: its note, its participants, the way to the activity
- * log, and the "who are you?" question.
- *
- * The web app's version is the note and nothing else, which on a phone would leave the tab empty
- * for exactly the people who went looking, since most groups never fill it in.
- *
- * The note has no editor of its own and should not grow one: it is a field on the group, and the
- * group form is where a group's fields are edited.
- */
 @Composable
 internal fun InformationTab(
     groupState: LoadState<GroupInfo>,
@@ -90,8 +80,6 @@ private fun InformationContent(
     onOpenActivity: () -> Unit,
     onIdentify: () -> Unit,
 ) {
-    // The server stores whatever was typed, and a note of three spaces is not a note, it would
-    // draw a blank row where the empty state belongs.
     val note = group.information?.trim().orEmpty().takeIf { it.isNotEmpty() }
     val you = group.participants.firstOrNull { it.id == activeParticipantId }
 
@@ -156,8 +144,6 @@ private fun InformationContent(
 
         item(key = "details_header") { SectionHeader("Details") }
         item(key = "details") {
-            // The symbol with the ISO code beside it: "$" alone does not say whether the group
-            // counts in dollars, pesos or something else again.
             DetailRow(
                 label = "Currency",
                 value = group.currencyCode?.takeIf { it.isNotEmpty() }
@@ -170,8 +156,6 @@ private fun InformationContent(
                 value = createdFormatter.format(group.createdAt.atZone(ZoneId.systemDefault())),
                 testTag = TestTags.INFORMATION_CREATED,
             )
-            // Which server this group is on. A fact about the group rather than about the app -
-            // and the one the share link is built from.
             DetailRow(
                 label = "Server",
                 value = InstanceAddress.displayName(group.instanceBaseUrl),
@@ -253,8 +237,6 @@ private fun NavigationRow(icon: Int, title: String, onClick: () -> Unit, testTag
 }
 
 private val createdFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-
-
 
 @Composable
 private fun InformationSkeleton() {

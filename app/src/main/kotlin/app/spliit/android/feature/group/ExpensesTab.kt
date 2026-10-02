@@ -50,13 +50,6 @@ import java.time.format.FormatStyle
 import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.LoadFailure
 
-/**
- * The expenses tab: everything `groups.expenses.list` has answered so far, under date-bucket
- * headers, with a sentinel row at the bottom that pages in the next batch.
- *
- * Driven off two independent [LoadState]s, the group (for its currency) and the expenses
- * themselves, because they answer at different times: see [GroupDetailViewModel.refresh].
- */
 @Composable
 internal fun ExpensesTab(
     groupState: LoadState<GroupInfo>,
@@ -68,8 +61,6 @@ internal fun ExpensesTab(
     onExpenseClick: (String) -> Unit,
 ) {
     when {
-        // The group not having arrived yet costs the expense list its currency, so it is treated
-        // as still loading here too rather than drawing amounts in the wrong scale for a moment.
         groupState is LoadState.Loading || expensesState is LoadState.Loading ->
             ExpensesSkeleton()
 
@@ -122,9 +113,6 @@ private fun ExpensesList(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        // The FAB floats over this list, so the last row needs room to clear it, and the
-        // navigation-bar inset goes *on top of* that clearance rather than instead of it: the
-        // app draws behind the bar, so the list scrolls under it.
         contentPadding = PaddingValues(
             start = 16.dp,
             end = 16.dp,
@@ -146,8 +134,6 @@ private fun ExpensesList(
         }
         if (hasMore) {
             item(key = "load_more") {
-                // Entering composition is the trigger, the same shape as the iOS list's own
-                // `.task` on its trailing row, ported to Compose's LaunchedEffect.
                 LaunchedEffect(Unit) { onLoadMore() }
                 Box(
                     modifier = Modifier
@@ -170,8 +156,6 @@ internal fun ExpenseRow(
     onClick: () -> Unit,
 ) {
     Row(
-        // The whole row is the target, not the title within it. That makes this a merging
-        // clickable, so finders need `useUnmergedTree = true` to reach the tags beneath it.
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
@@ -193,9 +177,6 @@ internal fun ExpenseRow(
                 modifier = Modifier.testTag(TestTags.expenseRowTitle(expense.id)),
             )
             Spacer(Modifier.height(2.dp))
-            // Two facts, two lines: run together, the *second* truncates first at row width,
-            // and that is the half somebody is checking. Merged for semantics, because two Texts
-            // in a column are two fragments to a screen reader.
             Column(
                 modifier = Modifier
                     .semantics(mergeDescendants = true) {
@@ -225,8 +206,6 @@ internal fun ExpenseRow(
         }
 
         Column(horizontalAlignment = Alignment.End) {
-            // `primary`, not the surrounding text colour: an expense carries no direction and
-            // never takes the ledger axis. See MoneySign.EXPENSE for what that trade costs.
             Money(
                 value = formatter.format(expense.amount.toLong()),
                 size = MoneySize.ROW,
@@ -244,12 +223,6 @@ internal fun ExpenseRow(
     }
 }
 
-/**
- * "Bruno and Chidi", who an expense was paid *for*, or null when the server named nobody.
- *
- * Just the list. The "Paid by …" half is its own line now (see [ExpenseRow]), and the full
- * breakdown is one tap away on the expense form.
- */
 internal fun paidForDescription(expense: ExpenseListItem): String? {
     val names = expense.paidFor.map { it.participant.name }
     return when (names.size) {
@@ -259,8 +232,6 @@ internal fun paidForDescription(expense: ExpenseListItem): String? {
     }
 }
 
-/** The two lines as the one sentence they used to be, for a screen reader, which would
- *  otherwise hear "Paid by Ana" and "For Bruno and Chidi" as unrelated fragments. */
 internal fun accessibleSplitDescription(expense: ExpenseListItem): String {
     val forWhom = paidForDescription(expense)
     return if (forWhom == null) {
@@ -274,11 +245,8 @@ private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate
 
 private fun captionText(expense: ExpenseListItem): String {
     val date = expense.expenseDate.atZone(ZoneId.systemDefault()).toLocalDate().format(dateFormatter)
-    // The web app's paperclip, without an icon font to draw it with, a count says the same
-    // thing a glyph would, and needs no tint of its own to render correctly.
     return if (expense.documentCount > 0) "$date · ${expense.documentCount} attached" else date
 }
-
 
 @Composable
 private fun ExpensesSkeleton() {

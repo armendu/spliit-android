@@ -1,6 +1,3 @@
-<!-- The Spliit mark, from the project's own SVG. Two figures and the line that splits
-     between them; the brand green here is the logo's #059669, which is deliberately not
-     the scheme's primary — see DESIGN.md §1 on why those are two different colours. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="64dp"
     android:height="64dp"

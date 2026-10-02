@@ -16,17 +16,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import java.math.BigDecimal
 import java.time.Instant
 
-// Money crosses the wire as integer minor units, which are not always hundredths: `1234` is
-// 12.34 in a two-decimal currency and ¥1,234 in yen. Nothing here scales, rounds or divides;
-// MoneyFormatter is the only place that knows what a currency counts in.
-//
-// Every timestamp is `@Contextual val x: Instant`, not a style choice: see InstantSerializer.
+// Timestamps are `@Contextual Instant`, see InstantSerializer. Amounts are minor units, never scaled here.
 
-/** A category as the picker lists it. `id` 0 is "General", which the server treats as the default. */
 @Serializable
 public data class ExpenseCategory(
     public val id: Int,
-    /** The heading this category sits under in the picker, e.g. "Food and Drink". */
     public val grouping: String,
     public val name: String,
 )
@@ -42,20 +36,13 @@ public data class Group(
     public val id: String,
     public val name: String,
     public val information: String? = null,
-    /** A free-text symbol such as "$" or "CHF", not an ISO code. See [currencyCode]. */
     public val currency: String,
-    /** ISO-4217, when the group has one. A cleared code is `""`, not null, which is what the
-     *  web app writes. Both mean "unknown", read as hundredths. */
     public val currencyCode: String? = null,
     @Contextual public val createdAt: Instant,
     public val participants: List<Participant>,
 )
 
-/**
- * A group as `groups.list` returns it: no participants, only how many. The count arrives inside
- * Prisma's `_count` aggregate, so a model declaring a plain `participantCount` decodes nothing,
- * throws nothing, and reports every group as empty.
- */
+// The participant count arrives in Prisma's `_count`; a plain field would silently decode as empty.
 @Serializable
 public data class GroupSummary(
     public val id: String,
@@ -66,7 +53,6 @@ public data class GroupSummary(
 ) {
     public val participantCount: Int get() = counts.participants
 
-    /** For tests and for Part 8's recent-group rows, which build one without a server. */
     public constructor(
         id: String,
         name: String,
@@ -79,17 +65,8 @@ public data class GroupSummary(
     public data class Counts(public val participants: Int)
 }
 
-// Three enumerations, three different answers to an unrecognised value, because instances are
-// self-hosted and may run ahead of this client:
-//
-//   SplitMode       throws    money. A misread mode pays the wrong person a plausible amount.
-//   RecurrenceRule  degrades  display only. Nothing computes from it.
-//   ActivityType    degrades  one line of prose in the log.
+// Unknown enum values: SplitMode throws (it's money); RecurrenceRule and ActivityType degrade.
 
-/**
- * How an expense divides between the people it was paid for. Fails to decode an unknown value,
- * unlike [RecurrenceRule] and [ActivityType]: a wrong balance is worse than no balance.
- */
 @Serializable
 public enum class SplitMode {
     EVENLY,
@@ -98,11 +75,6 @@ public enum class SplitMode {
     BY_AMOUNT,
 }
 
-/**
- * How often an expense repeats. An unrecognised value decodes as [Unknown]: display-only, so not
- * understanding it costs one row some detail where throwing fails the whole list. Nullability
- * would not cover this, it absorbs an absent *key*, not an unrecognised *value*.
- */
 @Serializable(with = RecurrenceRuleSerializer::class)
 public sealed interface RecurrenceRule {
     public data object None : RecurrenceRule
@@ -110,10 +82,8 @@ public sealed interface RecurrenceRule {
     public data object Weekly : RecurrenceRule
     public data object Monthly : RecurrenceRule
 
-    /** A cadence this version has no words for. [raw] is the server's, and round-trips intact. */
     public data class Unknown(public val raw: String) : RecurrenceRule
 
-    /** False for a rule this version cannot describe, and so should not name on a row. */
     public val isRecognised: Boolean get() = this !is Unknown
 
     public companion object {
@@ -131,8 +101,7 @@ internal object RecurrenceRuleSerializer : KSerializer<RecurrenceRule> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("app.spliit.api.RecurrenceRule", PrimitiveKind.STRING)
 
-    // On the write side too, unlike ActivityType: an expense edited on a screen that cannot
-    // name its rule must keep the rule it had rather than resetting to NONE.
+    // Round-trips on write too, so an unknown rule isn't reset to NONE.
     override fun serialize(encoder: Encoder, value: RecurrenceRule) {
         encoder.encodeString(
             when (value) {
@@ -156,11 +125,7 @@ public data class ExpenseDocument(
     public val height: Int,
 )
 
-/**
- * A `Prisma.Decimal` as it crosses superjson: a **string** annotated `[["custom","decimal.js"]]`.
- * Decoding also accepts a JSON number, in case an instance sends one. [BigDecimal] so a rate
- * typed as 0.9241 stays 0.9241; its equality is scale-sensitive, so compare with [compareTo].
- */
+// Prisma.Decimal arrives as a string. BigDecimal equality is scale-sensitive: use compareTo.
 @Serializable(with = LenientDecimalSerializer::class)
 public data class LenientDecimal(public val value: BigDecimal) : Comparable<LenientDecimal> {
     override fun compareTo(other: LenientDecimal): Int = value.compareTo(other.value)
@@ -172,15 +137,11 @@ internal object LenientDecimalSerializer : KSerializer<LenientDecimal> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("app.spliit.api.LenientDecimal", PrimitiveKind.STRING)
 
-    // Sent as a string: the write-side schema accepts a number or a numeric string, and text is
-    // what keeps the digits the user typed rather than a double's idea of them.
     override fun serialize(encoder: Encoder, value: LenientDecimal) {
         encoder.encodeString(value.value.toPlainString())
     }
 
     override fun deserialize(decoder: Decoder): LenientDecimal {
-        // Reading the primitive rather than the declared kind is what makes this lenient: a JSON
-        // number and a JSON string both arrive with the digits in `content`.
         val element = (decoder as JsonDecoder).decodeJsonElement()
         val primitive = element as? JsonPrimitive
             ?: throw SerializationException("Expected a decimal, found $element.")
@@ -192,15 +153,10 @@ internal object LenientDecimalSerializer : KSerializer<LenientDecimal> {
     }
 }
 
-/**
- * An expense as it appears in a group's list. Carries only what a row needs, use
- * [ExpenseDetails] to edit one.
- */
 @Serializable
 public data class ExpenseListItem(
     public val id: String,
     public val title: String,
-    /** Minor units. See the note at the top of this file. */
     public val amount: Int,
     @Contextual public val createdAt: Instant,
     @Contextual public val expenseDate: Instant,
@@ -210,17 +166,10 @@ public data class ExpenseListItem(
     public val category: ExpenseCategory? = null,
     public val paidBy: Participant,
     public val paidFor: List<PaidFor>,
-    // Prisma's aggregate again, and the field that decides whether a row shows a paperclip.
     @SerialName("_count") private val counts: Counts,
 ) {
     public val documentCount: Int get() = counts.documents
 
-    /**
-     * For a row rebuilt on this side rather than decoded, the edit sheet writes over the group
-     * screen, so one changed expense is put back into the loaded list instead of the whole list
-     * being read again. Mirrors [GroupSummary]'s own secondary constructor, and exists for the
-     * same reason: `_count` is Prisma's aggregate, not something a caller should have to name.
-     */
     @Suppress("LongParameterList")
     public constructor(
         id: String,
@@ -253,11 +202,7 @@ public data class ExpenseListItem(
     @Serializable
     public data class PaidFor(
         public val participant: Participant,
-        /**
-         * **One field, two units, decided by the sibling `splitMode`.** Under EVENLY, BY_SHARES
-         * and BY_PERCENTAGE it is the share value ×100 whatever the currency; under BY_AMOUNT a
-         * raw minor-unit amount, which does scale. This carries it verbatim.
-         */
+        // Share value x100, or raw minor units under BY_AMOUNT.
         public val shares: Int,
     )
 
@@ -265,13 +210,11 @@ public data class ExpenseListItem(
     public data class Counts(public val documents: Int)
 }
 
-/** Everything needed to render and edit a single expense. */
 @Serializable
 public data class ExpenseDetails(
     public val id: String,
     public val groupId: String,
     public val title: String,
-    /** Minor units, in the **group's** currency, see [originalAmount] for the other scale. */
     public val amount: Int,
     public val categoryId: Int,
     public val category: ExpenseCategory? = null,
@@ -285,57 +228,33 @@ public data class ExpenseDetails(
     public val notes: String? = null,
     public val documents: List<ExpenseDocument> = emptyList(),
     public val recurrenceRule: RecurrenceRule? = null,
-    /**
-     * What was paid, in [originalCurrency]'s **own** minor units, when the expense was not in the
-     * group's currency. A converted expense therefore carries two amounts on two scales, and
-     * formatting either with the other's currency is a bug that looks plausible.
-     */
+    // In originalCurrency's own minor units, not the group's.
     public val originalAmount: Int? = null,
-    /** ISO-4217 of what was actually paid, and the field that says an expense was converted. */
     public val originalCurrency: String? = null,
-    /** [amount] ÷ [originalAmount]: one unit of [originalCurrency] in the group's currency. */
     public val conversionRate: LenientDecimal? = null,
 ) {
-    /**
-     * The detail payload names each payee by ID alone, where [ExpenseListItem.PaidFor] nests a
-     * whole participant. The form screen wants the IDs, so this is the useful half.
-     */
     @Serializable
     public data class PaidFor(
         public val participantId: String,
-        /** Share value ×100, or minor units under [SplitMode.BY_AMOUNT], see [ExpenseListItem.PaidFor.shares]. */
         public val shares: Int,
     )
 }
 
-/**
- * One participant's standing. **Only [total] means anything**: the server derives [paid] and
- * [paidFor] from the suggested payments rather than the expenses, so one is always zero and the
- * other `abs(total)`. Reading them gives a number that is real, stable, and about something else.
- */
+// Only total is meaningful: paid and paidFor come from suggested payments, not expenses.
 @Serializable
 public data class Balance(
     public val paid: Int,
     public val paidFor: Int,
-    /** Minor units. Negative means this participant owes. */
     public val total: Int,
 )
 
-/** A payment that would settle part of a group, as the server suggests it. */
 @Serializable
 public data class Reimbursement(
-    /** Participant ID of whoever owes. */
     public val from: String,
-    /** Participant ID of whoever is owed. */
     public val to: String,
-    /** Minor units. */
     public val amount: Int,
 )
 
-/**
- * What a recorded activity was. Unknown values decode rather than throw, unlike [SplitMode]: a
- * mode this client misreads is money divided wrongly, an activity it misreads is a line of prose.
- */
 @Serializable(with = ActivityTypeSerializer::class)
 public sealed interface ActivityType {
     public data object UpdateGroup : ActivityType
@@ -343,10 +262,8 @@ public sealed interface ActivityType {
     public data object UpdateExpense : ActivityType
     public data object DeleteExpense : ActivityType
 
-    /** Something this version has no sentence for. [raw] is the server's word for it. */
     public data class Unknown(public val raw: String) : ActivityType
 
-    /** False for a kind this version cannot describe, and so should not draw a row for. */
     public val isRecognised: Boolean get() = this !is Unknown
 
     public companion object {
@@ -379,30 +296,15 @@ internal object ActivityTypeSerializer : KSerializer<ActivityType> {
     override fun deserialize(decoder: Decoder): ActivityType = ActivityType.of(decoder.decodeString())
 }
 
-/** One thing that happened to a group, as `groups.activities.list` records it. */
 @Serializable
 public data class Activity(
     public val id: String,
     public val groupId: String,
     @Contextual public val time: Instant,
     public val activityType: ActivityType,
-    /**
-     * Who did it, but only when the client that did it said so. The four mutating procedures
-     * take an optional `participantId` and none of them requires it, so this is null for
-     * anything written before someone identified themselves. Nothing backfills it.
-     */
     public val participantId: String? = null,
     public val expenseId: String? = null,
-    /**
-     * The expense's title **as it was** when this was recorded, which is the point: renaming an
-     * expense leaves the old name on the line describing its creation. The server calls this
-     * column `data`, and it has never held anything else.
-     */
     @SerialName("data") public val title: String? = null,
-    /**
-     * Whether the expense this refers to is still in the group. The server sends the whole
-     * expense, but all a log row needs from it is whether it can be opened.
-     */
     @SerialName("expense") private val expenseReference: JsonObject? = null,
 ) {
     public val expenseStillExists: Boolean get() = expenseReference != null

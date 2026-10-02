@@ -5,13 +5,6 @@ import app.spliit.core.MoneyFormatter
 import app.spliit.core.SplitMode
 import java.math.BigDecimal
 
-/**
- * The sentences `:core`'s [ExpenseFormDraft.Problem]s are read as: the rules live there, the
- * wording here. **This is not a second validator** — nothing below decides whether something is
- * wrong, it only spells out a problem the draft already produced.
- *
- * @param formatter the **group's**, so a remainder is drawn in the expense's own currency.
- */
 internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String = when (this) {
     ExpenseFormDraft.Problem.TitleTooShort -> "Give the expense a name of at least two letters."
     ExpenseFormDraft.Problem.AmountMissing -> "How much was it?"
@@ -44,13 +37,6 @@ internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String
     }
 }
 
-/**
- * What is left to allocate, as a running total rather than as a refusal, drawn under the split
- * before a save has been attempted, which is what turns a rejected save into a live tally.
- *
- * Null for the two modes that cannot be short: an even split and a share split always add up to
- * whatever they add up to. [ExpenseFormDraft.unallocated] is what decides that, not this.
- */
 internal fun ExpenseFormDraft.remainderText(formatter: MoneyFormatter): String? {
     val remainder = unallocated ?: return null
     if (remainder == 0L) return null
@@ -69,7 +55,6 @@ internal fun ExpenseFormDraft.remainderText(formatter: MoneyFormatter): String? 
     }
 }
 
-/** What the footnote under the split says when there is nothing left to allocate. */
 internal fun SplitMode.explanation(): String = when (this) {
     SplitMode.EVENLY -> "Everyone selected pays an equal part."
     SplitMode.BY_SHARES -> "Give anyone paying a larger part more shares."
@@ -84,7 +69,6 @@ internal fun SplitMode.title(): String = when (this) {
     SplitMode.BY_AMOUNT -> "Exact"
 }
 
-/** What sits beside a share field: what the number in it means. */
 internal fun SplitMode.unitLabel(currencySymbol: String): String = when (this) {
     SplitMode.EVENLY -> ""
     SplitMode.BY_SHARES -> "shares"
@@ -92,10 +76,5 @@ internal fun SplitMode.unitLabel(currencySymbol: String): String = when (this) {
     SplitMode.BY_AMOUNT -> currencySymbol
 }
 
-/**
- * Hundredths of a percent as a percentage, the unit the protocol counts percentages in, and
- * **never** the currency's, which is why this divides by a literal 100 where money never may.
- * `stripTrailingZeros` so a whole 30% does not read as "30.00%".
- */
 private fun percentText(hundredths: Long): String =
     BigDecimal.valueOf(hundredths, 2).stripTrailingZeros().toPlainString()

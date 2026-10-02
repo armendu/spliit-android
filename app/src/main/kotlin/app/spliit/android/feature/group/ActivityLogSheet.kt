@@ -53,17 +53,6 @@ import java.time.format.FormatStyle
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.LoadFailure
 
-
-/**
- * Everything that has happened in this group, and who did it. The only view that reads *history*
- * rather than state, so the only one showing lines about things that no longer exist.
- *
- * **A row can be opened when the server sent an `expense` beside it, not when it has an
- * `expenseId`**: the ID survives the deletion, the object does not.
- *
- * A change made by someone who never said who they were reads "Someone", accurately: every
- * mutating procedure takes an optional `participantId` and none requires one.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ActivityLogSheet(
@@ -73,8 +62,6 @@ internal fun ActivityLogSheet(
     onOpenExpense: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // A log is a list to read, not a form to fill in, so it opens at full height rather than at
-    // a partially-expanded anchor there would be nothing useful to see at.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val participants = (state.group as? LoadState.Loaded)?.value?.participants.orEmpty()
 
@@ -82,8 +69,6 @@ internal fun ActivityLogSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         shape = SheetShape,
-        // Handed to the content instead, so the last row pads clear of the gesture bar rather
-        // than the sheet consuming the inset and leaving it nothing to apply.
         contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         modifier = Modifier.testTag(TestTags.ACTIVITY_LOG_SHEET),
     ) {
@@ -111,9 +96,6 @@ internal fun ActivityLogSheet(
                 }
 
                 is LoadState.Loaded -> {
-                    // The *describable* rows, not the raw list: a log made entirely of entries
-                    // this version has no sentence for has nothing to draw, and an empty state
-                    // reads better than a blank one.
                     val sections = remember(activities.value.activities) {
                         bucketActivities(activities.value.activities)
                     }
@@ -143,14 +125,8 @@ internal fun ActivityLogSheet(
     }
 }
 
-/** One bucket's worth of activity, newest bucket first, the same [DateBucket] scheme the
- *  expense list uses, which `:core` wrote for both. */
 internal data class ActivitySection(val bucket: DateBucket, val activities: List<Activity>)
 
-/**
- * Buckets the log, dropping anything this version cannot describe: there is no honest sentence
- * for it, and a missing line still reads correctly where "something happened" does not.
- */
 internal fun bucketActivities(
     activities: List<Activity>,
     clock: Clock = Clock.systemDefaultZone(),
@@ -214,8 +190,6 @@ private fun ActivityRow(
     participantName: String?,
     onOpenExpense: (String) -> Unit,
 ) {
-    // The expense object beside the row, not the ID, see this file's own header. A row about the
-    // group's own settings has neither, and is text that stays text.
     val expenseId = activity.expenseId?.takeIf { activity.expenseStillExists }
     val base = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
     Row(
@@ -229,8 +203,6 @@ private fun ActivityRow(
             painter = painterResource(glyphOf(activity.activityType)),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            // A fixed column, so the sentences line up down the list rather than shifting with
-            // the width of each glyph.
             modifier = Modifier.padding(top = 2.dp).size(18.dp),
         )
         Column(modifier = Modifier.weight(1f)) {
@@ -249,25 +221,14 @@ private fun ActivityRow(
     }
 }
 
-/** The same glyphs the app uses for these actions elsewhere. */
 private fun glyphOf(type: ActivityType): Int = when (type) {
     ActivityType.CreateExpense -> R.drawable.ic_plus
     ActivityType.UpdateExpense -> R.drawable.ic_edit
     ActivityType.DeleteExpense -> R.drawable.ic_trash
     ActivityType.UpdateGroup -> R.drawable.ic_settings
-    // Unreachable: bucketActivities drops anything unrecognised before a row is drawn. A `when`
-    // over a sealed interface still has to be exhaustive, and a glyph is a better answer here
-    // than a crash if that ever stops being true.
     is ActivityType.Unknown -> R.drawable.ic_tab_information
 }
 
-/**
- * One line of prose for one recorded change.
- *
- * The title comes from the activity's own `data` column, the expense's title **as it was** when
- * this was recorded, not from the expense as it is now. Renaming an expense leaves the old name
- * on the line describing its creation, which is the point of a log.
- */
 internal fun summaryOf(activity: Activity, participantName: String?): String {
     val who = participantName ?: "Someone"
     val title = activity.title?.takeIf { it.isNotBlank() }

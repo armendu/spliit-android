@@ -1,6 +1,8 @@
 package app.spliit.android.feature.groups
 
 import app.spliit.core.GroupFormDraft
+import app.spliit.core.RecentGroup
+import app.spliit.core.RecentGroupsSnapshot
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -14,7 +16,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 class GroupFormViewModelTest {
-
     private val server = MockWebServer()
 
     @BeforeEach
@@ -22,8 +23,6 @@ class GroupFormViewModelTest {
 
     @AfterEach
     fun stopServer() = server.close()
-
-    // ---- validation renders :core's own problems -------------------------------------------
 
     @Test
     fun `the group form renders core's per-field problems rather than its own`() {
@@ -35,8 +34,6 @@ class GroupFormViewModelTest {
             recentGroupsStore = store,
         )
 
-        // A blank name and no participants are :core's own rules (GroupFormDraft.problems), this
-        // asserts the ViewModel surfaces exactly them, not a parallel validation of its own.
         val draft = viewModel.state.value.draft
         assertTrue(draft.problems(GroupFormDraft.Field.NAME).contains(GroupFormDraft.Problem.NameRequired))
         assertTrue(
@@ -62,7 +59,25 @@ class GroupFormViewModelTest {
         assertTrue(viewModel.state.value.hasAttemptedSave, "a failed attempt should reveal problems")
     }
 
-    // ---- create ------------------------------------------------------------------------------
+    @Test
+    fun `submit refuses names the server would reject without making a network call`() = runBlocking {
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.CREATE,
+            groupId = null,
+            instanceBaseUrl = server.url("/").toString(),
+            recentGroupsStore = FakeRecentGroupsStore(),
+        )
+        viewModel.setName("A")
+        val participantId = viewModel.addParticipant()
+        viewModel.renameParticipant(participantId, "x".repeat(51))
+
+        assertFalse(viewModel.submit())
+
+        assertEquals(0, server.requestCount)
+        val draft = viewModel.state.value.draft
+        assertEquals(listOf(GroupFormDraft.Problem.NameTooShort), draft.problems(GroupFormDraft.Field.NAME))
+        assertEquals(listOf(GroupFormDraft.Problem.ParticipantNameTooLong(participantId)), draft.problems(participantId))
+    }
 
     @Test
     fun `a valid create submits the group and remembers it locally`() = runBlocking {
@@ -89,11 +104,6 @@ class GroupFormViewModelTest {
         assertEquals(instance, stored.instanceBaseUrl)
     }
 
-    /**
-     * One ViewModel serves every open of the create sheet, so a second one would otherwise
-     * inherit the first's ending. `savedGroupId` is the one that bites: the sheet closes on it,
-     * so reopening would dismiss instantly and look like a tap that did nothing.
-     */
     @Test
     fun `a second create starts blank rather than where the first one ended`() = runBlocking {
         server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"groupId":"new-group"}""")).build())
@@ -136,7 +146,24 @@ class GroupFormViewModelTest {
         assertEquals("https://home.example.com/", viewModel.state.value.resolvedInstanceBaseUrl)
     }
 
-    // ---- refused participant removal ---------------------------------------------------------
+    @Test
+    fun `editing a group with no stored row reports it instead of using the default server`() = runBlocking {
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.EDIT,
+            groupId = "g1",
+            instanceBaseUrl = server.url("/").toString(),
+            recentGroupsStore = FakeRecentGroupsStore(),
+        )
+
+        viewModel.refreshForEdit()
+
+        assertEquals("This group isn't in your list anymore.", viewModel.state.value.loadError)
+        assertEquals(0, server.requestCount)
+    }
+
+    private fun storedRow(groupId: String) = RecentGroupsSnapshot().opening(
+        RecentGroup(groupId = groupId, instanceBaseUrl = server.url("/").toString(), groupName = "Weekend in Lisbon"),
+    )
 
     @Test
     fun `a refused participant removal surfaces a reason instead of doing nothing`() = runBlocking {
@@ -149,7 +176,7 @@ class GroupFormViewModelTest {
                 ),
             ).build(),
         )
-        val store = FakeRecentGroupsStore()
+        val store = FakeRecentGroupsStore(storedRow("g1"))
         val viewModel = GroupFormViewModel(
             mode = GroupFormMode.EDIT,
             groupId = "g1",
@@ -159,13 +186,10 @@ class GroupFormViewModelTest {
         viewModel.refreshForEdit()
         assertFalse(viewModel.state.value.isLoading)
         assertEquals(setOf("p1"), viewModel.state.value.draft.participantsWithExpenses)
-        // The draft's own row id is a fresh local UUID, not the server's "p1", canRemoveParticipant
-        // and withParticipantRemoved both key off it, per GroupFormDraft.
         val localId = viewModel.state.value.draft.participants.single().id
 
         viewModel.removeParticipant(localId)
 
-        // Not a silent no-op: the participant is still there, and why is explained.
         assertEquals(1, viewModel.state.value.draft.participants.size)
         val message = viewModel.state.value.blockedParticipantMessage
         assertNotNull(message)
@@ -190,8 +214,6 @@ class GroupFormViewModelTest {
         assertEquals(null, viewModel.state.value.blockedParticipantMessage)
     }
 
-    // ---- currency ---------------------------------------------------------------------------
-
     private fun createViewModel() = GroupFormViewModel(
         mode = GroupFormMode.CREATE,
         groupId = null,
@@ -202,19 +224,15 @@ class GroupFormViewModelTest {
     @Test
     fun `picking a currency sets the symbol with it, so the form never shows two answers`() {
         val viewModel = createViewModel()
-        // The default is a bare "$" with no code behind it, the web app's own.
+        viewModel.useCustomSymbol()
         assertTrue(viewModel.state.value.draft.usesCustomSymbol)
 
         viewModel.setCurrency("EUR")
 
         val draft = viewModel.state.value.draft
         assertEquals("EUR", draft.currencyCode)
-        // EUR rather than a more interesting code because a currency's *symbol* is rendered for
-        // a locale: JPY is "¥" under a Japanese default and "JP¥" under an American one, so an
-        // assertion on it would pass or fail depending on the machine running the suite.
+        // EUR because other symbols depend on the machine's locale (JPY is "¥" or "JP¥").
         assertEquals("€", draft.currency)
-        // Which is what makes the standalone symbol field disappear: the row above it now says
-        // everything that field was there to say.
         assertFalse(draft.usesCustomSymbol)
     }
 
@@ -238,7 +256,6 @@ class GroupFormViewModelTest {
         viewModel.useCustomSymbol()
 
         val draft = viewModel.state.value.draft
-        // The symbol survives, it is now free text rather than a consequence of the code.
         assertEquals("£", draft.currency)
         assertNull(draft.currencyCode)
         assertTrue(draft.usesCustomSymbol)
@@ -246,9 +263,6 @@ class GroupFormViewModelTest {
 
     @Test
     fun `a group created on the server but not stored locally hands back its link`() = runBlocking {
-        // The one failure this design cannot recover from. There is no account and no
-        // server-side list, so a group the server has and this phone does not is unreachable
-        // for good. Reporting success would send the user to a list it is not in.
         val store = FakeRecentGroupsStore(failSaves = true)
         server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"groupId":"abc123"}""")).build())
         val viewModel = GroupFormViewModel(
@@ -269,5 +283,4 @@ class GroupFormViewModelTest {
         assertNotNull(error)
         assertTrue(error!!.contains("abc123"), "the link is the only way back to it: $error")
     }
-
 }

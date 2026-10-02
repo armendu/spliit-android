@@ -1,0 +1,11 @@
+Group form fixes.
+
+Typing a participant's name no longer changes what is in another participant's box.
+
+The currency is picked from a list, and new groups start in euros.
+
+Names start with a capital letter, and adding a participant puts the cursor in the new row.
+
+Names and symbols the server would refuse are flagged on the form instead of failing on save.
+
+The launch screen now matches the app's background.

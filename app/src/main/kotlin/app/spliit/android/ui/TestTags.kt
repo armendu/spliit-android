@@ -1,30 +1,17 @@
 package app.spliit.android.ui
 
-/**
- * Every Compose `testTag` the app sets, shared with the instrumented tests. Tags go on **leaves**,
- * never on a layout container: a test wants "the amount in this row" apart from "the row".
- *
- * Two behaviours hit in practice: `clearAndSetSemantics` discards a `Modifier.testTag` on the
- * same chain, so the tag goes inside its lambda ([design.Monogram] does this); and
- * `Modifier.clickable` merges descendants, so a tag on a child needs `useUnmergedTree = true`.
- */
 object TestTags {
-    const val MONEY_AMOUNT = "money_amount"
-    const val MONOGRAM = "monogram"
     const val DATE_HEADER = "date_header"
     const val EMPTY_STATE_TITLE = "empty_state_title"
     const val EMPTY_STATE_DESCRIPTION = "empty_state_description"
 
-    // ---- groups list (Parts 10, 12) --------------------------------------------------------
     const val GROUPS_LIST_FAB = "groups_list_fab"
     const val GROUPS_LIST_RETRY_BUTTON = "groups_list_retry_button"
     const val GROUPS_LIST_EMPTY_CREATE_BUTTON = "groups_list_empty_create_button"
     const val GROUPS_LIST_EMPTY_ADD_BY_LINK_BUTTON = "groups_list_empty_add_by_link_button"
     const val GROUPS_LIST_SKELETON = "groups_list_skeleton"
 
-    // The "+" menu and what it offers, plus the settings entry beside it (Part 12).
     const val GROUPS_LIST_ADD_MENU_BUTTON = "groups_list_add_menu_button"
-    const val GROUPS_LIST_MENU_CREATE_GROUP = "groups_list_menu_create_group"
     const val GROUPS_LIST_MENU_ADD_BY_LINK = "groups_list_menu_add_by_link"
     const val GROUPS_LIST_SETTINGS_BUTTON = "groups_list_settings_button"
     const val GROUPS_LIST_ARCHIVED_TOGGLE = "groups_list_archived_toggle"
@@ -34,33 +21,25 @@ object TestTags {
     fun groupsListRowName(groupId: String) = "groups_list_row_name_$groupId"
     fun groupsListRowParticipants(groupId: String) = "groups_list_row_participants_$groupId"
     fun groupsListRowCreatedDate(groupId: String) = "groups_list_row_created_$groupId"
-    // No `groupsListRowInstance`: the row no longer names the server. It wrapped onto a second
-    // line for the one fact most people never need, the group's own Information tab states it,
-    // and the create sheet's Advanced section is where it is chosen.
     fun groupsListRowMenuButton(groupId: String) = "groups_list_row_menu_$groupId"
     fun groupsListRowStar(groupId: String) = "groups_list_row_star_$groupId"
     fun groupsListRowArchive(groupId: String) = "groups_list_row_archive_$groupId"
     fun groupsListRowRemove(groupId: String) = "groups_list_row_remove_$groupId"
     fun groupsListSectionHeader(label: String) = "groups_list_section_${label.lowercase()}"
 
-    // ---- add group by link, the sheet (Parts 10, 12) ---------------------------------------
     const val ADD_GROUP_URL_FIELD = "add_group_url_field"
     const val ADD_GROUP_URL_ERROR = "add_group_url_error"
     const val ADD_GROUP_URL_SUBMIT = "add_group_url_submit"
     const val ADD_GROUP_URL_CANCEL = "add_group_url_cancel"
 
-    // ---- group form (Part 10) --------------------------------------------------------------
     const val GROUP_FORM_NAME_FIELD = "group_form_name_field"
     const val GROUP_FORM_NAME_ERROR = "group_form_name_error"
     const val GROUP_FORM_CURRENCY_ROW = "group_form_currency_row"
     const val GROUP_FORM_CURRENCY_SEARCH_FIELD = "group_form_currency_search_field"
     const val GROUP_FORM_CUSTOM_SYMBOL_FIELD = "group_form_custom_symbol_field"
+    const val GROUP_FORM_CURRENCY_ERROR = "group_form_currency_error"
     const val GROUP_FORM_INFORMATION_FIELD = "group_form_information_field"
 
-    /**
-     * The disclosure that hides the server address when *creating* a group. Absent when editing
-     * one, a group cannot move servers, so that form shows the address outright.
-     */
     const val GROUP_FORM_ADVANCED_TOGGLE = "group_form_advanced_toggle"
     const val GROUP_FORM_SHEET = "group_form_sheet"
     const val GROUP_FORM_SERVER_FIELD = "group_form_server_field"
@@ -74,14 +53,9 @@ object TestTags {
     fun groupFormParticipantError(index: Int) = "group_form_participant_error_$index"
     fun groupFormParticipantRemove(index: Int) = "group_form_participant_remove_$index"
 
-    // ---- group detail (Part 11) ------------------------------------------------------------
     const val GROUP_DETAIL_BACK_BUTTON = "group_detail_back_button"
     const val GROUP_DETAIL_ADD_EXPENSE_FAB = "group_detail_add_expense_fab"
 
-    /**
-     * The same action as [GROUP_DETAIL_ADD_EXPENSE_FAB], as a top-app-bar icon. Only one is on
-     * screen at a time, so a test wanting "add an expense" has to ask for whichever is drawn.
-     */
     const val GROUP_DETAIL_ADD_EXPENSE_ACTION = "group_detail_add_expense_action"
     const val GROUP_DETAIL_TAB_EXPENSES = "group_detail_tab_expenses"
     const val GROUP_DETAIL_TAB_BALANCES = "group_detail_tab_balances"
@@ -89,19 +63,16 @@ object TestTags {
     const val GROUP_DETAIL_TAB_INFORMATION = "group_detail_tab_information"
     const val GROUP_DETAIL_BOTTOM_BAR = "group_detail_bottom_bar"
 
-    // Search, an app-bar action that expands into a field, not a fifth tab.
     const val GROUP_DETAIL_SEARCH_BUTTON = "group_detail_search_button"
     const val GROUP_DETAIL_SEARCH_FIELD = "group_detail_search_field"
     const val GROUP_DETAIL_SEARCH_CLOSE = "group_detail_search_close"
     const val SEARCH_RESULTS = "search_results"
     const val SEARCH_LOADING = "search_loading"
 
-    // The overflow: the two actions that act on the group rather than on what is in it.
     const val GROUP_DETAIL_MENU_BUTTON = "group_detail_menu_button"
     const val GROUP_DETAIL_MENU_EDIT_GROUP = "group_detail_menu_edit_group"
     const val GROUP_DETAIL_MENU_SHARE_GROUP = "group_detail_menu_share_group"
 
-    // ---- totals tab -------------------------------------------------------------------------
     const val TOTALS_SKELETON = "totals_skeleton"
     const val TOTALS_GROUP_AMOUNT = "totals_group_amount"
     const val TOTALS_YOUR_SPENDING_AMOUNT = "totals_your_spending_amount"
@@ -111,7 +82,6 @@ object TestTags {
     fun totalsCategoryName(categoryId: Int) = "totals_category_name_$categoryId"
     fun totalsCategoryAmount(categoryId: Int) = "totals_category_amount_$categoryId"
 
-    // ---- information tab --------------------------------------------------------------------
     const val INFORMATION_SKELETON = "information_skeleton"
     const val INFORMATION_NOTE = "information_note"
     const val INFORMATION_NOTE_EMPTY = "information_note_empty"
@@ -124,7 +94,6 @@ object TestTags {
 
     fun informationParticipant(participantId: String) = "information_participant_$participantId"
 
-    // ---- the activity log, a sheet over the group screen --------------------------------------
     const val ACTIVITY_LOG_SHEET = "activity_log_sheet"
     const val ACTIVITY_LOG_SKELETON = "activity_log_skeleton"
     const val ACTIVITY_LOG_RETRY_BUTTON = "activity_log_retry_button"
@@ -146,11 +115,8 @@ object TestTags {
     fun expenseRowAmount(expenseId: String) = "expense_row_amount_$expenseId"
     fun expenseRowPaidBy(expenseId: String) = "expense_row_paid_by_$expenseId"
 
-    /** The second metadata line, who the expense was paid *for*. Absent when the server named
-     *  nobody, so a test that asserts on it must allow for a row that has none. */
     fun expenseRowPaidFor(expenseId: String) = "expense_row_paid_for_$expenseId"
 
-    // ---- expense form (Part 12) ------------------------------------------------------------
     const val EXPENSE_FORM_CLOSE_BUTTON = "expense_form_close_button"
     const val EXPENSE_FORM_SAVE_BUTTON = "expense_form_save_button"
     const val EXPENSE_FORM_AMOUNT_FIELD = "expense_form_amount_field"
@@ -171,12 +137,9 @@ object TestTags {
     const val EXPENSE_FORM_CONVERSION_RATE_FIELD = "expense_form_conversion_rate_field"
     const val EXPENSE_FORM_CURRENCY_SEARCH_FIELD = "expense_form_currency_search_field"
     const val EXPENSE_FORM_DISCARD_DIALOG = "expense_form_discard_dialog"
-    // Editing is a sheet over the group screen, not a destination, see ExpenseEditSheet.
     const val EXPENSE_EDIT_SHEET = "expense_edit_sheet"
     const val EXPENSE_FORM_DISCARD_CONFIRM = "expense_form_discard_confirm"
 
-    /** One per [app.spliit.core.ExpenseFormDraft.Field], so a test can name the box it expects
-     *  to be labelled rather than searching the screen for red text. */
     fun expenseFormError(field: String) = "expense_form_error_${field.lowercase()}"
 
     fun expenseFormCategoryChip(categoryId: Int) = "expense_form_category_chip_$categoryId"
@@ -193,7 +156,6 @@ object TestTags {
     fun reimbursementRow(index: Int) = "reimbursement_row_$index"
     fun activeUserPickerOption(participantId: String) = "active_user_picker_option_$participantId"
 
-    // ---- settings (Part 13) ------------------------------------------------------------------
     const val SETTINGS_BACK_BUTTON = "settings_back_button"
     const val SETTINGS_INSTANCE_FIELD = "settings_instance_field"
     const val SETTINGS_INSTANCE_ERROR = "settings_instance_error"
