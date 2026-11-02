@@ -9,6 +9,7 @@
 // and java.util.Currency carries the minor-unit table, so there is nothing left to add.
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    jacoco
 }
 
 kotlin {
@@ -36,7 +37,7 @@ tasks.test {
 // Verified, not assumed: deleting this module's only test file leaves the build passing without
 // the check below. The first wiring test was written to guard exactly this and could not, since
 // a platform that discovers nothing does not discover the guard either.
-val verifyTestsRan by tasks.registering {
+val verifyTestsRan = tasks.register("verifyTestsRan") {
     val resultsDir = layout.buildDirectory.dir("test-results/test")
     val label = project.path
     outputs.upToDateWhen { false }
@@ -49,3 +50,11 @@ val verifyTestsRan by tasks.registering {
 }
 
 tasks.test { finalizedBy(verifyTestsRan) }
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}

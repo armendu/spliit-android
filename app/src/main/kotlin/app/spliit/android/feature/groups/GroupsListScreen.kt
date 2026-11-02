@@ -43,7 +43,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,6 +56,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.spliit.android.AppSettingsHolder
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
@@ -86,8 +86,8 @@ fun GroupsListScreen(
     onGroupClick: (GroupListItem) -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
-    val pendingRemoval by viewModel.pendingRemoval.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val pendingRemoval by viewModel.pendingRemoval.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var isAddMenuOpen by remember { mutableStateOf(false) }
     var isAddSheetOpen by rememberSaveable { mutableStateOf(false) }

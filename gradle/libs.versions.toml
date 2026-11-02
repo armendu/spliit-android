@@ -7,13 +7,13 @@
 [versions]
 # Toolchain. See CLAUDE.md for what constrains what: AGP 9.4 wants Gradle >= 9.6 and JDK >= 17,
 # and caps compileSdk at API 37.
-agp = "9.4.0"
-kotlin = "2.4.20"
+agp = "9.5.0"
+kotlin = "2.4.21"
 
 # Android platform. minSdk 26 is what gives us java.time without desugaring, which is the
 # reason :core needs no date library.
 compileSdk = "37"
-compileSdkMinor = "1"
+compileSdkMinor = "2"
 minSdk = "26"
 targetSdk = "37"
 
@@ -27,8 +27,8 @@ appVersionName = "0.3.0"
 appVersionCode = "3"
 
 # :api, the tRPC transport. OkHttp stands in for URLSession, kotlinx-serialization for Codable.
-okhttp = "5.5.0"
-kotlinxSerialization = "1.11.0"
+okhttp = "5.5.1"
+kotlinxSerialization = "1.12.0"
 kotlinxCoroutines = "1.11.0"
 
 # Tests. JUnit 6 on the JUnit Platform, run by Gradle's useJUnitPlatform().
@@ -36,16 +36,16 @@ junit = "6.1.3"
 # The instrumented suite, which runs on a device and therefore on JUnit4 + AndroidJUnitRunner
 # rather than the JUnit Platform the JVM suites use. Compose's own test artifact takes its
 # version from the Compose BOM, like every other Compose dependency here.
-androidxTestJunit = "1.2.1"
-androidxTestRunner = "1.6.2"
+androidxTestJunit = "1.3.0"
+androidxTestRunner = "1.7.0"
 
 # :app, Compose and the AndroidX pieces around it.
 composeBom = "2026.09.00"
 activityCompose = "1.13.0"
-navigationCompose = "2.10.1"
+navigationCompose = "2.10.2"
 lifecycle = "2.11.0"
-datastore = "1.2.1"
-coreKtx = "1.19.0"
+datastore = "1.3.0"
+coreKtx = "1.19.1"
 
 [libraries]
 # --- :api ---------------------------------------------------------------------------------
@@ -69,6 +69,7 @@ androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx"
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
 androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 # viewModelScope, used by Part 10's ViewModels to launch their suspend work.
 androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
