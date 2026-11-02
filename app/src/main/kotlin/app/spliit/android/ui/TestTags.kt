@@ -39,6 +39,7 @@ object TestTags {
     const val GROUP_FORM_CUSTOM_SYMBOL_FIELD = "group_form_custom_symbol_field"
     const val GROUP_FORM_CURRENCY_ERROR = "group_form_currency_error"
     const val GROUP_FORM_INFORMATION_FIELD = "group_form_information_field"
+    const val GROUP_FORM_INFORMATION_ERROR = "group_form_information_error"
 
     const val GROUP_FORM_ADVANCED_TOGGLE = "group_form_advanced_toggle"
     const val GROUP_FORM_SHEET = "group_form_sheet"
@@ -135,6 +136,8 @@ object TestTags {
     const val EXPENSE_FORM_CURRENCY_BUTTON = "expense_form_currency_button"
     const val EXPENSE_FORM_ORIGINAL_AMOUNT_FIELD = "expense_form_original_amount_field"
     const val EXPENSE_FORM_CONVERSION_RATE_FIELD = "expense_form_conversion_rate_field"
+    const val EXPENSE_FORM_RATE_STATUS = "expense_form_rate_status"
+    const val EXPENSE_FORM_USE_FETCHED_RATE = "expense_form_use_fetched_rate"
     const val EXPENSE_FORM_CURRENCY_SEARCH_FIELD = "expense_form_currency_search_field"
     const val EXPENSE_FORM_DISCARD_DIALOG = "expense_form_discard_dialog"
     const val EXPENSE_EDIT_SHEET = "expense_edit_sheet"

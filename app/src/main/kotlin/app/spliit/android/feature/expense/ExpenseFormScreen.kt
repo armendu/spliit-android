@@ -38,7 +38,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.spliit.android.R
 import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.ui.TestTags
@@ -77,7 +77,7 @@ fun ExpenseFormScreen(
     viewModel: ExpenseFormViewModel,
     onClose: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -231,6 +231,18 @@ internal fun ExpenseFormBody(
             onClick = { showDatePicker = true },
         )
 
+        if (Currencies.named(group.currencyCode.orEmpty()) != null) {
+            CurrencySection(
+                state = state,
+                draft = draft,
+                formatter = formatter,
+                onPickCurrency = { showCurrencyPicker = true },
+                onOriginalAmount = viewModel::setOriginalAmountText,
+                onRate = viewModel::setConversionRateText,
+                onUseFetchedRate = viewModel::useFetchedRate,
+            )
+        }
+
         ExpenseSectionHeader("Paid by")
         PaidByChips(
             participants = group.participants,
@@ -260,17 +272,6 @@ internal fun ExpenseFormBody(
             onSaveSplitAsDefault = viewModel::setSaveSplitAsDefault,
         )
 
-        if (Currencies.named(group.currencyCode.orEmpty()) != null) {
-            CurrencySection(
-                state = state,
-                draft = draft,
-                formatter = formatter,
-                onPickCurrency = { showCurrencyPicker = true },
-                onOriginalAmount = viewModel::setOriginalAmountText,
-                onRate = viewModel::setConversionRateText,
-            )
-        }
-
         ExpenseSectionHeader("More")
         SwitchRow(
             label = "This is a reimbursement",
@@ -292,8 +293,10 @@ internal fun ExpenseFormBody(
             maxLines = 5,
             shape = FieldShape,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            isError = state.problems(ExpenseFormDraft.Field.NOTES).isNotEmpty(),
             modifier = Modifier.fillMaxWidth().testTag(TestTags.EXPENSE_FORM_NOTES_FIELD),
         )
+        FieldProblems(state, ExpenseFormDraft.Field.NOTES, formatter)
 
         if (state.isEditing) {
             Spacer(Modifier.height(32.dp))

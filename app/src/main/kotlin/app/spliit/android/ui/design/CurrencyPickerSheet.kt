@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -75,7 +74,8 @@ fun CurrencyPickerSheet(
                 modifier = Modifier.fillMaxWidth().testTag(searchFieldTag),
             )
             Spacer(Modifier.height(8.dp))
-            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+            // A fixed height: a sheet whose content shrinks while the keyboard is up is left below the screen.
+            LazyColumn(modifier = Modifier.height(420.dp)) {
                 if (onUseCustomSymbol != null && query.isBlank()) {
                     item(key = "custom_symbol") {
                         Row(

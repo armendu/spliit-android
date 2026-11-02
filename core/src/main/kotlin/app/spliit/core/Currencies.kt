@@ -31,7 +31,8 @@ public object Currencies {
     private fun build(locale: Locale): List<Currency> =
         Locale.getISOCountries()
             .mapNotNull { country ->
-                runCatching { IsoCurrency.getInstance(Locale.of("", country)) }.getOrNull()
+                // Not Locale.of: it's Java 19 and missing below Android 16, where every country would be skipped.
+                runCatching { IsoCurrency.getInstance(Locale.Builder().setRegion(country).build()) }.getOrNull()
             }
             .distinctBy { it.currencyCode }
             .map { it.toCurrency(locale) }
