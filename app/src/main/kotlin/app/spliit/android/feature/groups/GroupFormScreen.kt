@@ -27,7 +27,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +43,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import java.util.Currency
@@ -63,7 +63,7 @@ fun GroupFormScreen(
     onSaved: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) { viewModel.load() }
 
@@ -238,13 +238,18 @@ internal fun GroupFormBody(
         }
 
         FormSectionHeader("Notes")
+        val informationProblem = draft.problems(GroupFormDraft.Field.INFORMATION).firstOrNull()?.takeIf { state.hasAttemptedSave }
         OutlinedTextField(
             value = draft.information,
             onValueChange = viewModel::setInformation,
             label = { Text("What should participants know?") },
+            isError = informationProblem != null,
             modifier = Modifier.fillMaxWidth().testTag(TestTags.GROUP_FORM_INFORMATION_FIELD),
             shape = FieldShape,
         )
+        if (informationProblem != null) {
+            FieldError(informationProblem.message(), testTag = TestTags.GROUP_FORM_INFORMATION_ERROR)
+        }
 
         FormSectionHeader("Participants")
         draft.participants.forEachIndexed { index, participant ->

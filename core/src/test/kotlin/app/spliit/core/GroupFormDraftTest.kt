@@ -333,4 +333,14 @@ class GroupFormDraftTest {
         assertEquals(order, typed.participants.map { it.id })
         assertEquals(listOf("Zoe", "Amir"), typed.participants.map { it.name })
     }
+
+    @Test
+    fun `group notes may be 10000 characters but not more`() {
+        assertTrue(draft().copy(information = "x".repeat(10_000)).isValid)
+        assertEquals(
+            listOf(GroupFormDraft.Problem.InformationTooLong),
+            draft().copy(information = "x".repeat(10_001)).problems,
+        )
+    }
+
 }

@@ -226,6 +226,8 @@ private fun glyphOf(type: ActivityType): Int = when (type) {
     ActivityType.UpdateExpense -> R.drawable.ic_edit
     ActivityType.DeleteExpense -> R.drawable.ic_trash
     ActivityType.UpdateGroup -> R.drawable.ic_settings
+    ActivityType.ScheduleGroupDeletion -> R.drawable.ic_trash
+    ActivityType.RestoreGroup -> R.drawable.ic_history
     is ActivityType.Unknown -> R.drawable.ic_tab_information
 }
 
@@ -240,6 +242,8 @@ internal fun summaryOf(activity: Activity, participantName: String?): String {
         ActivityType.DeleteExpense ->
             if (title != null) "$who deleted \"$title\"" else "$who deleted an expense"
         ActivityType.UpdateGroup -> "$who changed the group settings"
+        ActivityType.ScheduleGroupDeletion -> "$who scheduled the group for deletion"
+        ActivityType.RestoreGroup -> "$who restored the group"
         is ActivityType.Unknown -> "$who changed something"
     }
 }

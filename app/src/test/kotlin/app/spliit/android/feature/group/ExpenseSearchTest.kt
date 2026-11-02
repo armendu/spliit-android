@@ -138,4 +138,21 @@ class ExpenseSearchTest {
         assertEquals(asked, server.requestCount, "an emptied field should not query the server")
         assertTrue(state.value.search.isActive)
     }
+
+    @Test
+    fun `the search text stops at the 200 characters the server accepts`() = runBlocking {
+        val state = MutableStateFlow(GroupDetailUiState())
+        val search = searcher(state)
+
+        search.onQueryChanged("x".repeat(250))
+        val query = state.value.search.query
+        search.setActive(false)
+        server.enqueue(MockResponse.Builder().code(200).body(okBody(expensesJson())).build())
+        search.run(query)
+
+        assertEquals(200, query.length)
+        val sent = server.takeRequest().url.queryParameter("input")!!
+        assertTrue("x".repeat(200) in sent && "x".repeat(201) !in sent)
+    }
+
 }

@@ -40,6 +40,8 @@ public data class Group(
     public val currencyCode: String? = null,
     @Contextual public val createdAt: Instant,
     public val participants: List<Participant>,
+    /** When the server will delete this group, or null if it isn't scheduled for deletion. */
+    @Contextual public val deleteAt: Instant? = null,
 )
 
 // The participant count arrives in Prisma's `_count`; a plain field would silently decode as empty.
@@ -50,6 +52,7 @@ public data class GroupSummary(
     public val currency: String,
     @Contextual public val createdAt: Instant,
     @SerialName("_count") private val counts: Counts,
+    @Contextual public val deleteAt: Instant? = null,
 ) {
     public val participantCount: Int get() = counts.participants
 
@@ -261,6 +264,8 @@ public sealed interface ActivityType {
     public data object CreateExpense : ActivityType
     public data object UpdateExpense : ActivityType
     public data object DeleteExpense : ActivityType
+    public data object ScheduleGroupDeletion : ActivityType
+    public data object RestoreGroup : ActivityType
 
     public data class Unknown(public val raw: String) : ActivityType
 
@@ -272,6 +277,8 @@ public sealed interface ActivityType {
             "CREATE_EXPENSE" -> CreateExpense
             "UPDATE_EXPENSE" -> UpdateExpense
             "DELETE_EXPENSE" -> DeleteExpense
+            "SCHEDULE_GROUP_DELETION" -> ScheduleGroupDeletion
+            "RESTORE_GROUP" -> RestoreGroup
             else -> Unknown(raw)
         }
     }
@@ -288,6 +295,8 @@ internal object ActivityTypeSerializer : KSerializer<ActivityType> {
                 ActivityType.CreateExpense -> "CREATE_EXPENSE"
                 ActivityType.UpdateExpense -> "UPDATE_EXPENSE"
                 ActivityType.DeleteExpense -> "DELETE_EXPENSE"
+                ActivityType.ScheduleGroupDeletion -> "SCHEDULE_GROUP_DELETION"
+                ActivityType.RestoreGroup -> "RESTORE_GROUP"
                 is ActivityType.Unknown -> value.raw
             },
         )

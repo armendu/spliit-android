@@ -26,11 +26,11 @@ class ApiContractDriftTest {
             body
         }
 
-    private fun compare(fixtureName: String, procedure: TrpcProcedure<*, *>) {
+    private fun drift(fixtureName: String, procedure: TrpcProcedure<*, *>): String? {
         val recorded = JsonShape.of(Json.parseToJsonElement(Fixture.text(fixtureName)))
         val live = JsonShape.of(Json.parseToJsonElement(raw(procedure)))
         val differences = JsonShape.diff(recorded, live)
-        assertTrue(differences.isEmpty()) { JsonShape.report(procedure.path, differences) }
+        return if (differences.isEmpty()) null else JsonShape.report(procedure.path, differences)
     }
 
     @Test
@@ -74,15 +74,19 @@ class ApiContractDriftTest {
             ),
         ).expenseId
 
-        compare("categories.list", SpliitEndpoints.categoriesList())
-        compare("groups.get", SpliitEndpoints.groupsGet(groupId))
-        compare("groups.getDetails", SpliitEndpoints.groupsGetDetails(groupId))
-        compare("groups.list", SpliitEndpoints.groupsList(listOf(groupId)))
-        compare("groups.expenses.list", SpliitEndpoints.expensesList(groupId, limit = 20))
-        compare("groups.expenses.get", SpliitEndpoints.expensesGet(groupId, expenseId))
-        compare("groups.balances.list", SpliitEndpoints.balancesList(groupId))
-        compare("groups.activities.list", SpliitEndpoints.activitiesList(groupId))
-        compare("groups.stats.overview", SpliitEndpoints.statsOverview(groupId, ana.id))
+        // Every procedure is compared before failing, so one change can't hide the next.
+        val reports = listOfNotNull(
+            drift("categories.list", SpliitEndpoints.categoriesList()),
+            drift("groups.get", SpliitEndpoints.groupsGet(groupId)),
+            drift("groups.getDetails", SpliitEndpoints.groupsGetDetails(groupId)),
+            drift("groups.list", SpliitEndpoints.groupsList(listOf(groupId))),
+            drift("groups.expenses.list", SpliitEndpoints.expensesList(groupId, limit = 20)),
+            drift("groups.expenses.get", SpliitEndpoints.expensesGet(groupId, expenseId)),
+            drift("groups.balances.list", SpliitEndpoints.balancesList(groupId)),
+            drift("groups.activities.list", SpliitEndpoints.activitiesList(groupId)),
+            drift("groups.stats.overview", SpliitEndpoints.statsOverview(groupId, ana.id)),
+        )
+        assertTrue(reports.isEmpty()) { reports.joinToString("\n\n") }
     }
 
     @Test
