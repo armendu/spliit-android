@@ -5,6 +5,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -25,7 +26,7 @@ private fun expenseForm(
         ExpenseFormValues.conversionCurrency(null),
     originalAmount: Int? = null,
     conversionRate: LenientDecimal? = null,
-    notes: String? = null,
+    notes: String = "",
 ): ExpenseFormValues = ExpenseFormValues(
     title = "Airport taxi",
     expenseDate = EXPENSE_DATE,
@@ -125,10 +126,10 @@ class FormValuesTest {
     }
 
     @Test
-    fun `notes are omitted when there are none`() {
+    fun `no notes are sent as an empty string, which clears them on update`() {
         val body = SuperJson.encodeEnvelope(ExpenseFormValues.serializer(), expenseForm())
 
-        assertFalse(payload(body).containsKey("notes"))
+        assertEquals(JsonPrimitive(""), payload(body)["notes"])
     }
 
     // With encodeDefaults = false, a Kotlin default on a required field would drop it from the request.
@@ -140,7 +141,7 @@ class FormValuesTest {
         assertEquals(
             setOf(
                 "title", "expenseDate", "amount", "category", "paidBy", "paidFor", "splitMode",
-                "saveDefaultSplittingOptions", "isReimbursement", "documents", "recurrenceRule",
+                "saveDefaultSplittingOptions", "isReimbursement", "documents", "notes", "recurrenceRule",
                 "originalCurrency",
             ),
             json.keys,

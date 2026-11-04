@@ -65,11 +65,11 @@ public object SuperJson {
         val root = try {
             DECODER.parseToJsonElement(body)
         } catch (cause: SerializationException) {
-            throw SerializationException("The response is not JSON.", cause)
+            throw NotTrpcResponse("The response is not JSON.", cause)
         }
         val result = (root as? JsonObject)?.get("result") as? JsonObject
         val data = result?.get("data") as? JsonObject
-            ?: throw SerializationException("The response is not a tRPC result envelope.")
+            ?: throw NotTrpcResponse("The response is not a tRPC result envelope.")
 
         return DECODER.decodeFromJsonElement(deserializer, data["json"] ?: JsonNull)
     }
@@ -112,7 +112,7 @@ public object SuperJson {
         paths: MutableList<String>,
     ): JsonElement = when {
         value is JsonPrimitive && value.isString && value.content.startsWith(marker) -> {
-            paths += path.joinToString(".")
+            paths += path.joinToString(".") { it.replace(".", "\\.") }
             JsonPrimitive(value.content.removePrefix(marker))
         }
 
@@ -145,6 +145,8 @@ public object SuperJson {
         )
     }
 }
+
+internal class NotTrpcResponse(message: String, cause: Throwable? = null) : SerializationException(message, cause)
 
 @Serializable(with = TrpcVoidSerializer::class)
 public object TrpcVoid

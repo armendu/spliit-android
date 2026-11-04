@@ -228,6 +228,13 @@ class SuperJsonTest {
     }
 
     @Test
+    fun `a dot inside a key is escaped the way superjson splits paths`() {
+        val body = SuperJson.encodeEnvelope(MapInput.serializer(), MapInput(mapOf("v1.2" to DATE)))
+
+        assertEquals(setOf("dates.v1\\.2"), annotations(body).keys)
+    }
+
+    @Test
     fun `two encodings of the same value agree, so no per-call marker survives`() {
         val a = SuperJson.encodeEnvelope(ExpenseInput.serializer(), ExpenseInput("Taxi", DATE))
         val b = SuperJson.encodeEnvelope(ExpenseInput.serializer(), ExpenseInput("Taxi", DATE))

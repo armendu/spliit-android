@@ -36,6 +36,7 @@ private fun expenseForm(): ExpenseFormValues = ExpenseFormValues(
     saveDefaultSplittingOptions = false,
     isReimbursement = false,
     documents = emptyList(),
+    notes = "",
     recurrenceRule = RecurrenceRule.None,
 )
 
@@ -437,6 +438,27 @@ class SpliitEndpointsTest {
         val decoded = SuperJson.decodeResponse(SpliitEndpoints.GroupStatsResponse.serializer(), body)
 
         assertEquals(1416.67, decoded.totalParticipantShare)
+    }
+
+    @Test
+    fun `sums past Int range decode, as a long trip in rupiah reaches them`() {
+        val body = okBody(
+            """{"totalGroupSpendings":3000000000,"totalParticipantSpendings":2200000000,""" +
+                """"categories":[{"categoryId":0,"total":3000000000}]}""",
+        )
+        val balances = okBody(
+            """{"balances":{"a":{"paid":0,"paidFor":3000000000,"total":-3000000000}},""" +
+                """"reimbursements":[{"from":"a","to":"b","amount":3000000000}]}""",
+        )
+
+        val stats = SuperJson.decodeResponse(SpliitEndpoints.GroupStatsResponse.serializer(), body)
+        val owed = SuperJson.decodeResponse(SpliitEndpoints.BalancesResponse.serializer(), balances)
+
+        assertEquals(3_000_000_000L, stats.totalGroupSpendings)
+        assertEquals(2_200_000_000L, stats.totalParticipantSpendings)
+        assertEquals(3_000_000_000L, stats.categories!!.single().total)
+        assertEquals(-3_000_000_000L, owed.balances.getValue("a").total)
+        assertEquals(3_000_000_000L, owed.reimbursements.single().amount)
     }
 
     @Test

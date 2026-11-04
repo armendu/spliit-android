@@ -162,6 +162,16 @@ class TrpcClientTest {
     }
 
     @Test
+    fun `a pasted address keeps neither its query nor its fragment`() {
+        val pasted = TrpcClient("https://host.example/spliit/?ref=share#top")
+        val request = pasted.buildRequest(
+            TrpcProcedure.mutation("groups.update", GroupInput("g1"), GroupInput.serializer(), GroupOutput.serializer()),
+        )
+
+        assertEquals("https://host.example/spliit/api/trpc/groups.update", request.url.toString())
+    }
+
+    @Test
     fun `a query with no input sends no input parameter`() {
         val request = client.buildRequest(TrpcProcedure.query("groups.list", GroupOutput.serializer()))
 
@@ -230,6 +240,18 @@ class TrpcClientTest {
     }
 
     @Test
+    fun `isUnknownProcedure also knows tRPC's other wording for a missing route`() {
+        val error = TrpcServerError(
+            code = "NOT_FOUND",
+            message = """No "query"-procedure on path "groups.stats.overview"""",
+            httpStatus = 404,
+            path = "groups.stats.overview",
+        )
+
+        assertTrue(error.isUnknownProcedure)
+    }
+
+    @Test
     fun `a 500 with an empty body is distinguishable from a trpc error`() {
         server.enqueue(MockResponse.Builder().code(500).body("").build())
 
@@ -263,6 +285,45 @@ class TrpcClientTest {
         assertThrows<TrpcClientError.Decoding> {
             runBlocking { client.call(TrpcProcedure.query("groups.get", GroupOutput.serializer())) }
         }
+    }
+
+    @Test
+    fun `a 200 that is not tRPC at all is an unexpected response, not a version mismatch`() {
+        server.enqueue(MockResponse.Builder().code(200).body("<html>Sign in to the hotel wifi</html>").build())
+
+        val error = assertThrows<TrpcClientError.UnexpectedResponse> {
+            runBlocking { client.call(TrpcProcedure.query("groups.get", GroupOutput.serializer())) }
+        }
+
+        assertEquals(200, error.status)
+        assertTrue(error.bodyPrefix.startsWith("<html>"))
+    }
+
+    @Test
+    fun `a body past the size cap is refused rather than read into memory`() {
+        server.enqueue(MockResponse.Builder().code(200).body(Buffer().write(ByteArray(16 * 1024 * 1024 + 1))).build())
+
+        val error = assertThrows<TrpcClientError.UnexpectedResponse> {
+            runBlocking { client.call(TrpcProcedure.query("groups.get", GroupOutput.serializer())) }
+        }
+
+        assertTrue("larger than" in error.bodyPrefix)
+    }
+
+    @Test
+    fun `a decoding failure keeps its cause`() {
+        server.enqueue(MockResponse.Builder().code(200).body(okBody("""{"id":"g1"}""")).build())
+
+        val error = assertThrows<TrpcClientError.Decoding> {
+            runBlocking { client.call(TrpcProcedure.query("groups.get", GroupOutput.serializer())) }
+        }
+
+        assertTrue(error.cause is kotlinx.serialization.SerializationException)
+    }
+
+    @Test
+    fun `a redirect from https to http is not followed`() {
+        assertFalse(SHARED_HTTP_CLIENT.followSslRedirects)
     }
 
     @Test
@@ -314,6 +375,21 @@ class TrpcClientTest {
         assertThrows<TrpcClientError.Network> {
             runBlocking { deadClient.call(TrpcProcedure.query("groups.list", GroupOutput.serializer())) }
         }
+    }
+
+    @Test
+    fun `an http address in a release build says so, rather than quoting the platform`() {
+        val refusing = OkHttpClient.Builder()
+            .addInterceptor { throw java.net.UnknownServiceException("CLEARTEXT communication to home.lan not permitted") }
+            .build()
+        val cleartext = TrpcClient("http://home.lan:3000/", refusing)
+
+        val error = assertThrows<TrpcClientError.CleartextBlocked> {
+            runBlocking { cleartext.call(TrpcProcedure.query("groups.list", GroupOutput.serializer())) }
+        }
+
+        assertEquals("home.lan", error.host)
+        assertTrue("https" in error.message!!)
     }
 
     @Test

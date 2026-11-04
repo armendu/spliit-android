@@ -244,10 +244,11 @@ public object SpliitEndpoints {
         public val participantId: String? = null,
     )
 
+    // Sums are Long: one expense fits an Int, a group's total in IDR or COP doesn't.
     @Serializable
     public data class GroupStatsResponse(
-        public val totalGroupSpendings: Int,
-        public val totalParticipantSpendings: Int? = null,
+        public val totalGroupSpendings: Long,
+        public val totalParticipantSpendings: Long? = null,
         // Not an integer on older instances (e.g. 1416.67). Round for display; never type as Int.
         public val totalParticipantShare: Double? = null,
         public val summary: StatsSummary? = null,
@@ -258,7 +259,7 @@ public object SpliitEndpoints {
     @Serializable
     public data class StatsSummary(
         public val expenseCount: Int? = null,
-        public val totalSpending: Int? = null,
+        public val totalSpending: Long? = null,
         public val averageExpense: Int? = null,
         public val largestExpense: LargestExpense? = null,
         public val firstDate: String? = null,
@@ -276,7 +277,7 @@ public object SpliitEndpoints {
         public val categoryId: Int,
         public val grouping: String? = null,
         public val name: String? = null,
-        public val total: Int,
+        public val total: Long,
     )
 
     public fun statsOverview(

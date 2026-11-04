@@ -137,11 +137,11 @@ class ModelsTest {
         assertEquals(3, balances.balances.size)
         balances.balances.values.forEach { balance ->
             assertEquals(balance.paid - balance.paidFor, balance.total)
-            assertTrue(balance.paid == 0 || balance.paidFor == 0)
+            assertTrue(balance.paid == 0L || balance.paidFor == 0L)
         }
-        assertEquals(0, balances.balances.values.sumOf { it.total })
+        assertEquals(0L, balances.balances.values.sumOf { it.total })
 
-        val owed = balances.reimbursements.single { it.amount == 11577 }
+        val owed = balances.reimbursements.single { it.amount == 11577L }
         assertTrue(owed.from.isNotEmpty())
         assertTrue(owed.to.isNotEmpty())
     }
