@@ -77,7 +77,7 @@ make shot      # screenshot it into build/screenshot.png
 ```
 
 `JAVA_HOME` is exported by the Makefile to Android Studio's JBR. Calling `./gradlew` directly
-without it picks up the system `java`, which is 11 on this machine and too old for AGP 9.4 -
+without it picks up the system `java`, which is 11 on this machine and too old for AGP 9.5 -
 that failure reads as a cryptic class-version error, not as "wrong JDK".
 
 ## Layout
@@ -107,11 +107,11 @@ Versions live in `gradle/libs.versions.toml` and nowhere else.
 
 | | Version | Why it is pinned there |
 |---|---|---|
-| Gradle | 9.7.1 | AGP 9.4 requires ≥ 9.6.0 |
-| AGP | 9.4.0 | max API level 37 |
-| Kotlin | 2.4.20 | the Compose compiler plugin is versioned with it |
+| Gradle | 9.8.2 | AGP 9.5 requires ≥ 9.6.0 |
+| AGP | 9.5.0 | max API level 37 |
+| Kotlin | 2.4.21 | the Compose compiler plugin is versioned with it |
 | JDK | 21 | the toolchain every module compiles against; AGP needs ≥ 17 |
-| compileSdk / targetSdk | 37 (minor 1) | see below |
+| compileSdk / targetSdk | 37 (minor 2) | see below |
 | minSdk | 26 | `java.time` natively, so `:core` needs no date library |
 
 `:api` and `:core` run in **explicit API mode**. A public declaration needs a visibility
@@ -131,12 +131,12 @@ still need `org.jetbrains.kotlin.jvm`, because they have no AGP to bring Kotlin 
 is deliberately no `kotlin-android` alias in the version catalogue, so nobody reaches for one.
 
 **Android platforms now have minor versions, and AGP 9 wants them as two properties.** The
-installed platform is `android-37.1`, there is no bare `android-37` directory, and its
-`source.properties` says `AndroidVersion.ApiLevel=37.1`. The DSL that matches it is:
+installed platform is `android-37.2`, there is no bare `android-37` directory, and its
+`source.properties` says `AndroidVersion.ApiLevel=37.2`. The DSL that matches it is:
 
 ```kotlin
 compileSdk = 37
-compileSdkMinor = 1
+compileSdkMinor = 2
 ```
 
 `compileSdkMinor` is a real AGP 9 property and this is the combination that builds. The
@@ -171,6 +171,11 @@ partway through booting `Pixel_8_API_31` on Apple silicon, including with
 `-no-snapshot -gpu swiftshader_indirect`. It looks exactly like a broken AVD and is not one.
 `android sdk install emulator` brings 37.1.11, which boots the same AVD in about 20 seconds.
 This cost a part's visual verification before anyone thought to check the emulator's own version.
+
+**`:core` and `:api` compile against Java 21 but run on Android 8.** A Java 19+ call such as
+`Locale.of` builds, passes every JVM test, and is missing on older phones, and Android Lint never
+looks at these modules. It shipped once: `Currencies.all()` swallowed the failure and every
+currency picker below Android 16 offered only one currency. Use the older API (`Locale.Builder`).
 
 **Money is integer minor units, and minor units are not always hundredths.** `amount == 1234`
 is 12.34 in a two-decimal currency and ¥1,234 in a group counted in yen. Of the 155 currencies

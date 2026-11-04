@@ -2,11 +2,13 @@ package app.spliit.android.feature.expense
 
 import app.spliit.android.feature.groups.FakeRecentGroupsStore
 import app.spliit.android.feature.groups.okBody
+import app.spliit.api.ExchangeRates
 import app.spliit.core.DefaultSplit
 import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
 import app.spliit.core.SplitMode
+import java.time.LocalDate
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -92,12 +94,22 @@ private class Router(private val bodies: Map<String, String>) : Dispatcher() {
 
 class ExpenseFormViewModelTest {
     private val server = MockWebServer()
+    private val rates = MockWebServer()
 
     @BeforeEach
-    fun startServer() = server.start()
+    fun startServer() {
+        server.start()
+        rates.start()
+    }
 
     @AfterEach
-    fun stopServer() = server.close()
+    fun stopServer() {
+        server.close()
+        rates.close()
+    }
+
+    private fun rateAnswer(code: Int, body: String) =
+        rates.enqueue(MockResponse.Builder().code(code).body(body).build())
 
     private fun router(vararg extra: Pair<String, String>): Router {
         val bodies = mutableMapOf(
@@ -132,9 +144,15 @@ class ExpenseFormViewModelTest {
         groupId = GROUP_ID,
         mode = mode,
         recentGroupsStore = store,
+        exchangeRates = ExchangeRates(rates.url("/").toString()),
         locale = AMERICAN,
         now = Instant.parse("2025-06-10T12:00:00Z"),
     )
+
+    private suspend fun openedForCreate(): ExpenseFormViewModel {
+        router()
+        return viewModel(ExpenseFormMode.Create, store()).also { it.refresh() }
+    }
 
     @Test
     fun `opening an expense for editing round-trips every field`() = runBlocking {
@@ -503,4 +521,91 @@ class ExpenseFormViewModelTest {
             assertNotNull(viewModel.state.value.draft)
             assertTrue(viewModel.state.value.categories.isEmpty())
         }
+
+    @Test
+    fun `paying in another currency fills in that day's rate`() = runBlocking {
+        val viewModel = openedForCreate()
+        rateAnswer(200, """[{"date":"2025-06-10","base":"USD","quote":"EUR","rate":0.89501}]""")
+
+        viewModel.applyCurrency("USD")
+        viewModel.lookUpRate()
+
+        val state = viewModel.state.value
+        assertEquals("0.89501", state.draft!!.conversionRateText)
+        assertEquals(RateLookup.Found(LocalDate.of(2025, 6, 10), LocalDate.of(2025, 6, 10)), state.rateLookup)
+        val url = rates.takeRequest().url
+        assertEquals("2025-06-10", url.queryParameter("date"))
+        assertEquals("USD", url.queryParameter("base"))
+        assertEquals("EUR", url.queryParameter("quotes"))
+    }
+
+    @Test
+    fun `a rate from another day says which day it is from`() = runBlocking {
+        val viewModel = openedForCreate()
+        rateAnswer(200, """[{"date":"2025-06-09","base":"USD","quote":"EUR","rate":0.9}]""")
+
+        viewModel.applyCurrency("USD")
+        viewModel.lookUpRate()
+
+        assertEquals(
+            RateLookup.Found(LocalDate.of(2025, 6, 9), LocalDate.of(2025, 6, 10)),
+            viewModel.state.value.rateLookup,
+        )
+    }
+
+    @Test
+    fun `no published rate leaves the field for the user to fill`() = runBlocking {
+        val viewModel = openedForCreate()
+        rateAnswer(200, "[]")
+
+        viewModel.applyCurrency("USD")
+        viewModel.lookUpRate()
+
+        assertEquals(RateLookup.Unavailable, viewModel.state.value.rateLookup)
+        assertEquals("", viewModel.state.value.draft!!.conversionRateText)
+    }
+
+    @Test
+    fun `a failed lookup is reported, not thrown`() = runBlocking {
+        val viewModel = openedForCreate()
+        rateAnswer(503, "down")
+
+        viewModel.applyCurrency("USD")
+        viewModel.lookUpRate()
+
+        assertEquals(RateLookup.Failed, viewModel.state.value.rateLookup)
+    }
+
+    @Test
+    fun `a rate typed by hand is never replaced by a looked-up one`() = runBlocking {
+        val viewModel = openedForCreate()
+
+        viewModel.applyCurrency("USD")
+        viewModel.setConversionRateText("0.8")
+        viewModel.lookUpRate()
+
+        assertEquals("0.8", viewModel.state.value.draft!!.conversionRateText)
+        assertTrue(viewModel.state.value.rateIsCustom)
+        assertEquals(0, rates.requestCount)
+    }
+
+    @Test
+    fun `an expense already converted keeps its saved rate`() = runBlocking {
+        router(
+            "groups.expenses.get" to EXPENSE_JSON
+                .replace("\"amount\":3000", "\"amount\":3580")
+                .replace("\"originalAmount\":null", "\"originalAmount\":4000")
+                .replace("\"originalCurrency\":null", "\"originalCurrency\":\"USD\"")
+                .replace("\"conversionRate\":null", "\"conversionRate\":\"0.895\""),
+        )
+        val viewModel = viewModel(ExpenseFormMode.Edit("e1"), store())
+        viewModel.refresh()
+
+        viewModel.lookUpRate()
+
+        val state = viewModel.state.value
+        assertTrue(state.rateIsCustom)
+        assertEquals("0.895", state.draft!!.conversionRateText)
+        assertEquals(0, rates.requestCount)
+    }
 }

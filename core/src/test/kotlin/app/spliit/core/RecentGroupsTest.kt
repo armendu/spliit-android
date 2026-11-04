@@ -380,4 +380,31 @@ class RecentGroupsTest {
     fun `actorId returns null for a group the list has never heard of`() {
         assertNull(RecentGroupsSnapshot().actorId("ghost", listOf(Participant("p1", "Ana"))))
     }
+
+    @Test
+    fun `when both devices forgot a group the later forgetting is kept`() {
+        val mine = RecentGroupsSnapshot(tombstones = mapOf("g1" to T0.plusSeconds(5)))
+        val theirs = RecentGroupsSnapshot(tombstones = mapOf("g1" to T0.plusSeconds(9)))
+
+        assertEquals(T0.plusSeconds(9), RecentGroupsSnapshot.merging(mine, theirs, now = T0.plusSeconds(10)).tombstones["g1"])
+        assertEquals(T0.plusSeconds(9), RecentGroupsSnapshot.merging(theirs, mine, now = T0.plusSeconds(10)).tombstones["g1"])
+    }
+
+    @Test
+    fun `a row never stamped with an edit loses to any forgetting`() {
+        val mine = RecentGroupsSnapshot(groups = listOf(group("g1", updatedAt = null)))
+        val theirs = RecentGroupsSnapshot(tombstones = mapOf("g1" to T0))
+
+        assertTrue(RecentGroupsSnapshot.merging(mine, theirs, now = T0.plusSeconds(1)).groups.isEmpty())
+    }
+
+    @Test
+    fun `a stamped row beats an unstamped copy of itself from either side`() {
+        val stamped = group("g1", name = "Renamed", updatedAt = T0)
+        val unstamped = group("g1", name = "Old", updatedAt = null)
+
+        assertEquals("Renamed", RecentGroupsSnapshot.merging(RecentGroupsSnapshot(groups = listOf(unstamped)), RecentGroupsSnapshot(groups = listOf(stamped)), now = T0).groups.single().groupName)
+        assertEquals("Renamed", RecentGroupsSnapshot.merging(RecentGroupsSnapshot(groups = listOf(stamped)), RecentGroupsSnapshot(groups = listOf(unstamped)), now = T0).groups.single().groupName)
+    }
+
 }

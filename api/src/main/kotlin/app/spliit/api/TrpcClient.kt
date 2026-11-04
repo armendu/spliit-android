@@ -30,7 +30,7 @@ public class TrpcClient(
 
         // IOException only: catching Exception would report a cancellation as "unreachable".
         val response = try {
-            execute(request)
+            httpClient.await(request)
         } catch (cause: IOException) {
             throw TrpcClientError.Network(cause.message ?: cause::class.simpleName ?: "unknown error")
         }
@@ -96,33 +96,34 @@ public class TrpcClient(
         }
     }
 
-    private suspend fun execute(request: Request): Response = suspendCancellableCoroutine { continuation ->
-        val call = httpClient.newCall(request)
-        continuation.invokeOnCancellation { call.cancel() }
-        call.enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                // Already cancelled: falling through makes the coroutine throw CancellationException.
-                if (continuation.isCancelled) return
-                continuation.resumeWithException(e)
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response)
-            }
-        })
-    }
-
     public companion object {
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
-        // Shared so switching instances doesn't leak a connection pool per call.
-        private val SHARED_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
-            .callTimeout(20, TimeUnit.SECONDS)
-            // A cached GET would quietly serve stale balances.
-            .cache(null)
-            // Redirects are followed (OkHttp default): a 301/302 turns a POST into a GET. Pinned by TrpcClientTest.
-            .build()
     }
+}
+
+// Shared so switching instances doesn't leak a connection pool per call.
+internal val SHARED_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
+    .callTimeout(20, TimeUnit.SECONDS)
+    // A cached GET would quietly serve stale balances.
+    .cache(null)
+    // Redirects are followed (OkHttp default): a 301/302 turns a POST into a GET. Pinned by TrpcClientTest.
+    .build()
+
+internal suspend fun OkHttpClient.await(request: Request): Response = suspendCancellableCoroutine { continuation ->
+    val call = newCall(request)
+    continuation.invokeOnCancellation { call.cancel() }
+    call.enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            // Already cancelled: falling through makes the coroutine throw CancellationException.
+            if (continuation.isCancelled) return
+            continuation.resumeWithException(e)
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            continuation.resume(response)
+        }
+    })
 }
 
 // Escapes everything outside A-Za-z0-9-._~: a literal `+` would be read as a space and corrupt the envelope.

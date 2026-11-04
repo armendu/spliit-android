@@ -31,7 +31,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +47,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.spliit.android.R
 import app.spliit.android.feature.expense.ExpenseEditSheet
 import app.spliit.android.feature.expense.ExpenseFormViewModel
@@ -82,7 +82,7 @@ fun GroupDetailScreen(
     onSettle: (Reimbursement) -> Unit,
     editViewModelFor: @Composable (expenseId: String) -> ExpenseFormViewModel,
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(GroupDetailTab.EXPENSES) }
     var showActiveUserPicker by rememberSaveable { mutableStateOf(false) }
     var showActivityLog by rememberSaveable { mutableStateOf(false) }

@@ -31,19 +31,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
 
       # Caches the Gradle distribution, the dependency cache and the build cache, and writes
       # them back only from the default branch so a pull request cannot poison them.
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       # The Android SDK, provisioned explicitly rather than trusted to the runner image.
       #
-      # This project compiles against `android-37.1`, the platform with a MINOR version, which
-      # is what `compileSdk = 37` + `compileSdkMinor = 1` in app/build.gradle.kts resolves to.
+      # This project compiles against `android-37.2`, the platform with a MINOR version, which
+      # is what `compileSdk = 37` + `compileSdkMinor = 2` in app/build.gradle.kts resolves to.
       # Two things make that more delicate than a normal SDK install:
       #
       #  1. The platform is weeks old and is not on the runner image. It has to be installed.
@@ -52,11 +52,11 @@ jobs:
       #     ubuntu-24.04 image ships 12.0, which does not merely fail, it mis-parses the
       #     version and carries on, which is the silent-wrong-answer failure this repo keeps a
       #     list of. Hence pinning the tools version below rather than taking the default; the
-      #     action's default is 20.0 today, and this pin is what stops that drifting under us.
+      #     pin is what stops the version drifting under us.
       - uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
-          cmdline-tools-version: 14742923 # 20.0, the first release that parses Major.Minor
-          packages: 'platform-tools platforms;android-37.1 build-tools;37.0.0'
+          cmdline-tools-version: 16111833 # 23.0; 20.0 is the first that parses Major.Minor
+          packages: 'platform-tools platforms;android-37.2 build-tools;37.0.0'
           accept-android-sdk-licenses: 'true'
 
       # The installer exits 0 even when it resolved nothing, "Package not found" is printed to
@@ -65,8 +65,8 @@ jobs:
       # as a confusing AGP error about compileSdk instead of as a failed setup step.
       - name: Verify the SDK has the platform this project compiles against
         run: |
-          test -d "$ANDROID_HOME/platforms/android-37.1" || {
-            echo "::error::android-37.1 was not installed. Available platforms:"
+          test -d "$ANDROID_HOME/platforms/android-37.2" || {
+            echo "::error::android-37.2 was not installed. Available platforms:"
             ls -1 "$ANDROID_HOME/platforms" || true
             exit 1
           }
@@ -88,7 +88,7 @@ jobs:
       # should be running anyway. Note GitHub wraps artifacts in a zip, so this downloads as
       # spliit-debug-<sha>.zip with the APK inside.
       - name: Upload this build's APK
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spliit-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -96,7 +96,7 @@ jobs:
           retention-days: 30
 
       # The one thing worth keeping when a build fails: which test, and what it expected.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: test-reports
@@ -131,16 +131,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '21'
 
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       - run: make test-live BASE_URL=https://spliit.app/
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: upstream-drift-reports

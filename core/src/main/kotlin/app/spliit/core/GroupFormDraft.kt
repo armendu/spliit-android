@@ -49,6 +49,7 @@ public data class GroupFormDraft(
     public enum class Field {
         NAME,
         CURRENCY,
+        INFORMATION,
         PARTICIPANTS,
     }
 
@@ -67,6 +68,10 @@ public data class GroupFormDraft(
 
         public data object NameTooLong : Problem {
             override val field: Field get() = Field.NAME
+        }
+
+        public data object InformationTooLong : Problem {
+            override val field: Field get() = Field.INFORMATION
         }
 
         public data object CurrencySymbolRequired : Problem {
@@ -108,6 +113,8 @@ public data class GroupFormDraft(
                 LengthIssue.TOO_LONG -> problems += Problem.NameTooLong
                 null -> {}
             }
+
+            if (information.trim().length > INFORMATION_MAX_LENGTH) problems += Problem.InformationTooLong
 
             val symbol = currency.trim()
             if (symbol.isEmpty()) {
@@ -188,6 +195,7 @@ public data class GroupFormDraft(
         public const val NAME_MIN_LENGTH: Int = 2
         public const val NAME_MAX_LENGTH: Int = 50
         public const val CURRENCY_SYMBOL_MAX_LENGTH: Int = 5
+        public const val INFORMATION_MAX_LENGTH: Int = 10_000
 
         private fun foldedName(name: String): String = name.trim().lowercase(Locale.ROOT)
 

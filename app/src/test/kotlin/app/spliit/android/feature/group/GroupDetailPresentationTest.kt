@@ -75,6 +75,15 @@ class GroupDetailPresentationTest {
     }
 
     @Test
+    fun `scheduling and undoing a group's deletion are described`() {
+        val scheduled = activity("a1", ActivityType.ScheduleGroupDeletion, "2025-06-02T10:00:00Z")
+        val restored = activity("a2", ActivityType.RestoreGroup, "2025-06-02T11:00:00Z")
+
+        assertEquals("Ana scheduled the group for deletion", summaryOf(scheduled, "Ana"))
+        assertEquals("Ana restored the group", summaryOf(restored, "Ana"))
+    }
+
+    @Test
     fun `a kind this version cannot describe is dropped rather than drawn`() {
         val clock = Clock.fixed(Instant.parse("2025-06-02T12:00:00Z"), ZoneId.of("UTC"))
         val sections = bucketActivities(

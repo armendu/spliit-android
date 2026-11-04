@@ -81,6 +81,43 @@ public object SpliitEndpoints {
         )
 
     @Serializable
+    public data class DeleteGroupInput(
+        public val groupId: String,
+        public val groupName: String,
+        public val participantId: String? = null,
+    )
+
+    // Schedules deletion; the server answers FORBIDDEN where the instance has group deletion off.
+    public fun groupsDelete(
+        groupId: String,
+        groupName: String,
+        participantId: String? = null,
+    ): TrpcProcedure<DeleteGroupInput, TrpcVoid> =
+        TrpcProcedure.mutation(
+            "groups.delete",
+            DeleteGroupInput(groupId, groupName, participantId),
+            DeleteGroupInput.serializer(),
+            TrpcVoid.serializer(),
+        )
+
+    @Serializable
+    public data class RestoreGroupInput(
+        public val groupId: String,
+        public val participantId: String? = null,
+    )
+
+    public fun groupsRestore(
+        groupId: String,
+        participantId: String? = null,
+    ): TrpcProcedure<RestoreGroupInput, TrpcVoid> =
+        TrpcProcedure.mutation(
+            "groups.restore",
+            RestoreGroupInput(groupId, participantId),
+            RestoreGroupInput.serializer(),
+            TrpcVoid.serializer(),
+        )
+
+    @Serializable
     public data class ExpensesListInput(
         public val groupId: String,
         public val cursor: Int? = null,

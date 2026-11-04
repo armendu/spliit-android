@@ -26,7 +26,7 @@ private fun Project.required(name: String): String =
 android {
     namespace = "app.spliit.android"
 
-    // Android now ships minor platform versions, and the installed platform is android-37.1 -
+    // Android now ships minor platform versions, and the installed platform is android-37.2 -
     // there is no bare android-37. AGP 9 splits that across two properties: the API level and
     // its minor. See CLAUDE.md, "Things that will bite you".
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -97,6 +97,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            enableUnitTestCoverage = true
+        }
         release {
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
 
@@ -138,6 +141,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.datastore.preferences)
@@ -179,7 +183,7 @@ dependencies {
 // The same guard :api and :core carry, pointed at AGP's task name. This module's suites ran
 // nowhere at all for several parts, not in `make test`, not in CI, and nothing failed, which
 // is precisely the failure mode a check on "did anything run" exists to catch.
-val verifyTestsRan by tasks.registering {
+val verifyTestsRan = tasks.register("verifyTestsRan") {
     val resultsDir = layout.buildDirectory.dir("test-results/testDebugUnitTest")
     val label = project.path
     outputs.upToDateWhen { false }

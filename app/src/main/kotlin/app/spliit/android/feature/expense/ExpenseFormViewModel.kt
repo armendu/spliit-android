@@ -2,6 +2,8 @@ package app.spliit.android.feature.expense
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.spliit.api.ExchangeRateError
+import app.spliit.api.ExchangeRates
 import app.spliit.api.ExpenseDocument
 import app.spliit.api.ExpenseFormValues
 import app.spliit.api.LenientDecimal
@@ -16,6 +18,7 @@ import app.spliit.core.ExpenseSubmission
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.SplitMode
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.Locale
 import app.spliit.api.ExpenseCategory as ApiCategory
 import app.spliit.api.SplitMode as ApiSplitMode
@@ -49,6 +54,14 @@ data class DeletedExpense(
     val title: String,
 )
 
+sealed interface RateLookup {
+    data object Idle : RateLookup
+    data object Loading : RateLookup
+    data class Found(val date: LocalDate, val requestedDate: LocalDate) : RateLookup
+    data object Unavailable : RateLookup
+    data object Failed : RateLookup
+}
+
 data class ExpenseFormUiState(
     val mode: ExpenseFormMode,
     val isLoading: Boolean = true,
@@ -63,6 +76,8 @@ data class ExpenseFormUiState(
     val savedExpenseId: String? = null,
     val deleted: DeletedExpense? = null,
     val isFinished: Boolean = false,
+    val rateLookup: RateLookup = RateLookup.Idle,
+    val rateIsCustom: Boolean = false,
 ) {
     val isEditing: Boolean get() = mode is ExpenseFormMode.Edit
 
@@ -78,6 +93,7 @@ class ExpenseFormViewModel(
     mode: ExpenseFormMode,
     private val recentGroupsStore: RecentGroupsStore,
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
+    private val exchangeRates: ExchangeRates = ExchangeRates(),
     private val locale: Locale = Locale.getDefault(),
     private val now: Instant = Instant.now(),
 ) : ViewModel() {
@@ -87,6 +103,8 @@ class ExpenseFormViewModel(
     private var resolvedInstanceBaseUrl: String? = null
 
     private var initialDraft: ExpenseFormDraft? = null
+
+    private var rateJob: Job? = null
 
     // Sent back on update; omitting them drops receipts attached on the web.
     private var documents: List<ExpenseDocument> = emptyList()
@@ -106,6 +124,7 @@ class ExpenseFormViewModel(
     }
 
     fun rearm() {
+        rateJob?.cancel()
         initialDraft = null
         documents = emptyList()
         _state.value = ExpenseFormUiState(mode = _state.value.mode)
@@ -160,6 +179,7 @@ class ExpenseFormViewModel(
                     categories = categories,
                     draft = draft,
                     isDirty = false,
+                    rateIsCustom = draft.conversionRequired,
                 )
             }
         } catch (e: CancellationException) {
@@ -217,7 +237,12 @@ class ExpenseFormViewModel(
 
     fun setAmountText(text: String) = edit { it.copy(amountText = text) }
 
-    fun setExpenseDate(date: Instant) = edit { it.copy(expenseDate = date) }
+    fun setExpenseDate(date: Instant) {
+        applyExpenseDate(date)
+        fetchRate()
+    }
+
+    fun applyExpenseDate(date: Instant) = edit { it.copy(expenseDate = date) }
 
     fun setCategory(categoryId: Int) = edit { it.copy(categoryId = categoryId) }
 
@@ -249,11 +274,67 @@ class ExpenseFormViewModel(
 
     fun setSaveSplitAsDefault(save: Boolean) = edit { it.copy(saveSplitAsDefault = save) }
 
-    fun setCurrency(code: String?) = edit { it.withCurrency(code) }
+    fun setCurrency(code: String?) {
+        applyCurrency(code)
+        fetchRate()
+    }
+
+    fun applyCurrency(code: String?) {
+        edit { it.withCurrency(code) }
+        _state.update { it.copy(rateIsCustom = false, rateLookup = RateLookup.Idle) }
+    }
 
     fun setOriginalAmountText(text: String) = edit { it.copy(originalAmountText = text) }
 
-    fun setConversionRateText(text: String) = edit { it.copy(conversionRateText = text) }
+    fun setConversionRateText(text: String) {
+        rateJob?.cancel()
+        edit { it.copy(conversionRateText = text) }
+        _state.update { it.copy(rateIsCustom = true, rateLookup = RateLookup.Idle) }
+    }
+
+    fun useFetchedRate() {
+        _state.update { it.copy(rateIsCustom = false) }
+        fetchRate()
+    }
+
+    private fun fetchRate() {
+        rateJob?.cancel()
+        rateJob = viewModelScope.launch { lookUpRate() }
+    }
+
+    suspend fun lookUpRate() {
+        val current = _state.value
+        val draft = current.draft ?: return
+        if (!draft.conversionRequired || current.rateIsCustom) return
+        val from = draft.originalCurrencyCode ?: return
+        val to = draft.groupCurrencyCode ?: return
+        val day = draft.rateDay()
+
+        _state.update { it.copy(rateLookup = RateLookup.Loading) }
+        val result = try {
+            exchangeRates.rate(day, from, to)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ExchangeRateError) {
+            _state.update { it.copy(rateLookup = RateLookup.Failed) }
+            return
+        }
+
+        val latest = _state.value
+        val stillAsked = latest.draft?.let {
+            it.originalCurrencyCode == from && it.groupCurrencyCode == to && it.rateDay() == day
+        } == true
+        if (!stillAsked || latest.rateIsCustom) return
+
+        if (result == null) {
+            _state.update { it.copy(rateLookup = RateLookup.Unavailable) }
+        } else {
+            edit { it.withRate(result.rate) }
+            _state.update { it.copy(rateLookup = RateLookup.Found(result.date, day)) }
+        }
+    }
+
+    private fun ExpenseFormDraft.rateDay(): LocalDate = expenseDate.atZone(ZoneOffset.UTC).toLocalDate()
 
     private inline fun edit(transform: (ExpenseFormDraft) -> ExpenseFormDraft) {
         _state.update { state ->
