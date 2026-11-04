@@ -21,8 +21,14 @@ public class MoneyFormatter(
     private val currencyFormat: DecimalFormat by lazy { buildCurrencyFormat() }
     private val plainFormat: DecimalFormat by lazy { buildPlainFormat() }
 
-    public fun format(minorUnits: Long): String =
-        synchronized(currencyFormat) { currencyFormat.format(asDecimal(minorUnits)) }
+    public fun format(minorUnits: Long): String {
+        val text = synchronized(currencyFormat) { currencyFormat.format(asDecimal(minorUnits)) }
+        return if (hasNoSymbol) text.trim { Character.isSpaceChar(it) || it.isWhitespace() } else text
+    }
+
+    // Nothing to draw with: the reader's own currency would be a plausible-looking wrong answer.
+    private val hasNoSymbol: Boolean =
+        currencySymbol.isBlank() && isoCurrency(currencyCode) == null && currencyCode.isNullOrBlank()
 
     public fun formatPlain(minorUnits: Long): String =
         synchronized(plainFormat) { plainFormat.format(asDecimal(minorUnits)) }
@@ -42,7 +48,7 @@ public class MoneyFormatter(
         val symbol = when {
             currencySymbol.isNotBlank() -> currencySymbol
             currency != null -> null
-            else -> currencyCode?.trim()?.takeIf { it.isNotEmpty() }
+            else -> currencyCode?.trim()?.takeIf { it.isNotEmpty() } ?: ""
         }
         if (symbol != null) {
             val symbols: DecimalFormatSymbols = format.decimalFormatSymbols
@@ -96,47 +102,73 @@ public class MoneyFormatter(
 
         public fun parseDecimal(text: String, locale: Locale = Locale.getDefault()): BigDecimal? {
             val symbols = DecimalFormatSymbols.getInstance(locale)
+            val decimals = setOf(symbols.decimalSeparator, symbols.monetaryDecimalSeparator, ARABIC_DECIMAL)
+            val groupings = setOf(symbols.groupingSeparator, ARABIC_GROUPING)
             val digits = StringBuilder()
             val separators = ArrayList<Separator>()
             var negative = false
+            var trailingText = false
 
             for (character in text) {
                 val digit = Character.digit(character, 10)
+                val isSeparator = character in decimals || character in groupings || character == '.' || character == ','
+                // A currency code may lead or trail ("KWD 1.000", "12 kr"); a letter inside the number ("1e5") may not.
+                if (trailingText && (digit >= 0 || isSeparator)) return null
                 when {
                     digit >= 0 -> digits.append('0' + digit)
-                    character == symbols.decimalSeparator ||
-                        character == symbols.monetaryDecimalSeparator ->
-                        separators += Separator(digits.length, SeparatorKind.DECIMAL)
-                    character == symbols.groupingSeparator ->
-                        separators += Separator(digits.length, SeparatorKind.GROUPING)
-                    character == '.' || character == ',' ->
-                        separators += Separator(digits.length, SeparatorKind.EITHER)
-                    (character == '-' || character == '\u2212') && digits.isEmpty() ->
-                        negative = true
+                    isSeparator -> separators += Separator(digits.length, character)
+                    character == '-' || character == '\u2212' ->
+                        if (digits.isEmpty() && !negative) negative = true else return null
+                    Character.isLetter(character) && digits.isNotEmpty() -> trailingText = true
                 }
             }
             if (digits.isEmpty()) return null
 
-            val decimalAt = decimalPosition(separators, digits.length)
-            val scale = if (decimalAt == null) 0 else digits.length - decimalAt
+            val decimalAt = decimalPosition(separators, digits.length, decimals, groupings) ?: return null
+            val scale = if (decimalAt < 0) 0 else digits.length - decimalAt
             val value = BigDecimal(BigInteger(digits.toString()), scale)
             return if (negative) value.negate() else value
         }
 
-        private fun decimalPosition(separators: List<Separator>, digitCount: Int): Int? {
-            val spelledDecimal = separators.lastOrNull { it.kind == SeparatorKind.DECIMAL }
-            if (spelledDecimal != null) return spelledDecimal.at
+        // The digit index the decimal point sits before, -1 for a whole number, null when the separators
+        // can't be read either way. With two kinds of separator the last one is the decimal point, whatever
+        // the locale, so a receipt's "1,234.56" pasted on a German phone isn't read as 1.23456.
+        private fun decimalPosition(
+            separators: List<Separator>,
+            digitCount: Int,
+            decimals: Set<Char>,
+            groupings: Set<Char>,
+        ): Int? {
+            val last = separators.lastOrNull() ?: return -1
+            val kinds = separators.map { it.character }.toSet()
+            val earlier = separators.dropLast(1)
 
-            val last = separators.lastOrNull() ?: return null
+            if (kinds.size > 1) {
+                if (earlier.any { it.character == last.character }) return null
+                return if (isGrouping(earlier, last.at)) last.at else null
+            }
+            if (earlier.isNotEmpty()) return if (isGrouping(separators, digitCount)) -1 else null
+
             val groupShaped = digitCount - last.at == 3
-            val groups = groupShaped &&
-                (last.kind == SeparatorKind.GROUPING || separators.size > 1)
-            return if (groups) null else last.at
+            return when {
+                last.character in decimals -> last.at
+                last.character in groupings && groupShaped -> -1
+                else -> last.at
+            }
         }
 
-        private class Separator(val at: Int, val kind: SeparatorKind)
+        // Every group after the first is exactly three digits, ending where the integer part does.
+        private fun isGrouping(separators: List<Separator>, integerEnd: Int): Boolean {
+            if (separators.isEmpty()) return true
+            if (separators.first().at !in 1..3) return false
+            val bounds = separators.map { it.at } + integerEnd
+            return bounds.zipWithNext().all { (from, to) -> to - from == 3 }
+        }
 
-        private enum class SeparatorKind { DECIMAL, GROUPING, EITHER }
+        private class Separator(val at: Int, val character: Char)
+
+        private const val ARABIC_DECIMAL = '\u066B'
+        private const val ARABIC_GROUPING = '\u066C'
     }
 }
 

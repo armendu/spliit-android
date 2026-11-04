@@ -246,6 +246,17 @@ class RecentGroupsTest {
     }
 
     @Test
+    fun `two devices with the same stamp settle on the same row`() {
+        val a = RecentGroupsSnapshot(groups = listOf(group("g1", name = "Lisbon", updatedAt = T0, lastOpenedAt = T0)))
+        val b = RecentGroupsSnapshot(groups = listOf(group("g1", name = "Porto", updatedAt = T0, lastOpenedAt = T0)))
+
+        val onA = RecentGroupsSnapshot.merging(a, b, now = T0).groups.single()
+        val onB = RecentGroupsSnapshot.merging(b, a, now = T0).groups.single()
+
+        assertEquals(onA, onB)
+    }
+
+    @Test
     fun `the older updatedAt loses even when it is on the mine side`() {
         val mine = RecentGroupsSnapshot(
             groups = listOf(

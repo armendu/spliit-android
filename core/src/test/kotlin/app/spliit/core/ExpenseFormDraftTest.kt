@@ -433,6 +433,39 @@ class ExpenseFormDraftTest {
     }
 
     @Test
+    fun `someone left out of a by-amount expense has no figure, and ticking them takes what's left`() {
+        val draft = ExpenseFormDraft.editing(
+            expense = existingExpense(
+                amount = 1000,
+                splitMode = SplitMode.BY_AMOUNT,
+                paidFor = listOf(
+                    ExpenseFormDraft.ExistingExpense.PaidFor("p1", 600),
+                    ExpenseFormDraft.ExistingExpense.PaidFor("p2", 300),
+                ),
+            ),
+            participants = members(3),
+            groupCurrencyCode = "EUR",
+            locale = AMERICAN,
+        )
+
+        assertEquals("", draft.participants.single { it.id == "p3" }.valueText)
+        val ticked = draft.withParticipantIncluded("p3", true)
+        assertEquals("1.00", ticked.participants.single { it.id == "p3" }.valueText)
+        assertTrue(ticked.isValid, "Found ${ticked.problems}")
+    }
+
+    @Test
+    fun `ticking someone into a full percentage split leaves their figure blank`() {
+        val draft = draft()
+            .withSplitMode(SplitMode.BY_PERCENTAGE)
+            .withParticipantIncluded("p3", false)
+            .withShares("50", "50", "")
+            .withParticipantIncluded("p3", true)
+
+        assertEquals("", draft.participants.single { it.id == "p3" }.valueText)
+    }
+
+    @Test
     fun `editing an expense with no original currency ignores the other two fields`() {
         val draft = ExpenseFormDraft.editing(
             expense = existingExpense(
@@ -526,26 +559,42 @@ class ExpenseFormDraftTest {
     }
 
     @Test
-    fun `a negative amount is rejected`() {
-        val problems = draft(amountText = "-10.00").problems
-
-        assertTrue(problems.contains(ExpenseFormDraft.Problem.AmountNegative), "Found $problems")
-        assertEquals(ExpenseFormDraft.Field.AMOUNT, problems.single().field)
-        assertFalse(draft(amountText = "-10.00").isValid)
+    fun `a negative amount is a refund the server takes, split evenly or by shares or percentage`() {
+        assertTrue(draft(amountText = "-10.00").isValid)
+        assertEquals(-1000L, draft(amountText = "-10.00").wire().amount.toLong())
+        assertTrue(draft(amountText = "-10.00").withSplitMode(SplitMode.BY_SHARES).withShares("1", "1", "1").isValid)
     }
 
     @Test
-    fun `a negative original amount is rejected`() {
-        val problems = draft(currencyCode = "JPY", amountText = "")
+    fun `a negative amount can't be split by amount, where the server wants every share positive`() {
+        val problems = draft(amountText = "-10.00").withSplitMode(SplitMode.BY_AMOUNT).problems
+
+        assertTrue(problems.contains(ExpenseFormDraft.Problem.AmountNegative), "Found $problems")
+    }
+
+    @Test
+    fun `a negative amount too large either way is too large`() {
+        assertTrue(draft(amountText = "-10000001.00").problems.contains(ExpenseFormDraft.Problem.AmountTooLarge))
+    }
+
+    @Test
+    fun `a refund in another currency is fine unless it's split by amount`() {
+        val refund = draft(currencyCode = "JPY", amountText = "")
             .withCurrency("EUR")
             .copy(originalAmountText = "-40.00", conversionRateText = "163.5")
-            .problems
 
+        assertTrue(refund.isValid, "Found ${refund.problems}")
+        assertEquals(-6540L, refund.amountMinorUnits)
         assertTrue(
-            problems.contains(ExpenseFormDraft.Problem.OriginalAmountNegative),
-            "Found $problems",
+            refund.withSplitMode(SplitMode.BY_AMOUNT).problems.contains(ExpenseFormDraft.Problem.OriginalAmountNegative),
         )
-        assertTrue(problems.any { it.field == ExpenseFormDraft.Field.ORIGINAL_AMOUNT })
+    }
+
+    @Test
+    fun `a refund apportions its spare unit like an expense does`() {
+        val amounts = draft(amountText = "-10.00").splitAmounts()
+
+        assertEquals(listOf(-334L, -333L, -333L), amounts.map { it.amount })
     }
 
     @Test
@@ -663,6 +712,36 @@ class ExpenseFormDraftTest {
             .problems
 
         assertTrue(problems.contains(ExpenseFormDraft.Problem.ShareNotPositive("p2")))
+    }
+
+    @Test
+    fun `a share too large for the wire is a problem, not a crash on save`() {
+        val tooLarge = draft().withSplitMode(SplitMode.BY_SHARES).withShares("1", "21474837", "1")
+        assertEquals(listOf(ExpenseFormDraft.Problem.ShareTooLarge("p2")), tooLarge.problems)
+        assertNull(tooLarge.submission())
+
+        val largest = draft().withSplitMode(SplitMode.BY_SHARES).withShares("1", "21474836", "1")
+        assertEquals(Int.MAX_VALUE - 47, largest.wire().shares()[1])
+    }
+
+    @Test
+    fun `a percentage over 100 is too large on its own`() {
+        val problems = draft(participantCount = 2)
+            .withSplitMode(SplitMode.BY_PERCENTAGE)
+            .withShares("150", "1")
+            .problems
+
+        assertEquals(listOf(ExpenseFormDraft.Problem.ShareTooLarge("p1")), problems)
+    }
+
+    @Test
+    fun `amounts whose sum overflows are not reported as allocated`() {
+        val draft = draft()
+            .withSplitMode(SplitMode.BY_AMOUNT)
+            .withShares("92233720368547758.07", "92233720368547758.07", "10.02")
+
+        assertNull(draft.unallocated)
+        assertFalse(draft.isValid)
     }
 
     @Test
@@ -794,8 +873,8 @@ class ExpenseFormDraftTest {
     }
 
     @Test
-    fun `notes are trimmed away when they are blank`() {
-        assertNull(draft().copy(notes = "   ").wire().notes)
+    fun `blank notes are sent empty, not left out`() {
+        assertEquals("", draft().copy(notes = "   ").wire().notes)
         assertEquals("Split with Ana", draft().copy(notes = "  Split with Ana  ").wire().notes)
     }
 

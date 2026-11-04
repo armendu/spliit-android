@@ -19,10 +19,10 @@ public enum class DateBucket {
     ;
 
     public companion object {
-        public fun of(instant: Instant, clock: Clock): DateBucket {
-            val zone = clock.zone
+        public fun of(instant: Instant, clock: Clock): DateBucket = of(instant.atZone(clock.zone).toLocalDate(), clock)
+
+        public fun of(date: LocalDate, clock: Clock): DateBucket {
             val today = LocalDate.now(clock)
-            val date = instant.atZone(zone).toLocalDate()
 
             if (!date.isBefore(today)) return TODAY
             if (date == today.minusDays(1)) return YESTERDAY

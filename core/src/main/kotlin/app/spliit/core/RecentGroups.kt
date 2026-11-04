@@ -125,8 +125,7 @@ public data class RecentGroupsSnapshot(
             val byId = LinkedHashMap<String, RecentGroup>()
             for (group in mine.groups + theirs.groups) {
                 val rival = byId[group.groupId]
-                val isNewer = (group.updatedAt ?: Instant.MIN) > (rival?.updatedAt ?: Instant.MIN)
-                if (rival == null || isNewer) byId[group.groupId] = group
+                if (rival == null || newer(group, rival)) byId[group.groupId] = group
             }
 
             val surviving = byId.values.filter { group ->
@@ -135,6 +134,12 @@ public data class RecentGroupsSnapshot(
             }
 
             return RecentGroupsSnapshot(groups = surviving.toList(), tombstones = liveTombstones)
+        }
+
+        // Equal stamps need a rule both devices apply the same way, or each keeps its own row. The row's text is one.
+        private fun newer(group: RecentGroup, rival: RecentGroup): Boolean {
+            val byStamp = (group.updatedAt ?: Instant.MIN).compareTo(rival.updatedAt ?: Instant.MIN)
+            return if (byStamp != 0) byStamp > 0 else group.toString() > rival.toString()
         }
     }
 }

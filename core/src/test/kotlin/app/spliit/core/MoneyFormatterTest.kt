@@ -125,6 +125,13 @@ class MoneyFormatterTest {
     }
 
     @Test
+    fun `with neither a symbol nor a code it draws no currency, not the reader's own`() {
+        assertEquals("12.34", MoneyFormatter(currencySymbol = "", currencyCode = null, locale = Locale.UK).format(1234))
+        assertEquals("12,34", MoneyFormatter(currencySymbol = " ", currencyCode = "", locale = Locale.GERMANY).format(1234))
+        assertEquals("-12.34", MoneyFormatter(locale = Locale.US).format(-1234))
+    }
+
+    @Test
     fun `a group with only a symbol still formats, in hundredths`() {
         val formatter = MoneyFormatter("kr", null, AMERICAN)
 
@@ -212,6 +219,46 @@ class MoneyFormatterTest {
         assertNull(MoneyFormatter.parseMinorUnits("abc", AMERICAN))
         assertNull(MoneyFormatter.parseMinorUnits("€", AMERICAN))
         assertNull(MoneyFormatter.parseMinorUnits("-", AMERICAN))
+    }
+
+    @Test
+    fun `with both separators the last one is the decimal point, whatever the locale`() {
+        assertEquals(123_456L, MoneyFormatter.parseMinorUnits("1.234,56", AMERICAN))
+        assertEquals(1_234_567L, MoneyFormatter.parseMinorUnits("12,345.67", GERMAN))
+        assertEquals(1_234_567_89L, MoneyFormatter.parseMinorUnits("1,234,567.89", GERMAN))
+        assertEquals(1_234_567_89L, MoneyFormatter.parseMinorUnits("1.234.567,89", AMERICAN))
+    }
+
+    @Test
+    fun `a repeated separator is grouping, and only when the groups are three digits`() {
+        assertEquals(1_234_567_00L, MoneyFormatter.parseMinorUnits("1.234.567", AMERICAN))
+        assertEquals(1_234_567_00L, MoneyFormatter.parseMinorUnits("1,234,567", GERMAN))
+        assertNull(MoneyFormatter.parseMinorUnits("1.2.3", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("12,34,56", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("1,23.45", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("1.234,56,7", AMERICAN))
+    }
+
+    @Test
+    fun `text that is not a number is null rather than its digits run together`() {
+        assertNull(MoneyFormatter.parseMinorUnits("12abc3", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("1e5", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("5-", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("--5", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("12 kr 3", AMERICAN))
+    }
+
+    @Test
+    fun `a currency code before or after the number is still allowed`() {
+        assertEquals(1250L, MoneyFormatter.parseMinorUnits("12.50 kr", AMERICAN))
+        assertEquals(1250L, MoneyFormatter.parseMinorUnits("CHF 12.50", AMERICAN))
+        assertEquals(-1250L, MoneyFormatter.parseMinorUnits("-USD 12.50", AMERICAN))
+    }
+
+    @Test
+    fun `the Arabic decimal separator is a decimal point`() {
+        assertEquals(1250L, MoneyFormatter.parseMinorUnits("12\u066B50", AMERICAN))
+        assertEquals(1_234_50L, MoneyFormatter.parseMinorUnits("1\u066C234\u066B50", AMERICAN))
     }
 
     @Test
