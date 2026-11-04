@@ -70,13 +70,10 @@ class AddGroupByUrlViewModel(
                 return false
             }
 
-            val snapshot = recentGroupsStore.load()
-            val stored = recentGroupsStore.save(
-                snapshot.opening(
-                    RecentGroup(groupId = group.id, instanceBaseUrl = instanceBaseUrl, groupName = group.name),
-                ),
-            )
-            if (!stored) {
+            val stored = recentGroupsStore.update {
+                it.opening(RecentGroup(groupId = group.id, instanceBaseUrl = instanceBaseUrl, groupName = group.name))
+            }
+            if (stored == null) {
                 _state.update {
                     it.copy(isChecking = false, problem = "Couldn't save this group to your list. Try again.")
                 }

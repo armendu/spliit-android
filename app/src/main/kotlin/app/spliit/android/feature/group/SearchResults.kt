@@ -23,11 +23,13 @@ import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
 import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.LoadMoreFooter
 
 @Composable
 internal fun SearchResults(
     search: SearchUiState,
     formatter: MoneyFormatter,
+    onLoadMore: () -> Unit,
     onExpenseClick: (String) -> Unit,
 ) {
     val results = search.results
@@ -54,7 +56,7 @@ internal fun SearchResults(
             LoadFailure(title = "Couldn't search", message = results.message)
         }
 
-        results is LoadState.Loaded && results.value.isEmpty() -> Centered {
+        results is LoadState.Loaded && results.value.expenses.isEmpty() && !results.value.hasMore -> Centered {
             EmptyState(
                 icon = "∅",
                 title = "No matches",
@@ -63,7 +65,8 @@ internal fun SearchResults(
         }
 
         results is LoadState.Loaded -> {
-            val sections = remember(results.value) { bucketExpenses(results.value) }
+            val page = results.value
+            val sections = remember(page.expenses) { bucketExpenses(page.expenses) }
             LazyColumn(
                 modifier = Modifier.fillMaxSize().testTag(TestTags.SEARCH_RESULTS),
                 contentPadding = PaddingValues(
@@ -85,6 +88,17 @@ internal fun SearchResults(
                             expense = expense,
                             formatter = formatter,
                             onClick = { onExpenseClick(expense.id) },
+                        )
+                    }
+                }
+                if (page.hasMore) {
+                    item(key = "search_load_more") {
+                        LoadMoreFooter(
+                            cursor = page.nextCursor,
+                            isLoading = search.isLoadingMore,
+                            failed = search.loadMoreFailed,
+                            onLoadMore = onLoadMore,
+                            testTag = TestTags.SEARCH_LOAD_MORE,
                         )
                     }
                 }

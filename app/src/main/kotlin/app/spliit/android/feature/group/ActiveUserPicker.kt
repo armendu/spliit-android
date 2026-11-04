@@ -1,7 +1,8 @@
 package app.spliit.android.feature.group
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,12 +14,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -59,38 +62,46 @@ fun ActiveUserPickerSheet(
             )
             Spacer(Modifier.height(12.dp))
 
-            for (participant in participants) {
-                val isSelected = participant.id == selectedParticipantId
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            Column(Modifier.selectableGroup()) {
+                for (participant in participants) {
+                    val isSelected = participant.id == selectedParticipantId
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerLowest
+                                },
+                            )
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.RadioButton,
+                                onClick = { onSelect(participant.id); onDismiss() },
+                            )
+                            .testTag(TestTags.activeUserPickerOption(participant.id))
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Monogram(name = participant.name, participantId = participant.id, size = 32.dp)
+                        Text(
+                            text = participant.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
                             } else {
-                                MaterialTheme.colorScheme.surfaceContainerLowest
+                                MaterialTheme.colorScheme.onSurface
                             },
+                            modifier = Modifier.weight(1f),
                         )
-                        .clickable { onSelect(participant.id); onDismiss() }
-                        .testTag(TestTags.activeUserPickerOption(participant.id))
-                        .padding(horizontal = 12.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Monogram(name = participant.name, participantId = participant.id, size = 32.dp)
-                    Text(
-                        text = participant.name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
-                        },
-                    )
+                        RadioButton(selected = isSelected, onClick = null)
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
-                Spacer(Modifier.height(4.dp))
             }
 
             if (selectedParticipantId != null) {

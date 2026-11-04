@@ -197,6 +197,66 @@ class GroupFormViewModelTest {
     }
 
     @Test
+    fun `an edit is saved to the group's own server, naming who made it`() = runBlocking {
+        server.enqueue(
+            MockResponse.Builder().code(200).body(
+                okBody(
+                    """{"group":{"id":"g1","name":"Weekend in Lisbon","currency":"€","currencyCode":"EUR",""" +
+                        """"createdAt":"2025-01-01T00:00:00.000Z","participants":[{"id":"p1","name":"Ana"}]},""" +
+                        """"participantsWithExpenses":[]}""",
+                ),
+            ).build(),
+        )
+        server.enqueue(MockResponse.Builder().code(200).body(okBody("null")).build())
+        val store = FakeRecentGroupsStore(storedRow("g1").settingParticipantId("g1", "p1"))
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.EDIT,
+            groupId = "g1",
+            instanceBaseUrl = "https://default.invalid/",
+            recentGroupsStore = store,
+        )
+        viewModel.refreshForEdit()
+        viewModel.setName("Lisbon, again")
+
+        assertTrue(viewModel.submit(), "save error: ${viewModel.state.value.saveError}")
+
+        server.takeRequest()
+        val update = server.takeRequest()
+        assertTrue(update.url.encodedPath.endsWith("groups.update"))
+        val body = update.body!!.utf8()
+        assertTrue("\"participantId\":\"p1\"" in body, body)
+        assertTrue("Lisbon, again" in body, body)
+        assertTrue("\"id\":\"p1\"" in body, "an existing participant keeps its id: $body")
+    }
+
+    @Test
+    fun `a form is dirty only once something in it changes`() = runBlocking {
+        server.enqueue(
+            MockResponse.Builder().code(200).body(
+                okBody(
+                    """{"group":{"id":"g1","name":"Weekend in Lisbon","currency":"€",""" +
+                        """"createdAt":"2025-01-01T00:00:00.000Z","participants":[{"id":"p1","name":"Ana"}]},""" +
+                        """"participantsWithExpenses":[]}""",
+                ),
+            ).build(),
+        )
+        val viewModel = GroupFormViewModel(
+            mode = GroupFormMode.EDIT,
+            groupId = "g1",
+            instanceBaseUrl = server.url("/").toString(),
+            recentGroupsStore = FakeRecentGroupsStore(storedRow("g1")),
+        )
+        viewModel.refreshForEdit()
+        assertFalse(viewModel.state.value.isDirty, "a group just loaded has nothing to discard")
+
+        viewModel.setName("Porto")
+        assertTrue(viewModel.state.value.isDirty)
+
+        viewModel.setName("Weekend in Lisbon")
+        assertFalse(viewModel.state.value.isDirty, "typing it back is no change")
+    }
+
+    @Test
     fun `removing a participant with no expenses is not refused`() {
         val store = FakeRecentGroupsStore()
         val viewModel = GroupFormViewModel(

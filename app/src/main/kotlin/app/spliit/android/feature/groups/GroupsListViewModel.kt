@@ -12,6 +12,9 @@ import app.spliit.core.RecentGroupsSnapshot
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.RefreshLimiter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -48,6 +51,8 @@ class GroupsListViewModel(
     private val recentGroupsStore: RecentGroupsStore,
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
     private val refreshLimiter: RefreshLimiter = RefreshLimiter(),
+    // Outlives the ViewModel: a removal still pending when the screen goes is one the user meant.
+    private val leavingScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : ViewModel() {
     private val _state = MutableStateFlow<LoadState<GroupsDashboard>>(LoadState.Loading)
     val state: StateFlow<LoadState<GroupsDashboard>> = _state.asStateFlow()
@@ -84,11 +89,10 @@ class GroupsListViewModel(
     }
 
     internal suspend fun markOpened(groupId: String) {
-        val stored = recentGroupsStore.load()
-        val group = stored.groups.firstOrNull { it.groupId == groupId } ?: return
-        snapshot = stored.opening(group)
-        recentGroupsStore.save(snapshot)
-        publish()
+        edit { stored ->
+            val group = stored.groups.firstOrNull { it.groupId == groupId }
+            if (group == null) stored else stored.opening(group)
+        }
     }
 
     fun setStarred(groupId: String, isStarred: Boolean) {
@@ -133,15 +137,16 @@ class GroupsListViewModel(
     internal suspend fun commitPendingRemoval() {
         val pending = _pendingRemoval.value ?: return
         _pendingRemoval.value = null
-        snapshot = recentGroupsStore.load().forget(pending.groupId)
-        recentGroupsStore.save(snapshot)
         summaries.remove(pending.groupId)
-        publish()
+        edit { it.forget(pending.groupId) }
+    }
+
+    override fun onCleared() {
+        if (_pendingRemoval.value != null) leavingScope.launch { commitPendingRemoval() }
     }
 
     private suspend fun edit(change: (RecentGroupsSnapshot) -> RecentGroupsSnapshot) {
-        snapshot = change(recentGroupsStore.load())
-        recentGroupsStore.save(snapshot)
+        recentGroupsStore.update(change)?.let { snapshot = it }
         publish()
     }
 

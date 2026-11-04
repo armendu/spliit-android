@@ -13,6 +13,7 @@ import mockwebserver3.RecordedRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -24,14 +25,14 @@ class ExpenseSearchTest {
     @BeforeEach fun start() = server.start()
     @AfterEach fun stop() = server.close()
 
-    private fun expensesJson(vararg ids: String): String {
+    private fun expensesJson(vararg ids: String, hasMore: Boolean = false, nextCursor: Int = 0): String {
         val rows = ids.joinToString(",") {
-            """{"id":"$it","title":"$it","amount":100,"createdAt":"2025-06-01T00:00:00.000Z",
+            """{"id":"$it","title":"Taxi $it","amount":100,"createdAt":"2025-06-01T00:00:00.000Z",
                "expenseDate":"2025-06-01T00:00:00.000Z","isReimbursement":false,"splitMode":"EVENLY",
                "recurrenceRule":"NONE","category":null,"paidBy":{"id":"p1","name":"Ana"},
                "paidFor":[],"_count":{"documents":0}}""".trimIndent()
         }
-        return """{"expenses":[$rows],"hasMore":false,"nextCursor":0}"""
+        return """{"expenses":[$rows],"hasMore":$hasMore,"nextCursor":$nextCursor}"""
     }
 
     private fun searcher(state: MutableStateFlow<GroupDetailUiState>): ExpenseSearch {
@@ -76,7 +77,7 @@ class ExpenseSearchTest {
         }
         search.onQueryChanged("taxi")
         search.run("taxi")
-        assertEquals(listOf("e1"), (state.value.search.results as LoadState.Loaded).value.map { it.id })
+        assertEquals(listOf("e1"), (state.value.search.results as LoadState.Loaded).value.expenses.map { it.id })
 
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse =
@@ -86,7 +87,54 @@ class ExpenseSearchTest {
 
         val after = state.value.search.results
         assertTrue(after is LoadState.Loaded, "a failed reload should not replace the results")
-        assertEquals(listOf("e1"), (after as LoadState.Loaded).value.map { it.id })
+        assertEquals(listOf("e1"), (after as LoadState.Loaded).value.expenses.map { it.id })
+    }
+
+    @Test
+    fun `more matches than a page are paged in, not cut off at the first twenty`() = runBlocking {
+        val state = MutableStateFlow(GroupDetailUiState())
+        val search = searcher(state)
+        server.enqueue(MockResponse.Builder().code(200).body(okBody(expensesJson("e1", "e2", hasMore = true, nextCursor = 2))).build())
+        server.enqueue(MockResponse.Builder().code(200).body(okBody(expensesJson("e3", nextCursor = 3))).build())
+        state.value = state.value.copy(search = SearchUiState(isActive = true, query = "taxi"))
+        search.run("taxi")
+
+        search.loadNextPage()
+
+        val page = (state.value.search.results as LoadState.Loaded).value
+        assertEquals(listOf("e1", "e2", "e3"), page.expenses.map { it.id })
+        assertFalse(page.hasMore)
+        server.takeRequest()
+        assertTrue("\"cursor\":2" in server.takeRequest().url.queryParameter("input")!!)
+    }
+
+    @Test
+    fun `a failed next page says so and can be asked for again`() = runBlocking {
+        val state = MutableStateFlow(GroupDetailUiState())
+        val search = searcher(state)
+        server.enqueue(MockResponse.Builder().code(200).body(okBody(expensesJson("e1", hasMore = true, nextCursor = 1))).build())
+        server.enqueue(MockResponse.Builder().code(500).body("boom").build())
+        state.value = state.value.copy(search = SearchUiState(isActive = true, query = "taxi"))
+        search.run("taxi")
+
+        search.loadNextPage()
+
+        assertTrue(state.value.search.loadMoreFailed)
+        assertFalse(state.value.search.isLoadingMore)
+        assertEquals(1, (state.value.search.results as LoadState.Loaded).value.expenses.size)
+    }
+
+    @Test
+    fun `a server too old for the filter still only shows matches`() = runBlocking {
+        val state = MutableStateFlow(GroupDetailUiState())
+        val search = searcher(state)
+        val unfiltered = expensesJson("e1", "e2").replace("\"Taxi e2\"", "\"Groceries\"")
+        server.enqueue(MockResponse.Builder().code(200).body(okBody(unfiltered)).build())
+        state.value = state.value.copy(search = SearchUiState(isActive = true, query = "taxi"))
+
+        search.run("taxi")
+
+        assertEquals(listOf("e1"), (state.value.search.results as LoadState.Loaded).value.expenses.map { it.id })
     }
 
     @Test

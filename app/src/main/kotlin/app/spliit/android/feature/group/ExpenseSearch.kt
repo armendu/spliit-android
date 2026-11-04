@@ -1,5 +1,6 @@
 package app.spliit.android.feature.group
 
+import app.spliit.api.ExpenseListItem
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcException
@@ -59,19 +60,56 @@ internal class ExpenseSearch(
         fetch(client, query, onFailure = {})
     }
 
+    fun loadMore() {
+        scope.launch { loadNextPage() }
+    }
+
+    suspend fun loadNextPage() {
+        val search = state.value.search
+        val shown = (search.results as? LoadState.Loaded)?.value ?: return
+        if (!shown.hasMore || search.isLoadingMore) return
+        val client = client() ?: return
+        val query = search.query.trim()
+        val from = shown.nextCursor
+        state.update { it.copy(search = it.search.copy(isLoadingMore = true, loadMoreFailed = false)) }
+        try {
+            val page = page(client, query, from)
+            state.update { current ->
+                val latest = (current.search.results as? LoadState.Loaded)?.value
+                if (isStale(query) || latest == null || latest.nextCursor != from) return@update current
+                val merged = ExpensesPage(appendingNew(latest.expenses, page.expenses) { it.id }, page.hasMore, page.nextCursor)
+                current.copy(search = current.search.copy(results = LoadState.Loaded(merged)))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TrpcException) {
+            if (!isStale(query)) state.update { it.copy(search = it.search.copy(loadMoreFailed = true)) }
+        } finally {
+            state.update { it.copy(search = it.search.copy(isLoadingMore = false)) }
+        }
+    }
+
     private suspend fun fetch(client: TrpcClient, query: String, onFailure: (String?) -> Unit) {
         try {
-            val response = client.call(
-                SpliitEndpoints.expensesList(groupId, cursor = 0, limit = pageSize, filter = query),
-            )
+            val page = page(client, query, cursor = 0)
             if (isStale(query)) return
-            state.update { it.copy(search = it.search.copy(results = LoadState.Loaded(response.expenses))) }
+            state.update {
+                it.copy(search = it.search.copy(results = LoadState.Loaded(page), loadMoreFailed = false))
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: TrpcException) {
             if (!isStale(query)) onFailure(e.message)
         }
     }
+
+    private suspend fun page(client: TrpcClient, query: String, cursor: Int): ExpensesPage {
+        val response = client.call(SpliitEndpoints.expensesList(groupId, cursor, pageSize, filter = query))
+        return ExpensesPage(response.expenses.filter { it.matches(query) }, response.hasMore, response.nextCursor)
+    }
+
+    // A server older than the filter ignores it and sends every expense; zod drops keys it doesn't know.
+    private fun ExpenseListItem.matches(query: String): Boolean = title.contains(query, ignoreCase = true)
 
     private fun isStale(query: String): Boolean = state.value.search.query.trim() != query
 

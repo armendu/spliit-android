@@ -204,6 +204,7 @@ class GroupDetailViewModelTest {
         assertEquals(listOf("e1"), page.expenses.map { it.id }, "a failed page must not blank the list")
         assertTrue(page.hasMore, "the cursor is untouched, so the row can try again")
         assertFalse(viewModel.state.value.isLoadingMoreExpenses, "a stuck flag is a spinner that never stops")
+        assertTrue(viewModel.state.value.loadMoreExpensesFailed, "the footer has to offer a retry, not sit there")
     }
 
     @Test
@@ -289,6 +290,80 @@ class GroupDetailViewModelTest {
     }
 
     @Test
+    fun `removing a shown row steps the offset back so the next page skips nothing`() {
+        val page = ExpensesPage(listOf(decodeExpense("e1", "2025-06-02T00:00:00Z"), decodeExpense("e2", "2025-06-01T00:00:00Z")), true, 2)
+
+        assertEquals(1, page.withoutRow("e2").nextCursor)
+        assertEquals(page, page.withoutRow("elsewhere"))
+    }
+
+    @Test
+    fun `a new row is counted, unless it sorts past everything loaded`() {
+        val page = ExpensesPage(listOf(decodeExpense("e1", "2025-06-02T00:00:00Z"), decodeExpense("e2", "2025-06-01T00:00:00Z")), true, 2)
+
+        val newest = page.withRow(decodeExpense("new", "2025-06-03T00:00:00Z"))
+        assertEquals(listOf("new", "e1", "e2"), newest.expenses.map { it.id })
+        assertEquals(3, newest.nextCursor)
+
+        val oldest = page.withRow(decodeExpense("old", "2025-01-01T00:00:00Z"))
+        assertEquals(listOf("e1", "e2"), oldest.expenses.map { it.id })
+        assertEquals(2, oldest.nextCursor)
+
+        val movedBack = page.withRow(decodeExpense("e1", "2025-01-01T00:00:00Z"))
+        assertEquals(listOf("e2"), movedBack.expenses.map { it.id })
+        assertEquals(1, movedBack.nextCursor)
+
+        val lastPage = page.copy(hasMore = false).withRow(decodeExpense("old", "2025-01-01T00:00:00Z"))
+        assertEquals(listOf("e1", "e2", "old"), lastPage.expenses.map { it.id })
+    }
+
+    @Test
+    fun `a page that lands after a delete is dropped rather than merged at the wrong offset`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson(
+                    expenseJson("e1", "Taxi", 1000, "2025-06-02T00:00:00.000Z") + "," +
+                        expenseJson("e2", "Dinner", 2000, "2025-06-01T00:00:00.000Z"),
+                    hasMore = true,
+                    nextCursor = 2,
+                ),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+
+        val pageAsked = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val body = if (request.url.encodedPath.endsWith("groups.expenses.list")) {
+                    pageAsked.countDown()
+                    release.await()
+                    expensesListJson(expenseJson("e3", "Bus", 300, "2025-05-30T00:00:00.000Z"), false, 3)
+                } else {
+                    balancesListJson("")
+                }
+                return MockResponse.Builder().code(200).body(okBody(body)).build()
+            }
+        }
+
+        val loading = launch(kotlinx.coroutines.Dispatchers.IO) { viewModel.loadNextExpensesPage() }
+        pageAsked.await()
+        viewModel.applyDeletedExpense("e2")
+        release.countDown()
+        loading.join()
+
+        val page = (viewModel.state.value.expenses as LoadState.Loaded).value
+        assertEquals(listOf("e1"), page.expenses.map { it.id })
+        assertEquals(1, page.nextCursor)
+        assertTrue(page.hasMore)
+    }
+
+    @Test
     fun `expenses group under the right date buckets`() {
         val clock = Clock.fixed(Instant.parse("2025-06-10T12:00:00Z"), ZoneOffset.UTC)
         val expenses = listOf(
@@ -306,6 +381,19 @@ class GroupDetailViewModelTest {
         assertEquals(listOf("today"), sections[0].expenses.map { it.id })
         assertEquals(listOf("lastMonth"), sections[1].expenses.map { it.id })
         assertEquals(listOf("older"), sections[2].expenses.map { it.id })
+    }
+
+    @Test
+    fun `an expense dated today is today west of UTC, not yesterday`() {
+        val evening = Clock.fixed(Instant.parse("2025-06-11T01:00:00Z"), java.time.ZoneId.of("America/New_York"))
+        val expenses = listOf(
+            decodeExpense("today", "2025-06-10T00:00:00.000Z"),
+            decodeExpense("firstOfMonth", "2025-06-01T00:00:00.000Z"),
+        )
+
+        val sections = bucketExpenses(expenses, evening)
+
+        assertEquals(listOf(DateBucket.TODAY, DateBucket.EARLIER_THIS_MONTH), sections.map { it.bucket })
     }
 
     @Test
@@ -490,7 +578,7 @@ class GroupDetailViewModelTest {
         assertTrue(asked.contains("groups.stats.overview"))
         val stats = (viewModel.state.value.stats as LoadState.Loaded).value
         assertEquals(4200L, stats.totalGroupSpendings)
-        assertEquals(listOf(4200), stats.categories.map { it.total })
+        assertEquals(listOf(4200L), stats.categories.map { it.total })
     }
 
     @Test
@@ -699,7 +787,7 @@ class GroupDetailViewModelTest {
 
         assertTrue(sentInput?.contains("\"filter\":\"taxi\"") == true, "expected filter in $sentInput")
         val results = viewModel.state.value.search.results as LoadState.Loaded
-        assertEquals(listOf("e1"), results.value.map { it.id })
+        assertEquals(listOf("e1"), results.value.expenses.map { it.id })
     }
 
     @Test

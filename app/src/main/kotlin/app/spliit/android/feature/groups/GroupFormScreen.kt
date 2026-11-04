@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -52,6 +53,8 @@ import app.spliit.core.Currencies
 import app.spliit.core.GroupFormDraft
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.FieldError
+import app.spliit.android.ui.design.DiscardChangesDialog
+import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.ui.design.FormSectionHeader
 import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.SkeletonBlock
@@ -64,8 +67,11 @@ fun GroupFormScreen(
     onCancel: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
+    val close = { if (state.isDirty) showDiscardDialog = true else onCancel() }
 
     LaunchedEffect(Unit) { viewModel.load() }
+    BackHandler(enabled = state.isDirty) { showDiscardDialog = true }
 
     LaunchedEffect(state.savedGroupId) {
         state.savedGroupId?.let(onSaved)
@@ -78,7 +84,7 @@ fun GroupFormScreen(
                     title = { Text(if (state.mode == GroupFormMode.CREATE) "Create group" else "Group settings") },
                     navigationIcon = {
                         IconButton(
-                            onClick = onCancel,
+                            onClick = close,
                             modifier = Modifier.testTag(TestTags.GROUP_FORM_CANCEL_BUTTON),
                         ) {
                             Icon(painterResource(R.drawable.ic_close), contentDescription = "Close")
@@ -87,7 +93,7 @@ fun GroupFormScreen(
                     actions = {
                         TextButton(
                             onClick = viewModel::save,
-                            enabled = !state.isSaving && !state.isLoading,
+                            enabled = state.canSave,
                             modifier = Modifier.testTag(TestTags.GROUP_FORM_SAVE_BUTTON),
                         ) {
                             val label = if (state.mode == GroupFormMode.CREATE) "Create" else "Save"
@@ -101,6 +107,17 @@ fun GroupFormScreen(
                 FormSkeleton(Modifier.padding(contentPadding).fillMaxSize())
                 return@Scaffold
             }
+            if (state.mode == GroupFormMode.EDIT && !state.isLoaded) {
+                Box(Modifier.padding(contentPadding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                    LoadFailure(
+                        title = "Couldn't load the group",
+                        message = state.loadError,
+                        retryTestTag = TestTags.GROUP_FORM_RETRY_BUTTON,
+                        onRetry = viewModel::retry,
+                    )
+                }
+                return@Scaffold
+            }
             GroupFormBody(
                 state = state,
                 viewModel = viewModel,
@@ -112,6 +129,20 @@ fun GroupFormScreen(
             message = state.blockedParticipantMessage,
             onDismiss = viewModel::dismissBlockedParticipantMessage,
             modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+
+    if (showDiscardDialog) {
+        DiscardChangesDialog(
+            subject = "this group",
+            dialogTestTag = TestTags.GROUP_FORM_DISCARD_DIALOG,
+            confirmTestTag = TestTags.GROUP_FORM_DISCARD_CONFIRM,
+            onDismiss = { showDiscardDialog = false },
+            onKeepEditing = { showDiscardDialog = false },
+            onDiscard = {
+                showDiscardDialog = false
+                onCancel()
+            },
         )
     }
 }
@@ -136,12 +167,6 @@ internal fun GroupFormBody(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        val loadError = state.loadError
-        if (loadError != null) {
-            FieldError(loadError)
-            Spacer(Modifier.height(16.dp))
-        }
-
         FormSectionHeader("Group information", topSpace = 0.dp)
 
         val nameProblem = draft.problems(GroupFormDraft.Field.NAME).firstOrNull()?.takeIf { state.hasAttemptedSave }

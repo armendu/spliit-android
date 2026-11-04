@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.Locale
 
 private const val GROUP_ID = "g1"
@@ -140,18 +142,44 @@ class ExpenseFormViewModelTest {
     private fun viewModel(
         mode: ExpenseFormMode,
         store: FakeRecentGroupsStore,
+        now: Instant = Instant.parse("2025-06-10T12:00:00Z"),
+        zone: ZoneId = ZoneOffset.UTC,
     ): ExpenseFormViewModel = ExpenseFormViewModel(
         groupId = GROUP_ID,
         mode = mode,
         recentGroupsStore = store,
         exchangeRates = ExchangeRates(rates.url("/").toString()),
         locale = AMERICAN,
-        now = Instant.parse("2025-06-10T12:00:00Z"),
+        now = now,
+        zone = zone,
     )
 
     private suspend fun openedForCreate(): ExpenseFormViewModel {
         router()
         return viewModel(ExpenseFormMode.Create, store()).also { it.refresh() }
+    }
+
+    @Test
+    fun `a new expense is dated today where the phone is, as the server's UTC midnight`() = runBlocking {
+        router()
+        val evening = Instant.parse("2025-06-11T01:00:00Z")
+        val viewModel = viewModel(ExpenseFormMode.Create, store(), now = evening, zone = ZoneId.of("America/New_York"))
+        viewModel.refresh()
+
+        assertEquals(Instant.parse("2025-06-10T00:00:00Z"), viewModel.state.value.draft?.expenseDate)
+    }
+
+    @Test
+    fun `the sheet reappearing after a rotation keeps what was typed`() = runBlocking {
+        router()
+        val viewModel = viewModel(ExpenseFormMode.Edit("e1"), store())
+        viewModel.refresh()
+        viewModel.setTitle("Dinner, rotated")
+
+        viewModel.reopen()
+
+        assertEquals("Dinner, rotated", viewModel.state.value.draft?.title)
+        assertTrue(viewModel.state.value.isDirty)
     }
 
     @Test
@@ -259,7 +287,7 @@ class ExpenseFormViewModelTest {
         assertEquals(JsonNull, values.getValue("originalCurrency"))
         assertFalse(values.containsKey("originalAmount"))
         assertFalse(values.containsKey("conversionRate"))
-        assertFalse(values.containsKey("notes"))
+        assertEquals("", values.getValue("notes").jsonPrimitive.content)
     }
 
     @Test

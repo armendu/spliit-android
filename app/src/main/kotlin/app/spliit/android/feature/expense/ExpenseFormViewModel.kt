@@ -2,6 +2,8 @@ package app.spliit.android.feature.expense
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.spliit.android.feature.group.GroupInfo
+import app.spliit.android.feature.group.groupInfoOf
 import app.spliit.api.ExchangeRateError
 import app.spliit.api.ExchangeRates
 import app.spliit.api.ExpenseDocument
@@ -11,12 +13,16 @@ import app.spliit.api.RecurrenceRule
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcException
-import app.spliit.android.feature.group.GroupInfo
 import app.spliit.core.DefaultSplit
 import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.ExpenseSubmission
 import app.spliit.core.RecentGroupsStore
 import app.spliit.core.SplitMode
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -26,14 +32,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.util.Locale
 import app.spliit.api.ExpenseCategory as ApiCategory
 import app.spliit.api.SplitMode as ApiSplitMode
 import app.spliit.core.Participant as CoreParticipant
-import app.spliit.android.feature.group.groupInfoOf
 
 sealed interface ExpenseFormMode {
     data object Create : ExpenseFormMode
@@ -95,8 +96,12 @@ class ExpenseFormViewModel(
     private val clientFactory: (String) -> TrpcClient = { TrpcClient(it) },
     private val exchangeRates: ExchangeRates = ExchangeRates(),
     private val locale: Locale = Locale.getDefault(),
-    private val now: Instant = Instant.now(),
+    now: Instant = Instant.now(),
+    zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
+    // Today here, as the UTC midnight the server stores a day as. Instant.now() is tomorrow after 8pm in New York.
+    private val today: Instant = now.atZone(zone).toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant()
+
     private val _state = MutableStateFlow(ExpenseFormUiState(mode = mode))
     val state: StateFlow<ExpenseFormUiState> = _state.asStateFlow()
 
@@ -109,8 +114,11 @@ class ExpenseFormViewModel(
     // Sent back on update; omitting them drops receipts attached on the web.
     private var documents: List<ExpenseDocument> = emptyList()
 
+    private var started = false
+
     fun load() {
-        if (_state.value.draft != null) return
+        if (started) return
+        started = true
         viewModelScope.launch { refresh() }
     }
 
@@ -118,12 +126,16 @@ class ExpenseFormViewModel(
         viewModelScope.launch { refresh() }
     }
 
+    // The sheet calls this every time it appears, rotation included; only an edit that ended starts over.
     fun reopen() {
+        val current = _state.value
+        if (started && !current.isFinished && current.savedExpenseId == null) return
         rearm()
-        viewModelScope.launch { refresh() }
+        load()
     }
 
     fun rearm() {
+        started = false
         rateJob?.cancel()
         initialDraft = null
         documents = emptyList()
@@ -131,6 +143,7 @@ class ExpenseFormViewModel(
     }
 
     suspend fun refresh() {
+        started = true
         _state.update { it.copy(isLoading = true, loadError = null) }
 
         val snapshot = try {
@@ -221,7 +234,7 @@ class ExpenseFormViewModel(
                 participants = participants,
                 groupCurrencyCode = group.currencyCode,
                 locale = locale,
-            )
+            ).copy(expenseDate = today)
 
             ExpenseFormMode.Create -> ExpenseFormDraft.creating(
                 participants = participants,
@@ -229,7 +242,7 @@ class ExpenseFormViewModel(
                 paidBy = rememberedParticipantId,
                 defaultSplit = defaultSplit,
                 locale = locale,
-            ).copy(expenseDate = now)
+            ).copy(expenseDate = today)
         }
     }
 
@@ -349,6 +362,7 @@ class ExpenseFormViewModel(
     }
 
     suspend fun submit(): Boolean {
+        if (_state.value.isSaving) return false
         _state.update { it.copy(hasAttemptedSave = true, saveError = null) }
         val current = _state.value
         val draft = current.draft ?: return false
@@ -388,6 +402,7 @@ class ExpenseFormViewModel(
 
     suspend fun submitDelete(): Boolean {
         val current = _state.value
+        if (current.isSaving) return false
         val mode = current.mode as? ExpenseFormMode.Edit ?: return false
         val group = current.group ?: return false
         val draft = current.draft ?: return false
@@ -421,6 +436,7 @@ class ExpenseFormViewModel(
 
     suspend fun submitUndoDelete(): Boolean {
         val current = _state.value
+        if (current.isSaving) return false
         val deleted = current.deleted ?: return false
         val group = current.group ?: return false
         val baseUrl = resolvedInstanceBaseUrl ?: return false
@@ -458,12 +474,11 @@ class ExpenseFormViewModel(
 
     private suspend fun rememberSplit(submission: ExpenseSubmission, group: GroupInfo) {
         try {
-            val snapshot = recentGroupsStore.load()
             val split = DefaultSplit.remembering(
                 submission = submission,
                 participants = group.participants.map { CoreParticipant(it.id, it.name) },
             )
-            recentGroupsStore.save(snapshot.settingDefaultSplit(groupId, split))
+            recentGroupsStore.update { it.settingDefaultSplit(groupId, split) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

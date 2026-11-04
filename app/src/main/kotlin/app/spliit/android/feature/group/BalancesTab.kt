@@ -270,7 +270,7 @@ private fun ReimbursementRow(
             modifier = Modifier.weight(1f),
         )
 
-        Money(value = formatter.format(reimbursement.amount.toLong()), size = MoneySize.LEAD)
+        Money(value = formatter.format(reimbursement.amount), size = MoneySize.LEAD)
     }
 }
 

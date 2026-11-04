@@ -21,7 +21,9 @@ object InstanceAddress {
         val uri = runCatching { URI(candidate) }.getOrNull() ?: return null
         if (uri.host.isNullOrBlank()) return null
         val segments = (uri.path ?: "").split("/").filter { it.isNotEmpty() }
-        return baseUrlOf(uri, segments)
+        // A pasted group link names the server too; the group's own path isn't part of it.
+        val groupsAt = segments.indexOf("groups")
+        return baseUrlOf(uri, if (groupsAt >= 0) segments.subList(0, groupsAt) else segments)
     }
 
     internal fun baseUrlOf(uri: URI, pathSegments: List<String>): String {

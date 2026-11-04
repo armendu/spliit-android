@@ -18,7 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,8 +46,8 @@ fun ExpenseEditSheet(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val scope = rememberCoroutineScope()
-    var isSheetVisible by remember { mutableStateOf(true) }
-    var showDiscardDialog by remember { mutableStateOf(false) }
+    var isSheetVisible by rememberSaveable { mutableStateOf(true) }
+    var showDiscardDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(expenseId) { viewModel.reopen() }
 
@@ -160,6 +160,7 @@ fun ExpenseEditSheet(
             Unit
         }
         DiscardChangesDialog(
+            subject = "this expense",
             dialogTestTag = TestTags.EXPENSE_FORM_DISCARD_DIALOG,
             confirmTestTag = TestTags.EXPENSE_FORM_DISCARD_CONFIRM,
             onDismiss = keepEditing,

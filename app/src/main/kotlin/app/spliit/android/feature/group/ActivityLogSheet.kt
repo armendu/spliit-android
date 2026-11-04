@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +26,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +50,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.LoadMoreFooter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,8 +111,9 @@ internal fun ActivityLogSheet(
                         ActivityList(
                             sections = sections,
                             participants = participants,
-                            hasMore = activities.value.hasMore,
+                            page = activities.value,
                             isLoadingMore = state.isLoadingMoreActivities,
+                            loadMoreFailed = state.loadMoreActivitiesFailed,
                             onLoadMore = onLoadMore,
                             onOpenExpense = onOpenExpense,
                             modifier = Modifier.weight(1f),
@@ -144,8 +144,9 @@ internal fun bucketActivities(
 private fun ActivityList(
     sections: List<ActivitySection>,
     participants: List<Participant>,
-    hasMore: Boolean,
+    page: ActivitiesPage,
     isLoadingMore: Boolean,
+    loadMoreFailed: Boolean,
     onLoadMore: () -> Unit,
     onOpenExpense: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -167,18 +168,15 @@ private fun ActivityList(
                 )
             }
         }
-        if (hasMore) {
+        if (page.hasMore) {
             item(key = "load_more") {
-                LaunchedEffect(Unit) { onLoadMore() }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                        .testTag(TestTags.ACTIVITY_LOG_LOAD_MORE),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (isLoadingMore) CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
+                LoadMoreFooter(
+                    cursor = page.nextCursor,
+                    isLoading = isLoadingMore,
+                    failed = loadMoreFailed,
+                    onLoadMore = onLoadMore,
+                    testTag = TestTags.ACTIVITY_LOG_LOAD_MORE,
+                )
             }
         }
     }
