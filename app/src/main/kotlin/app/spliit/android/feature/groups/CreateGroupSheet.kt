@@ -12,11 +12,11 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.SheetHeader
@@ -29,7 +29,7 @@ fun CreateGroupSheet(
     onCreated: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.savedGroupId) {
         state.savedGroupId?.let(onCreated)

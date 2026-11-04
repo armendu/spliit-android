@@ -233,6 +233,17 @@ class ExpenseFormDraftTest {
     }
 
     @Test
+    fun `a looked-up rate fills the rate field and converts with every published digit`() {
+        val draft = draft(currencyCode = "EUR", amountText = "")
+            .withCurrency("USD")
+            .copy(originalAmountText = "40.00")
+            .withRate(BigDecimal("0.89501"))
+
+        assertEquals("0.89501", draft.conversionRateText)
+        assertEquals(3580, draft.wire().amount)
+    }
+
+    @Test
     fun `an expense in the group's own currency is not converted`() {
         val draft = draft(currencyCode = "EUR").withCurrency("EUR")
 
@@ -907,6 +918,36 @@ class ExpenseFormDraftTest {
         assertEquals("1250", draft.amountText)
         assertEquals(1250L, draft.amountMinorUnits)
     }
+
+    @Test
+    fun `a title may be 200 characters but not more`() {
+        assertTrue(draft().copy(title = "x".repeat(200)).isValid)
+        assertEquals(
+            listOf(ExpenseFormDraft.Problem.TitleTooLong),
+            draft().copy(title = "x".repeat(201)).problems(ExpenseFormDraft.Field.TITLE),
+        )
+    }
+
+    @Test
+    fun `notes may be 5000 characters but not more, counted once trimmed`() {
+        assertTrue(draft().copy(notes = " " + "x".repeat(5000) + " ").isValid)
+        assertEquals(
+            listOf(ExpenseFormDraft.Problem.NotesTooLong),
+            draft().copy(notes = "x".repeat(5001)).problems(ExpenseFormDraft.Field.NOTES),
+        )
+    }
+
+
+    @Test
+    fun `a conversion too large to hold is no amount rather than a wrapped one`() {
+        val draft = draft(currencyCode = "EUR", amountText = "")
+            .withCurrency("JPY")
+            .copy(originalAmountText = "999999999999999", conversionRateText = "999999999999")
+
+        assertNull(draft.convertedAmountMinorUnits)
+        assertNull(draft.submission())
+    }
+
 }
 
 private fun existingExpense(

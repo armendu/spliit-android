@@ -1,0 +1,11 @@
+Paying in another currency.
+
+Pick the currency an expense was paid in and the app fills in that day's exchange rate. A rate you type yourself is kept.
+
+On phones older than Android 16, the currency pickers now list every currency instead of one.
+
+Searching for a currency no longer hides the results.
+
+The activity log shows when a group is scheduled for deletion or restored.
+
+Names and notes the server would refuse are flagged on the form.

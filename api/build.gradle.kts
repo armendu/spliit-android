@@ -7,6 +7,7 @@
 plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
+    jacoco
 }
 
 kotlin {
@@ -49,7 +50,7 @@ tasks.test {
 // Verified, not assumed: deleting this module's only test file leaves the build passing without
 // the check below. The first wiring test was written to guard exactly this and could not, since
 // a platform that discovers nothing does not discover the guard either.
-val verifyTestsRan by tasks.registering {
+val verifyTestsRan = tasks.register("verifyTestsRan") {
     val resultsDir = layout.buildDirectory.dir("test-results/test")
     val label = project.path
     outputs.upToDateWhen { false }
@@ -66,7 +67,7 @@ tasks.test { finalizedBy(verifyTestsRan) }
 // A separate task rather than a flag on `test`, so `make test` can stay the thing that needs
 // nothing running. Selects by JUnit5 tag rather than by class name (`*LiveTest`) so a live test
 // can live beside the ordinary ones for the same procedure instead of in its own file.
-val testLive by tasks.registering(Test::class) {
+val testLive = tasks.register<Test>("testLive") {
     group = "verification"
     description = "Tests tagged @Tag(\"live\") against a real Spliit instance."
     testClassesDirs = sourceSets.test.get().output.classesDirs
@@ -82,7 +83,7 @@ val testLive by tasks.registering(Test::class) {
     outputs.upToDateWhen { false }
 }
 
-val verifyLiveTestsRan by tasks.registering {
+val verifyLiveTestsRan = tasks.register("verifyLiveTestsRan") {
     val resultsDir = layout.buildDirectory.dir("test-results/testLive")
     val label = project.path
     outputs.upToDateWhen { false }
@@ -94,4 +95,12 @@ val verifyLiveTestsRan by tasks.registering {
     }
 }
 
-testLive { finalizedBy(verifyLiveTestsRan) }
+testLive.configure { finalizedBy(verifyLiveTestsRan) }
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}

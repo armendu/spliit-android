@@ -64,6 +64,8 @@ import app.spliit.core.SplitMode
 import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.SelectField
 import app.spliit.android.ui.design.FieldError
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 internal fun AmountEntry(
@@ -375,6 +377,7 @@ internal fun CurrencySection(
     onPickCurrency: () -> Unit,
     onOriginalAmount: (String) -> Unit,
     onRate: (String) -> Unit,
+    onUseFetchedRate: () -> Unit,
 ) {
     ExpenseSectionHeader("Currency")
     val paidIn = draft.originalCurrencyCode?.let { Currencies.named(it) }
@@ -407,7 +410,12 @@ internal fun CurrencySection(
         onValueChange = onRate,
         label = { Text("Exchange rate") },
         supportingText = {
-            Text("1 ${draft.originalCurrencyCode} in ${draft.groupCurrencyCode}.")
+            val status = rateStatus(state.rateLookup, state.rateIsCustom, rateDates)
+            Text(
+                text = listOfNotNull("1 ${draft.originalCurrencyCode} in ${draft.groupCurrencyCode}.", status)
+                    .joinToString(" "),
+                modifier = Modifier.testTag(TestTags.EXPENSE_FORM_RATE_STATUS),
+            )
         },
         singleLine = true,
         isError = state.problems(ExpenseFormDraft.Field.CONVERSION_RATE).isNotEmpty(),
@@ -416,7 +424,17 @@ internal fun CurrencySection(
         modifier = Modifier.fillMaxWidth().testTag(TestTags.EXPENSE_FORM_CONVERSION_RATE_FIELD),
     )
     FieldProblems(state, ExpenseFormDraft.Field.CONVERSION_RATE, formatter)
+    if (state.rateIsCustom || state.rateLookup is RateLookup.Failed) {
+        TextButton(
+            onClick = onUseFetchedRate,
+            modifier = Modifier.testTag(TestTags.EXPENSE_FORM_USE_FETCHED_RATE),
+        ) {
+            Text(if (state.rateIsCustom) "Use Frankfurter's rate" else "Try again")
+        }
+    }
 }
+
+private val rateDates: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
 @Composable
 internal fun SwitchRow(

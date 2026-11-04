@@ -11,6 +11,7 @@ import app.spliit.api.SpliitEndpoints.GroupStatsResponse
 import app.spliit.api.SpliitEndpoints.GroupsListResponse
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -199,6 +200,39 @@ class ModelsTest {
         assertThrows<SerializationException> {
             decodeBody(StrictStatsResponse.serializer(), body)
         }
+    }
+
+    @Test
+    fun `a group carries when it is scheduled for deletion, and older servers omit it`() {
+        val scheduled = decodeBody(
+            GroupResponse.serializer(),
+            """{"group":{"id":"g1","name":"Lisbon","currency":"€","createdAt":"2026-01-01T00:00:00.000Z",""" +
+                """"participants":[],"deleteAt":"2026-11-30T10:00:00.000Z"}}""",
+        ).group!!
+        val older = decodeBody(
+            GroupResponse.serializer(),
+            """{"group":{"id":"g1","name":"Lisbon","currency":"€","createdAt":"2026-01-01T00:00:00.000Z","participants":[]}}""",
+        ).group!!
+
+        assertEquals(Instant.parse("2026-11-30T10:00:00Z"), scheduled.deleteAt)
+        assertNull(older.deleteAt)
+        assertNull(decode(GroupResponse.serializer(), "groups.get").group!!.deleteAt)
+    }
+
+    @Test
+    fun `group deletion and restore activities are recognised and round-trip`() {
+        val body = """
+            {"activities":[{"id":"a1","groupId":"g1","time":"2026-10-10T10:00:00.000Z",
+            "activityType":"SCHEDULE_GROUP_DELETION","participantId":null,"expenseId":null,
+            "data":null,"expense":null},{"id":"a2","groupId":"g1","time":"2026-10-11T10:00:00.000Z",
+            "activityType":"RESTORE_GROUP","participantId":null,"expenseId":null,
+            "data":null,"expense":null}],"hasMore":false,"nextCursor":0}
+        """.trimIndent()
+
+        val types = decodeBody(ActivitiesListResponse.serializer(), body).activities.map { it.activityType }
+
+        assertEquals(listOf(ActivityType.ScheduleGroupDeletion, ActivityType.RestoreGroup), types)
+        assertEquals("\"RESTORE_GROUP\"", Json.encodeToString(ActivityType.serializer(), ActivityType.RestoreGroup))
     }
 
     @Test

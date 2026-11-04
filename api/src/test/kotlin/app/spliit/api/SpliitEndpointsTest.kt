@@ -1,5 +1,7 @@
 package app.spliit.api
 
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -172,6 +174,49 @@ class SpliitEndpointsTest {
         val recorded = server.takeRequest()
         val sent = sentInput(recorded)
         assertFalse(sent.containsKey("participantId"), "expected no participantId key, got $sent")
+    }
+
+    @Test
+    fun `groups delete sends the name the server checks and the actor as a mutation`() = runBlocking {
+        enqueue("null")
+
+        client.call(SpliitEndpoints.groupsDelete("g1", "Lisbon", participantId = "ana"))
+
+        val recorded = server.takeRequest()
+        assertEquals("POST", recorded.method)
+        assertEquals("groups.delete", path(recorded))
+        val sent = sentInput(recorded)
+        assertEquals("g1", sent.getValue("groupId").jsonPrimitive.content)
+        assertEquals("Lisbon", sent.getValue("groupName").jsonPrimitive.content)
+        assertEquals("ana", sent.getValue("participantId").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `groups delete reports a server with deletion switched off as forbidden`() {
+        enqueueRaw(
+            """{"error":{"json":{"message":"Group deletion is not enabled on this instance.","code":-32003,""" +
+                """"data":{"code":"FORBIDDEN","httpStatus":403,"path":"groups.delete"}}}}""",
+            code = 403,
+        )
+
+        val error = assertThrows<TrpcServerError> {
+            runBlocking { client.call(SpliitEndpoints.groupsDelete("g1", "Lisbon")) }
+        }
+
+        assertEquals("FORBIDDEN", error.code)
+    }
+
+    @Test
+    fun `groups restore omits the participant id when there is none`() = runBlocking {
+        enqueue("null")
+
+        client.call(SpliitEndpoints.groupsRestore("g1"))
+
+        val recorded = server.takeRequest()
+        assertEquals("groups.restore", path(recorded))
+        val sent = sentInput(recorded)
+        assertEquals("g1", sent.getValue("groupId").jsonPrimitive.content)
+        assertFalse(sent.containsKey("participantId"))
     }
 
     @Test
@@ -406,8 +451,10 @@ class SpliitEndpointsTest {
         assertEquals(15920, summary.averageExpense)
         assertEquals("Apartment", summary.largestExpense?.title)
         assertEquals(48000, summary.largestExpense?.amount)
-        assertEquals("2025-08-11", summary.firstDate)
-        assertEquals("2026-09-14", summary.lastDate)
+        // The seed dates expenses 400 and 1 days before recording, so only the span is stable.
+        val first = LocalDate.parse(summary.firstDate)
+        val last = LocalDate.parse(summary.lastDate)
+        assertEquals(399, ChronoUnit.DAYS.between(first, last))
 
         val categories = requireNotNull(result.categories)
         assertEquals(1, categories.size)

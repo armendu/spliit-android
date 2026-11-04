@@ -19,7 +19,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -34,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.spliit.android.ui.TestTags
 import app.spliit.android.ui.design.SheetShape
 import app.spliit.android.ui.design.FieldShape
@@ -47,7 +47,7 @@ fun AddGroupByUrlSheet(
     onAdded: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
+    val state by viewModel.state.collectAsStateWithLifecycle()
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(state.addedGroupId) {

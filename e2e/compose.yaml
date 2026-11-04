@@ -29,6 +29,8 @@ services:
       POSTGRES_PRISMA_URL: postgresql://spliit:spliit@db:5432/spliit
       POSTGRES_URL_NON_POOLING: postgresql://spliit:spliit@db:5432/spliit
       NEXT_PUBLIC_DEFAULT_CURRENCY_CODE: ''
+      ENABLE_GROUP_DELETION: 'true'
+      CRON_SECRET: e2e-only-cron-secret
       # Document storage. The route that signs an upload needs only the four S3 settings; the
       # flag is what the web UI reads, and it is set so this instance is one that really does
       # keep documents rather than one that merely could.

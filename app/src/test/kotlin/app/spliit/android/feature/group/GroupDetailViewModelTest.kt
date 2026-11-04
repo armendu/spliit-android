@@ -6,6 +6,7 @@ import app.spliit.core.DateBucket
 import app.spliit.core.LoadState
 import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
+import app.spliit.core.RecentGroupsStore
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -570,11 +571,96 @@ class GroupDetailViewModelTest {
         )
         val viewModel = GroupDetailViewModel("g1", store)
         viewModel.refresh()
+        val asked = CopyOnWriteArrayList<String>()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                val path = request.url.encodedPath.substringAfterLast('/')
+                asked += path
+                val body = when (path) {
+                    "groups.get" -> """{"group":${groupJson("g1", "Lisbon trip", participantJson("p1", "Ana"))}}"""
+                    "groups.balances.list" -> balancesListJson("")
+                    else -> return MockResponse.Builder().code(404).build()
+                }
+                return MockResponse.Builder().code(200).body(okBody(body)).build()
+            }
+        }
+
+        viewModel.applyGroupEdit()
 
         val group = (viewModel.state.value.group as LoadState.Loaded).value
+        assertEquals("Lisbon trip", group.name)
         assertEquals(instance, group.instanceBaseUrl)
-        assertEquals("EUR", group.currencyCode)
-        assertNull(group.information)
+        assertEquals(setOf("groups.get", "groups.balances.list"), asked.toSet())
+    }
+
+    @Test
+    fun `a group missing from the stored list fails every section without asking a server`() = runBlocking {
+        val viewModel = GroupDetailViewModel("g1", FakeRecentGroupsStore())
+
+        viewModel.refresh()
+
+        val state = viewModel.state.value
+        assertEquals(LoadState.Failed("This group isn't in your list anymore."), state.group)
+        assertEquals(LoadState.Failed("This group isn't in your list anymore."), state.expenses)
+        assertEquals(0, server.requestCount)
+    }
+
+    @Test
+    fun `an unreadable stored list fails every section with a message`() = runBlocking {
+        val broken = object : RecentGroupsStore {
+            override suspend fun load(): RecentGroupsSnapshot = throw java.io.IOException("disk")
+            override suspend fun save(snapshot: RecentGroupsSnapshot): Boolean = false
+        }
+        val viewModel = GroupDetailViewModel("g1", broken)
+
+        viewModel.refresh()
+
+        assertEquals(LoadState.Failed("Couldn't read the stored group list."), viewModel.state.value.balances)
+    }
+
+    @Test
+    fun `a group the server no longer has says so`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":null}""",
+                "groups.expenses.list" to expensesListJson("", hasMore = false, nextCursor = 0),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+
+        viewModel.refresh()
+
+        assertEquals(LoadState.Failed("This group no longer exists on this server."), viewModel.state.value.group)
+    }
+
+    @Test
+    fun `a deleted expense leaves the list and the balances are read again`() = runBlocking {
+        val instance = server.url("/").toString()
+        val store = FakeRecentGroupsStore(RecentGroupsSnapshot(groups = listOf(recentGroup("g1", instance))))
+        route(
+            mapOf(
+                "groups.get" to """{"group":${groupJson("g1", "Lisbon", participantJson("p1", "Ana"))}}""",
+                "groups.expenses.list" to expensesListJson(
+                    expenseJson("e1", "Taxi", 1000, "2025-06-01T00:00:00.000Z") + "," +
+                        expenseJson("e2", "Dinner", 3000, "2025-06-02T00:00:00.000Z"),
+                    hasMore = false,
+                    nextCursor = 0,
+                ),
+                "groups.balances.list" to balancesListJson(""),
+            ),
+        )
+        val viewModel = GroupDetailViewModel("g1", store)
+        viewModel.refresh()
+        route(mapOf("groups.balances.list" to balancesListJson(""""p1":{"paid":0,"paidFor":0,"total":700}""")))
+
+        viewModel.applyDeletedExpense("e2")
+
+        val page = (viewModel.state.value.expenses as LoadState.Loaded).value
+        assertEquals(listOf("e1"), page.expenses.map { it.id })
+        assertEquals(700L, (viewModel.state.value.balances as LoadState.Loaded).value.balances["p1"])
     }
 
     @Test

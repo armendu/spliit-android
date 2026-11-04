@@ -309,18 +309,20 @@ class GroupDetailViewModel(
     }
 
     fun groupEdited() {
+        viewModelScope.launch { applyGroupEdit() }
+    }
+
+    suspend fun applyGroupEdit() {
         refreshLimiter.reset()
-        viewModelScope.launch {
-            val baseUrl = resolvedInstanceBaseUrl ?: return@launch
-            val client = clientFactory(baseUrl)
-            coroutineScope {
-                val group = async { reloadGroupInPlace(client, baseUrl) }
-                val balances = async { loadBalances(client, keepOnFailure = true) }
-                val activities = async { refreshActivitiesIfLoaded(client) }
-                group.await()
-                balances.await()
-                activities.await()
-            }
+        val baseUrl = resolvedInstanceBaseUrl ?: return
+        val client = clientFactory(baseUrl)
+        coroutineScope {
+            val group = async { reloadGroupInPlace(client, baseUrl) }
+            val balances = async { loadBalances(client, keepOnFailure = true) }
+            val activities = async { refreshActivitiesIfLoaded(client) }
+            group.await()
+            balances.await()
+            activities.await()
         }
     }
 

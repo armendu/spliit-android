@@ -2,11 +2,11 @@ package app.spliit.android.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -149,7 +149,7 @@ fun SpliitNavHost(
             val savedStateHandle = backStackEntry.savedStateHandle
             val expensesChanged by savedStateHandle
                 .getStateFlow(Routes.RESULT_EXPENSES_CHANGED, false)
-                .collectAsState()
+                .collectAsStateWithLifecycle()
             LaunchedEffect(expensesChanged) {
                 if (!expensesChanged) return@LaunchedEffect
                 savedStateHandle[Routes.RESULT_EXPENSES_CHANGED] = false
@@ -157,7 +157,7 @@ fun SpliitNavHost(
             }
             val groupChanged by savedStateHandle
                 .getStateFlow(Routes.RESULT_GROUP_CHANGED, false)
-                .collectAsState()
+                .collectAsStateWithLifecycle()
             LaunchedEffect(groupChanged) {
                 if (!groupChanged) return@LaunchedEffect
                 savedStateHandle[Routes.RESULT_GROUP_CHANGED] = false

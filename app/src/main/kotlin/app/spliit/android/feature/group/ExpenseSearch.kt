@@ -30,7 +30,8 @@ internal class ExpenseSearch(
         }
     }
 
-    fun onQueryChanged(text: String) {
+    fun onQueryChanged(typed: String) {
+        val text = typed.take(MAX_QUERY_LENGTH)
         state.update { it.copy(search = it.search.copy(isActive = true, query = text)) }
         cancel()
         val trimmed = text.trim()
@@ -81,5 +82,8 @@ internal class ExpenseSearch(
 
     private companion object {
         const val DEBOUNCE_MILLIS = 250L
+
+        // The server refuses a longer filter.
+        const val MAX_QUERY_LENGTH = 200
     }
 }

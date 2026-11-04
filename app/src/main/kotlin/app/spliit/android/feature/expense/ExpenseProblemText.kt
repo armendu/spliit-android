@@ -4,9 +4,14 @@ import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.MoneyFormatter
 import app.spliit.core.SplitMode
 import java.math.BigDecimal
+import java.time.format.DateTimeFormatter
 
 internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String = when (this) {
     ExpenseFormDraft.Problem.TitleTooShort -> "Give the expense a name of at least two letters."
+    ExpenseFormDraft.Problem.TitleTooLong ->
+        "Keep the name to ${ExpenseFormDraft.MAX_TITLE_LENGTH} characters."
+    ExpenseFormDraft.Problem.NotesTooLong ->
+        "Keep the notes to ${ExpenseFormDraft.MAX_NOTES_LENGTH} characters."
     ExpenseFormDraft.Problem.AmountMissing -> "How much was it?"
     ExpenseFormDraft.Problem.AmountNotANumber -> "That isn't a number."
     ExpenseFormDraft.Problem.AmountZero -> "An expense has to be for more than nothing."
@@ -78,3 +83,14 @@ internal fun SplitMode.unitLabel(currencySymbol: String): String = when (this) {
 
 private fun percentText(hundredths: Long): String =
     BigDecimal.valueOf(hundredths, 2).stripTrailingZeros().toPlainString()
+
+internal fun rateStatus(lookup: RateLookup, rateIsCustom: Boolean, dates: DateTimeFormatter): String? = when {
+    rateIsCustom -> null
+    lookup is RateLookup.Loading -> "Getting the rate from Frankfurter…"
+    lookup is RateLookup.Found && lookup.date == lookup.requestedDate ->
+        "Frankfurter's rate for ${dates.format(lookup.date)}."
+    lookup is RateLookup.Found -> "Frankfurter's closest rate, from ${dates.format(lookup.date)}."
+    lookup is RateLookup.Unavailable -> "Frankfurter has no rate for this currency on that day. Enter one."
+    lookup is RateLookup.Failed -> "Couldn't get a rate from Frankfurter. Enter one, or try again."
+    else -> null
+}

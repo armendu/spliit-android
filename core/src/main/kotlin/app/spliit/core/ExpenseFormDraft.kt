@@ -183,6 +183,9 @@ public data class ExpenseFormDraft(
         }
     }
 
+    public fun withRate(rate: BigDecimal): ExpenseFormDraft =
+        copy(conversionRateText = rateText(rate, locale))
+
     private fun seededShares(mode: SplitMode): List<ParticipantShareDraft> {
         val seeds: Map<String, String> = when (mode) {
             SplitMode.EVENLY -> return participants
@@ -214,6 +217,7 @@ public data class ExpenseFormDraft(
         CONVERSION_RATE,
         PAID_BY,
         PAID_FOR,
+        NOTES,
     }
 
     public sealed interface Problem {
@@ -223,6 +227,14 @@ public data class ExpenseFormDraft(
 
         public data object TitleTooShort : Problem {
             override val field: Field get() = Field.TITLE
+        }
+
+        public data object TitleTooLong : Problem {
+            override val field: Field get() = Field.TITLE
+        }
+
+        public data object NotesTooLong : Problem {
+            override val field: Field get() = Field.NOTES
         }
 
         public data object AmountMissing : Problem {
@@ -306,7 +318,10 @@ public data class ExpenseFormDraft(
         get() {
             val problems = mutableListOf<Problem>()
 
-            if (title.trim().length < MIN_TITLE_LENGTH) problems += Problem.TitleTooShort
+            val titleLength = title.trim().length
+            if (titleLength < MIN_TITLE_LENGTH) problems += Problem.TitleTooShort
+            if (titleLength > MAX_TITLE_LENGTH) problems += Problem.TitleTooLong
+            if (notes.trim().length > MAX_NOTES_LENGTH) problems += Problem.NotesTooLong
 
             if (conversionRequired) {
                 // Checked even though derived: a small rate can round a real payment to zero.
@@ -454,6 +469,10 @@ public data class ExpenseFormDraft(
         public const val MAX_AMOUNT_MINOR_UNITS: Long = 10_000_000_00L
 
         private const val MIN_TITLE_LENGTH = 2
+
+        // The server's expenseFormSchema limits, measured on trimmed text.
+        public const val MAX_TITLE_LENGTH: Int = 200
+        public const val MAX_NOTES_LENGTH: Int = 5000
 
         private const val PAYMENT_CATEGORY_ID = 1
 
