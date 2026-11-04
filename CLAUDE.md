@@ -103,7 +103,8 @@ written against is how the money bugs below get harder to see. `:app` is where t
 
 ## The build
 
-Versions live in `gradle/libs.versions.toml` and nowhere else.
+Versions live in `gradle/libs.versions.toml` and nowhere else, with one exception: the foojay
+resolver in `settings.gradle.kts`, whose `plugins {}` block runs before the catalogue exists.
 
 | | Version | Why it is pinned there |
 |---|---|---|
@@ -217,12 +218,20 @@ same. Our DTOs type both as `String?` with `explicitNulls = false`, so a Kotlin 
 *omitted* rather than sent, which is why the client never trips this, and why nobody should
 "fix" those fields into something that encodes a literal null.
 
+**An expense date is a calendar day, not an instant.** The server stores it as `@db.Date` and
+sends UTC midnight. Read it in the device zone and every expense shows a day early west of UTC,
+under the wrong heading; default a new one to `Instant.now()` and after 8pm in New York it is
+saved as tomorrow. Read and write it in UTC; only "today" comes from the device zone.
+
 **Omitted is not cleared.** A field absent from the request is `undefined` to tRPC, and Prisma
 skips the column, so clearing something means sending an empty value, not leaving it out, and
 not always null. What counts as empty is per field: `""` for a dropped currency code; an
 explicit `null` for `originalCurrency`, the only conversion field whose zod schema accepts one;
 `originalAmount` and `conversionRate` take a number, a numeric string or `''` and answer 400 to
 null. So: `encodeDefaults = false`, plus explicit nulls exactly where the schema wants them.
+Those last two cannot be cleared at all: `''` is turned into `undefined` before Prisma sees it,
+measured on a live instance. A removed conversion keeps its old amount and rate, which is why
+everything that reads an expense treats a null `originalCurrency` as "not converted" and ignores them.
 
 **`totalParticipantShare` is the one amount in the API that is not an integer.** Instances older
 than the web app's *Shares* change sum floating-point thirds and round to two decimals, sending
@@ -346,10 +355,12 @@ the work and a thin launcher calling it: `refreshInPlace`, `loadNextExpensesPage
 `.github/workflows/ci.yml` runs `make test`, `make build` and `make lint` on every push and
 pull request, on JDK 21, with no device involved.
 
-The nightly `upstream-drift` job is not redundant with it. CI pins the server image so builds
-are reproducible, which is precisely why it could not have caught the `groups.stats` rename -
-only a job pointed at the live server can. It is allowed to fail: spliit.app being briefly down
-is not a defect here, and a job that cries wolf gets muted.
+The nightly `upstream-drift` job is not redundant with it. CI runs against recorded fixtures and
+`e2e/compose.yaml` pins the server image by digest, so builds are reproducible, which is
+precisely why neither could have caught the `groups.stats` rename - only a job pointed at the
+live server can. It is not a required check, so a red run never blocks a merge, but it does go
+red: `continue-on-error` would have swallowed the failure notification along with the mark.
+Moving the pinned digest forward is a deliberate change, made alongside `make fixtures`.
 
 ## Style
 
