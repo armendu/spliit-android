@@ -109,8 +109,8 @@ jobs:
 
   # Why this job exists, and why it is separate.
   #
-  # The `build` job runs against a pinned server image, which is what makes it reproducible -
-  # and is exactly why it cannot catch the failure this project has already been bitten by
+  # The `build` job runs against no server at all, only recorded fixtures, which is what makes it
+  # reproducible - and is exactly why it cannot catch the failure this project has already been bitten by
   # once: upstream renaming a tRPC procedure. `groups.stats.get` became `groups.stats.overview`,
   # every pinned test stayed green, and the app shipped a polite, wrong "this server has no
   # totals" to everyone on spliit.app.
@@ -125,9 +125,9 @@ jobs:
   upstream-drift:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    # A red mark here is a signal to go and look, not a broken build. spliit.app being briefly
-    # down is not a defect in this repo, and a job that cries wolf gets muted.
-    continue-on-error: true
+    # A red mark here is a signal to go and look, not a broken build: it is not a required check,
+    # so it never blocks a merge. It is allowed to fail visibly, though, because continue-on-error
+    # would also swallow the notification, and a drift nobody hears about is the one that ships.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

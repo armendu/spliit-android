@@ -61,8 +61,8 @@ help: ## List these targets
 test: ## Fast unit tests, every JVM suite, no emulator
 	@$(GRADLE) :api:test :core:test :app:testDebugUnitTest
 
-build: ## Assemble the debug APK
-	@$(GRADLE) :app:assembleDebug
+build: ## Assemble the debug APK, and compile the instrumented tests so they can't rot unseen
+	@$(GRADLE) :app:assembleDebug :app:assembleDebugAndroidTest
 
 # The downloadable one. Signed with a real key when the four SPLIIT_KEYSTORE_* variables are in
 # the environment and with the debug key otherwise, app/build.gradle.kts explains the trade. It
