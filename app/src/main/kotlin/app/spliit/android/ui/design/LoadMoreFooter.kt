@@ -14,7 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
-// Keyed on the cursor: a footer still on screen after a page lands has to ask again, not sit there.
+// Asks again whenever a load ends with the footer still on screen: a page can land, or be dropped because the
+// list moved under it, and either way nothing else would ask.
 @Composable
 fun LoadMoreFooter(
     cursor: Int,
@@ -23,7 +24,7 @@ fun LoadMoreFooter(
     onLoadMore: () -> Unit,
     testTag: String,
 ) {
-    if (!failed) LaunchedEffect(cursor) { onLoadMore() }
+    if (!failed && !isLoading) LaunchedEffect(cursor) { onLoadMore() }
     Box(
         modifier = Modifier.fillMaxWidth().padding(24.dp).testTag(testTag),
         contentAlignment = Alignment.Center,

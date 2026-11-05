@@ -125,16 +125,16 @@ class ExpenseSearchTest {
     }
 
     @Test
-    fun `a server too old for the filter still only shows matches`() = runBlocking {
+    fun `a match the server found in the notes is shown, though the title doesn't say so`() = runBlocking {
         val state = MutableStateFlow(GroupDetailUiState())
         val search = searcher(state)
-        val unfiltered = expensesJson("e1", "e2").replace("\"Taxi e2\"", "\"Groceries\"")
-        server.enqueue(MockResponse.Builder().code(200).body(okBody(unfiltered)).build())
+        val byNotes = expensesJson("e1", "e2").replace("\"Taxi e2\"", "\"Groceries\"")
+        server.enqueue(MockResponse.Builder().code(200).body(okBody(byNotes)).build())
         state.value = state.value.copy(search = SearchUiState(isActive = true, query = "taxi"))
 
         search.run("taxi")
 
-        assertEquals(listOf("e1"), (state.value.search.results as LoadState.Loaded).value.expenses.map { it.id })
+        assertEquals(listOf("e1", "e2"), (state.value.search.results as LoadState.Loaded).value.expenses.map { it.id })
     }
 
     @Test

@@ -257,6 +257,16 @@ class GroupFormViewModelTest {
     }
 
     @Test
+    fun `a typed server address is something to discard too`() {
+        val viewModel = createViewModel()
+        assertFalse(viewModel.state.value.isDirty)
+
+        viewModel.setInstanceAddressText("spliit.example.org")
+
+        assertTrue(viewModel.state.value.isDirty)
+    }
+
+    @Test
     fun `removing a participant with no expenses is not refused`() {
         val store = FakeRecentGroupsStore()
         val viewModel = GroupFormViewModel(

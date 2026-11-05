@@ -63,8 +63,9 @@ class GroupDetailViewModel(
         load()
     }
 
+    // A load already running is the retry; cancelling it for one the limiter may refuse would leave the skeleton up.
     fun retry() {
-        loadJob?.cancel()
+        if (loadJob?.isActive == true) return
         loadJob = viewModelScope.launch { retryNow() }
     }
 
@@ -196,9 +197,10 @@ class GroupDetailViewModel(
         viewModelScope.launch { loadNextExpensesPage() }
     }
 
-    suspend fun loadNextExpensesPage(): Unit = loadNextPage(
+    suspend fun loadNextExpensesPage(): Unit = fetchNextPage(
         current = (_state.value.expenses as? LoadState.Loaded)?.value,
         isLoading = _state.value.isLoadingMoreExpenses,
+        client = { resolvedInstanceBaseUrl?.let(clientFactory) },
         setLoading = { loading ->
             _state.update { it.copy(isLoadingMoreExpenses = loading, loadMoreExpensesFailed = false) }
         },
@@ -216,33 +218,6 @@ class GroupDetailViewModel(
             }
         },
     )
-
-    // publish merges into the state as it is when the page lands, and drops the page if the list moved
-    // (a delete, a reload) while it was in flight: its offset no longer lines up with what's shown.
-    private suspend fun <T> loadNextPage(
-        current: CursorPage<T>?,
-        isLoading: Boolean,
-        setLoading: (Boolean) -> Unit,
-        setFailed: () -> Unit,
-        fetch: suspend (TrpcClient, Int) -> CursorPage<T>,
-        publish: (fetched: CursorPage<T>, from: Int) -> Unit,
-    ) {
-        if (current == null || !current.hasMore || isLoading) return
-        val baseUrl = resolvedInstanceBaseUrl ?: return
-
-        setLoading(true)
-        var failed = false
-        try {
-            publish(fetch(clientFactory(baseUrl), current.nextCursor), current.nextCursor)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: TrpcException) {
-            failed = true
-        } finally {
-            setLoading(false)
-        }
-        if (failed) setFailed()
-    }
 
     private suspend fun loadBalances(client: TrpcClient, keepOnFailure: Boolean = false) {
         try {
@@ -494,9 +469,10 @@ class GroupDetailViewModel(
         viewModelScope.launch { loadNextActivitiesPage() }
     }
 
-    suspend fun loadNextActivitiesPage(): Unit = loadNextPage(
+    suspend fun loadNextActivitiesPage(): Unit = fetchNextPage(
         current = (_state.value.activities as? LoadState.Loaded)?.value,
         isLoading = _state.value.isLoadingMoreActivities,
+        client = { resolvedInstanceBaseUrl?.let(clientFactory) },
         setLoading = { loading ->
             _state.update { it.copy(isLoadingMoreActivities = loading, loadMoreActivitiesFailed = false) }
         },

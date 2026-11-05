@@ -1,6 +1,5 @@
 package app.spliit.android.feature.group
 
-import app.spliit.api.ExpenseListItem
 import app.spliit.api.SpliitEndpoints
 import app.spliit.api.TrpcClient
 import app.spliit.api.TrpcException
@@ -21,6 +20,7 @@ internal class ExpenseSearch(
     private val client: () -> TrpcClient?,
 ) {
     private var job: Job? = null
+    private var moreJob: Job? = null
 
     fun setActive(active: Boolean) {
         if (active) {
@@ -61,32 +61,36 @@ internal class ExpenseSearch(
     }
 
     fun loadMore() {
-        scope.launch { loadNextPage() }
+        moreJob = scope.launch { loadNextPage() }
     }
 
     suspend fun loadNextPage() {
         val search = state.value.search
-        val shown = (search.results as? LoadState.Loaded)?.value ?: return
-        if (!shown.hasMore || search.isLoadingMore) return
-        val client = client() ?: return
         val query = search.query.trim()
-        val from = shown.nextCursor
-        state.update { it.copy(search = it.search.copy(isLoadingMore = true, loadMoreFailed = false)) }
-        try {
-            val page = page(client, query, from)
-            state.update { current ->
-                val latest = (current.search.results as? LoadState.Loaded)?.value
-                if (isStale(query) || latest == null || latest.nextCursor != from) return@update current
-                val merged = ExpensesPage(appendingNew(latest.expenses, page.expenses) { it.id }, page.hasMore, page.nextCursor)
-                current.copy(search = current.search.copy(results = LoadState.Loaded(merged)))
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: TrpcException) {
-            if (!isStale(query)) state.update { it.copy(search = it.search.copy(loadMoreFailed = true)) }
-        } finally {
-            state.update { it.copy(search = it.search.copy(isLoadingMore = false)) }
-        }
+        fetchNextPage(
+            current = (search.results as? LoadState.Loaded)?.value,
+            isLoading = search.isLoadingMore,
+            client = client,
+            setLoading = { loading ->
+                state.update { it.copy(search = it.search.copy(isLoadingMore = loading, loadMoreFailed = false)) }
+            },
+            setFailed = {
+                if (!isStale(query)) state.update { it.copy(search = it.search.copy(loadMoreFailed = true)) }
+            },
+            fetch = { client, cursor -> page(client, query, cursor) },
+            publish = { fetched, from ->
+                state.update { current ->
+                    val latest = (current.search.results as? LoadState.Loaded)?.value
+                    if (isStale(query) || latest == null || latest.nextCursor != from) return@update current
+                    val merged = ExpensesPage(
+                        appendingNew(latest.expenses, fetched.items) { it.id },
+                        fetched.hasMore,
+                        fetched.nextCursor,
+                    )
+                    current.copy(search = current.search.copy(results = LoadState.Loaded(merged)))
+                }
+            },
+        )
     }
 
     private suspend fun fetch(client: TrpcClient, query: String, onFailure: (String?) -> Unit) {
@@ -105,17 +109,17 @@ internal class ExpenseSearch(
 
     private suspend fun page(client: TrpcClient, query: String, cursor: Int): ExpensesPage {
         val response = client.call(SpliitEndpoints.expensesList(groupId, cursor, pageSize, filter = query))
-        return ExpensesPage(response.expenses.filter { it.matches(query) }, response.hasMore, response.nextCursor)
+        // Not narrowed again here: newer servers also match the notes, which the list doesn't carry.
+        return ExpensesPage(response.expenses, response.hasMore, response.nextCursor)
     }
-
-    // A server older than the filter ignores it and sends every expense; zod drops keys it doesn't know.
-    private fun ExpenseListItem.matches(query: String): Boolean = title.contains(query, ignoreCase = true)
 
     private fun isStale(query: String): Boolean = state.value.search.query.trim() != query
 
     private fun cancel() {
         job?.cancel()
         job = null
+        moreJob?.cancel()
+        moreJob = null
     }
 
     private companion object {

@@ -131,11 +131,6 @@ fun ExpensesPage.withRow(row: ExpenseListItem): ExpensesPage {
     }
 }
 
-fun <T> appendingNew(shown: List<T>, more: List<T>, idOf: (T) -> String): List<T> {
-    val known = shown.mapTo(HashSet(), idOf)
-    return shown + more.filterNot { idOf(it) in known }
-}
-
 fun GroupDetailUiState.yourBalanceMinorUnits(): Long? {
     val id = activeParticipantId ?: return null
     val loaded = balances as? LoadState.Loaded ?: return null

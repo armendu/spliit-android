@@ -26,6 +26,7 @@ data class GroupFormUiState(
     val draft: GroupFormDraft = GroupFormDraft.creating(),
     val initialDraft: GroupFormDraft = draft,
     val instanceAddressText: String = DEFAULT_INSTANCE_BASE_URL,
+    val initialInstanceAddressText: String = instanceAddressText,
     val resolvedInstanceBaseUrl: String? = DEFAULT_INSTANCE_BASE_URL,
     val isLoading: Boolean = false,
     val isLoaded: Boolean = false,
@@ -41,7 +42,8 @@ data class GroupFormUiState(
     // An edit that never loaded holds a blank draft; saving it would overwrite the real group.
     val canSave: Boolean get() = !isSaving && !isLoading && (mode == GroupFormMode.CREATE || isLoaded)
 
-    val isDirty: Boolean get() = savedGroupId == null && draft != initialDraft
+    val isDirty: Boolean
+        get() = savedGroupId == null && (draft != initialDraft || instanceAddressText != initialInstanceAddressText)
 }
 
 class GroupFormViewModel(

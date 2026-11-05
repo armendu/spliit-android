@@ -60,7 +60,7 @@ internal fun SearchResults(
             EmptyState(
                 icon = "∅",
                 title = "No matches",
-                description = "Nothing in this group has \"${search.query.trim()}\" in its title.",
+                description = "No expense in this group matches \"${search.query.trim()}\".",
             )
         }
 
