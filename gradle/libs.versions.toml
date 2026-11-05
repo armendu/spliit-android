@@ -5,7 +5,7 @@
 # is what makes "what are we on?" a question with one answer, and an upgrade a one-line diff.
 
 [versions]
-# Toolchain. See CLAUDE.md for what constrains what: AGP 9.4 wants Gradle >= 9.6 and JDK >= 17,
+# Toolchain. See CLAUDE.md for what constrains what: AGP 9.5 wants Gradle >= 9.6 and JDK >= 17,
 # and caps compileSdk at API 37.
 agp = "9.5.0"
 kotlin = "2.4.21"
