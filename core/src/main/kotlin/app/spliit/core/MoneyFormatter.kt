@@ -28,7 +28,7 @@ public class MoneyFormatter(
 
     // Nothing to draw with: the reader's own currency would be a plausible-looking wrong answer.
     private val hasNoSymbol: Boolean =
-        currencySymbol.isBlank() && isoCurrency(currencyCode) == null && currencyCode.isNullOrBlank()
+        currencySymbol.isBlank() && currencyCode.isNullOrBlank()
 
     public fun formatPlain(minorUnits: Long): String =
         synchronized(plainFormat) { plainFormat.format(asDecimal(minorUnits)) }
@@ -112,8 +112,11 @@ public class MoneyFormatter(
             for (character in text) {
                 val digit = Character.digit(character, 10)
                 val isSeparator = character in decimals || character in groupings || character == '.' || character == ','
-                // A currency code may lead or trail ("KWD 1.000", "12 kr"); a letter inside the number ("1e5") may not.
-                if (trailingText && (digit >= 0 || isSeparator)) return null
+                // A currency may lead or trail ("KWD 1.000", "12,50 kr."); a letter inside the number ("1e5") may not.
+                if (trailingText) {
+                    if (digit >= 0) return null
+                    continue
+                }
                 when {
                     digit >= 0 -> digits.append('0' + digit)
                     isSeparator -> separators += Separator(digits.length, character)
@@ -157,12 +160,12 @@ public class MoneyFormatter(
             }
         }
 
-        // Every group after the first is exactly three digits, ending where the integer part does.
+        // Groups of three ending where the integer part does, or India's lakh grouping (1,23,45,678): pairs, then three.
         private fun isGrouping(separators: List<Separator>, integerEnd: Int): Boolean {
             if (separators.isEmpty()) return true
             if (separators.first().at !in 1..3) return false
-            val bounds = separators.map { it.at } + integerEnd
-            return bounds.zipWithNext().all { (from, to) -> to - from == 3 }
+            val sizes = (separators.map { it.at } + integerEnd).zipWithNext { from, to -> to - from }
+            return sizes.last() == 3 && (sizes.all { it == 3 } || sizes.dropLast(1).all { it == 2 })
         }
 
         private class Separator(val at: Int, val character: Char)

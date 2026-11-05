@@ -237,6 +237,15 @@ class MoneyFormatterTest {
         assertNull(MoneyFormatter.parseMinorUnits("12,34,56", AMERICAN))
         assertNull(MoneyFormatter.parseMinorUnits("1,23.45", AMERICAN))
         assertNull(MoneyFormatter.parseMinorUnits("1.234,56,7", AMERICAN))
+        assertNull(MoneyFormatter.parseMinorUnits("1,234,56,789", AMERICAN))
+    }
+
+    @Test
+    fun `India's lakh grouping is grouping`() {
+        val indian = Locale.Builder().setLanguage("en").setRegion("IN").build()
+        assertEquals(1_23_456_78L, MoneyFormatter.parseMinorUnits("1,23,456.78", indian))
+        assertEquals(1_23_45_678_00L, MoneyFormatter.parseMinorUnits("1,23,45,678", indian))
+        assertEquals(1_23_456_78L, MoneyFormatter.parseMinorUnits("1,23,456.78", GERMAN))
     }
 
     @Test
@@ -253,6 +262,8 @@ class MoneyFormatterTest {
         assertEquals(1250L, MoneyFormatter.parseMinorUnits("12.50 kr", AMERICAN))
         assertEquals(1250L, MoneyFormatter.parseMinorUnits("CHF 12.50", AMERICAN))
         assertEquals(-1250L, MoneyFormatter.parseMinorUnits("-USD 12.50", AMERICAN))
+        assertEquals(1250L, MoneyFormatter.parseMinorUnits("12,50 kr.", GERMAN))
+        assertEquals(1250L, MoneyFormatter.parseMinorUnits("12.50 Fr.", AMERICAN))
     }
 
     @Test
