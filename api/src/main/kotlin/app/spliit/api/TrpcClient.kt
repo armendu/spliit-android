@@ -8,6 +8,7 @@ import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -122,9 +123,27 @@ internal val SHARED_HTTP_CLIENT: OkHttpClient = OkHttpClient.Builder()
     // A cached GET would quietly serve stale balances.
     .cache(null)
     // Redirects are followed (OkHttp default): a 301/302 turns a POST into a GET. Pinned by TrpcClientTest.
-    // Not from https to http, though: that would send the group's data in the clear without saying so.
-    .followSslRedirects(false)
+    .addNetworkInterceptor(RefuseHttpsDowngrade)
     .build()
+
+// followSslRedirects(false) would also refuse an http-to-https upgrade, and fail either way with an
+// unexplained 3xx. Only the downgrade matters: it would send the group's data in the clear without saying so.
+internal object RefuseHttpsDowngrade : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val response = chain.proceed(chain.request())
+        if (downgradeTarget(response) != null) {
+            response.close()
+            throw IOException("${chain.request().url.host} redirected to an http address, which this app won't follow")
+        }
+        return response
+    }
+
+    fun downgradeTarget(response: Response): HttpUrl? {
+        val from = response.request.url
+        if (!response.isRedirect || !from.isHttps) return null
+        return response.header("Location")?.let(from::resolve)?.takeIf { !it.isHttps }
+    }
+}
 
 internal suspend fun OkHttpClient.await(request: Request): Response = suspendCancellableCoroutine { continuation ->
     val call = newCall(request)

@@ -322,8 +322,25 @@ class TrpcClientTest {
     }
 
     @Test
-    fun `a redirect from https to http is not followed`() {
-        assertFalse(SHARED_HTTP_CLIENT.followSslRedirects)
+    fun `a redirect from https to http is refused, and from http to https followed`() {
+        fun redirect(from: String, location: String) = okhttp3.Response.Builder()
+            .request(okhttp3.Request.Builder().url(from).build())
+            .protocol(okhttp3.Protocol.HTTP_1_1)
+            .code(301)
+            .message("Moved")
+            .header("Location", location)
+            .build()
+
+        assertTrue(SHARED_HTTP_CLIENT.followSslRedirects)
+        assertTrue(RefuseHttpsDowngrade in SHARED_HTTP_CLIENT.networkInterceptors)
+        assertEquals(
+            "http://spliit.example/api/trpc/groups.get",
+            RefuseHttpsDowngrade.downgradeTarget(
+                redirect("https://spliit.example/api/trpc/groups.get", "http://spliit.example/api/trpc/groups.get"),
+            )?.toString(),
+        )
+        assertNull(RefuseHttpsDowngrade.downgradeTarget(redirect("http://spliit.example/", "https://spliit.example/")))
+        assertNull(RefuseHttpsDowngrade.downgradeTarget(redirect("https://spliit.example/a", "/b")))
     }
 
     @Test
