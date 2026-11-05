@@ -22,7 +22,9 @@ services:
       retries: 30
 
   app:
-    image: ghcr.io/spliit-app/spliit:latest
+    # Pinned by digest, like minio below, so `make fixtures` and `make test-live` record against the
+    # same server every time. Following upstream is the nightly drift job's work, not this file's.
+    image: ghcr.io/spliit-app/spliit@sha256:cfaf0f84ef4f11cd3e4c46329039a0f1f51a7d7bf8cc218bf7c1b366e58a99f1
     ports:
       - '3009:3000'
     environment:

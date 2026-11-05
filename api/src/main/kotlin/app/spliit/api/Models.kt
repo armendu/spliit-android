@@ -244,18 +244,19 @@ public data class ExpenseDetails(
 }
 
 // Only total is meaningful: paid and paidFor come from suggested payments, not expenses.
+// Long, like every sum the server sends: a group's balance can outgrow an Int.
 @Serializable
 public data class Balance(
-    public val paid: Int,
-    public val paidFor: Int,
-    public val total: Int,
+    public val paid: Long,
+    public val paidFor: Long,
+    public val total: Long,
 )
 
 @Serializable
 public data class Reimbursement(
     public val from: String,
     public val to: String,
-    public val amount: Int,
+    public val amount: Long,
 )
 
 @Serializable(with = ActivityTypeSerializer::class)

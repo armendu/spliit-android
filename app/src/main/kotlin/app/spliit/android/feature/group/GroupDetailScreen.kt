@@ -87,7 +87,7 @@ fun GroupDetailScreen(
     var showActiveUserPicker by rememberSaveable { mutableStateOf(false) }
     var showActivityLog by rememberSaveable { mutableStateOf(false) }
     var showOverflow by remember { mutableStateOf(false) }
-    var editingExpenseId by remember { mutableStateOf<String?>(null) }
+    var editingExpenseId by rememberSaveable { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -180,6 +180,7 @@ fun GroupDetailScreen(
                     SearchResults(
                         search = state.search,
                         formatter = formatter,
+                        onLoadMore = viewModel::loadMoreSearchResults,
                         onExpenseClick = { editingExpenseId = it },
                     )
                 } else {
@@ -194,6 +195,7 @@ fun GroupDetailScreen(
                                 groupState = state.group,
                                 expensesState = state.expenses,
                                 isLoadingMore = state.isLoadingMoreExpenses,
+                                loadMoreFailed = state.loadMoreExpensesFailed,
                                 formatter = formatter,
                                 onRetry = viewModel::retry,
                                 onLoadMore = viewModel::loadMoreExpenses,

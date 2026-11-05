@@ -30,7 +30,9 @@ public data class DefaultSplit(
                 id = participant.id,
                 name = participant.name,
                 isIncluded = shares == null || share != null,
-                valueText = share?.let { ExpenseFormDraft.hundredthsText(it, locale) } ?: "1",
+                // A remembered by-amount split keeps no figures, and "1" in a money field reads as 1.00.
+                valueText = share?.let { ExpenseFormDraft.hundredthsText(it, locale) }
+                    ?: if (splitMode == SplitMode.BY_AMOUNT) "" else "1",
             )
         }
 

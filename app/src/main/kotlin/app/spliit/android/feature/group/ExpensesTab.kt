@@ -1,5 +1,6 @@
 package app.spliit.android.feature.group
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,14 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,30 +29,32 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import app.spliit.android.ui.design.SkeletonBlock
 import app.spliit.android.R
 import app.spliit.android.ui.TestTags
-import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.android.ui.design.CategoryIcon
+import app.spliit.android.ui.design.CenteredScroll
 import app.spliit.android.ui.design.DateHeader
 import app.spliit.android.ui.design.EmptyState
+import app.spliit.android.ui.design.LoadFailure
+import app.spliit.android.ui.design.LoadMoreFooter
 import app.spliit.android.ui.design.Money
 import app.spliit.android.ui.design.MoneySign
 import app.spliit.android.ui.design.MoneySize
+import app.spliit.android.ui.design.SkeletonBlock
+import app.spliit.android.ui.design.fabAndNavigationBarPadding
 import app.spliit.api.ExpenseListItem
 import app.spliit.core.LoadState
 import app.spliit.core.MoneyFormatter
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import app.spliit.android.ui.design.CenteredScroll
-import app.spliit.android.ui.design.LoadFailure
 
 @Composable
 internal fun ExpensesTab(
     groupState: LoadState<GroupInfo>,
     expensesState: LoadState<ExpensesPage>,
     isLoadingMore: Boolean,
+    loadMoreFailed: Boolean,
     formatter: MoneyFormatter,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -91,8 +91,9 @@ internal fun ExpensesTab(
                 val sections = remember(page.expenses) { bucketExpenses(page.expenses) }
                 ExpensesList(
                     sections = sections,
-                    hasMore = page.hasMore,
+                    page = page,
                     isLoadingMore = isLoadingMore,
+                    loadMoreFailed = loadMoreFailed,
                     formatter = formatter,
                     onLoadMore = onLoadMore,
                     onExpenseClick = onExpenseClick,
@@ -105,8 +106,9 @@ internal fun ExpensesTab(
 @Composable
 private fun ExpensesList(
     sections: List<ExpenseSection>,
-    hasMore: Boolean,
+    page: ExpensesPage,
     isLoadingMore: Boolean,
+    loadMoreFailed: Boolean,
     formatter: MoneyFormatter,
     onLoadMore: () -> Unit,
     onExpenseClick: (String) -> Unit,
@@ -132,18 +134,15 @@ private fun ExpensesList(
                 )
             }
         }
-        if (hasMore) {
+        if (page.hasMore) {
             item(key = "load_more") {
-                LaunchedEffect(Unit) { onLoadMore() }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp)
-                        .testTag(TestTags.GROUP_DETAIL_LOAD_MORE),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (isLoadingMore) CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
+                LoadMoreFooter(
+                    cursor = page.nextCursor,
+                    isLoading = isLoadingMore,
+                    failed = loadMoreFailed,
+                    onLoadMore = onLoadMore,
+                    testTag = TestTags.GROUP_DETAIL_LOAD_MORE,
+                )
             }
         }
     }
@@ -244,7 +243,7 @@ internal fun accessibleSplitDescription(expense: ExpenseListItem): String {
 private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
 
 private fun captionText(expense: ExpenseListItem): String {
-    val date = expense.expenseDate.atZone(ZoneId.systemDefault()).toLocalDate().format(dateFormatter)
+    val date = expense.expenseDate.atZone(ZoneOffset.UTC).toLocalDate().format(dateFormatter)
     return if (expense.documentCount > 0) "$date · ${expense.documentCount} attached" else date
 }
 

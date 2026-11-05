@@ -48,7 +48,10 @@ object TestTags {
     const val GROUP_FORM_ADD_PARTICIPANT_BUTTON = "group_form_add_participant_button"
     const val GROUP_FORM_PARTICIPANTS_ERROR = "group_form_participants_error"
     const val GROUP_FORM_SAVE_BUTTON = "group_form_save_button"
+    const val GROUP_FORM_RETRY_BUTTON = "group_form_retry_button"
     const val GROUP_FORM_CANCEL_BUTTON = "group_form_cancel_button"
+    const val GROUP_FORM_DISCARD_DIALOG = "group_form_discard_dialog"
+    const val GROUP_FORM_DISCARD_CONFIRM = "group_form_discard_confirm"
 
     fun groupFormParticipantField(index: Int) = "group_form_participant_field_$index"
     fun groupFormParticipantError(index: Int) = "group_form_participant_error_$index"
@@ -69,6 +72,7 @@ object TestTags {
     const val GROUP_DETAIL_SEARCH_CLOSE = "group_detail_search_close"
     const val SEARCH_RESULTS = "search_results"
     const val SEARCH_LOADING = "search_loading"
+    const val SEARCH_LOAD_MORE = "search_load_more"
 
     const val GROUP_DETAIL_MENU_BUTTON = "group_detail_menu_button"
     const val GROUP_DETAIL_MENU_EDIT_GROUP = "group_detail_menu_edit_group"

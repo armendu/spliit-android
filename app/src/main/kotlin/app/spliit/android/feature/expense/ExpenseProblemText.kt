@@ -15,13 +15,13 @@ internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String
     ExpenseFormDraft.Problem.AmountMissing -> "How much was it?"
     ExpenseFormDraft.Problem.AmountNotANumber -> "That isn't a number."
     ExpenseFormDraft.Problem.AmountZero -> "An expense has to be for more than nothing."
-    ExpenseFormDraft.Problem.AmountNegative ->
-        "An expense can't be negative. Record money coming back as a reimbursement instead."
+    ExpenseFormDraft.Problem.AmountNegative,
+    ExpenseFormDraft.Problem.OriginalAmountNegative,
+    -> "A negative amount can't be split by amount. Split it evenly, by shares or by percentage."
     ExpenseFormDraft.Problem.AmountTooLarge -> "That's larger than an expense can be."
     ExpenseFormDraft.Problem.OriginalAmountMissing -> "How much was paid?"
     ExpenseFormDraft.Problem.OriginalAmountNotANumber -> "That isn't a number."
     ExpenseFormDraft.Problem.OriginalAmountZero -> "An expense has to be for more than nothing."
-    ExpenseFormDraft.Problem.OriginalAmountNegative -> "What was paid can't be negative."
     ExpenseFormDraft.Problem.OriginalAmountTooLarge -> "That's larger than an expense can be."
     ExpenseFormDraft.Problem.ConversionRateMissing -> "What rate was it converted at?"
     ExpenseFormDraft.Problem.ConversionRateNotANumber -> "That isn't a number."
@@ -30,6 +30,7 @@ internal fun ExpenseFormDraft.Problem.message(formatter: MoneyFormatter): String
     ExpenseFormDraft.Problem.NoParticipantsSelected -> "Pick at least one person this was paid for."
     is ExpenseFormDraft.Problem.ShareNotANumber -> "That isn't a number."
     is ExpenseFormDraft.Problem.ShareNotPositive -> "A share has to be more than zero."
+    is ExpenseFormDraft.Problem.ShareTooLarge -> "That's larger than a share can be."
     is ExpenseFormDraft.Problem.AmountsDoNotSumToTotal -> if (difference > 0) {
         "${formatter.format(difference)} still to allocate."
     } else {

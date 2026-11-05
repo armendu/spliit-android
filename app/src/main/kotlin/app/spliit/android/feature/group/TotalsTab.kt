@@ -272,7 +272,7 @@ private fun CategoryRow(
     groupTotal: Long,
     formatter: MoneyFormatter,
 ) {
-    val slice = groupSlice(category.total.toLong(), groupTotal)
+    val slice = groupSlice(category.total, groupTotal)
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         verticalAlignment = Alignment.Top,
@@ -293,7 +293,7 @@ private fun CategoryRow(
                 )
                 Spacer(Modifier.width(8.dp))
                 Money(
-                    value = formatter.format(category.total.toLong()),
+                    value = formatter.format(category.total),
                     size = MoneySize.ROW,
                     testTag = TestTags.totalsCategoryAmount(category.categoryId),
                 )

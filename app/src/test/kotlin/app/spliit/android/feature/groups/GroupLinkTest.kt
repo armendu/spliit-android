@@ -51,6 +51,13 @@ class GroupLinkTest {
     }
 
     @Test
+    fun `an id carrying characters a route can't hold is rejected`() {
+        assertNull(GroupLink.parse("abc?123"))
+        assertNull(GroupLink.parse("abc#123"))
+        assertNull(GroupLink.parse("abc%2F123"))
+    }
+
+    @Test
     fun `a bare id pasted from an address bar names no instance`() {
         val link = GroupLink.parse("abc123")
 

@@ -28,7 +28,7 @@ private fun submission(
     splitMode = splitMode,
     saveDefaultSplittingOptions = true,
     isReimbursement = false,
-    notes = null,
+    notes = "",
     recurrenceRule = ExpenseFormDraft.NO_RECURRENCE,
     originalCurrency = null,
     originalAmount = null,
@@ -251,6 +251,7 @@ class DefaultSplitTest {
         val seeded = split.apply(members(3))
 
         assertTrue(seeded.all { it.isIncluded })
+        assertTrue(seeded.all { it.valueText.isEmpty() }, "a 1 in a money field would read as 1.00")
         assertEquals(SplitMode.BY_AMOUNT, split.splitMode)
     }
 }

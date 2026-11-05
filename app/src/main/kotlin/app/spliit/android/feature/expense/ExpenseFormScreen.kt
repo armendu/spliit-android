@@ -61,7 +61,6 @@ import app.spliit.core.Currencies
 import app.spliit.core.ExpenseFormDraft
 import app.spliit.core.MoneyFormatter
 import java.time.Instant
-import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -167,6 +166,7 @@ fun ExpenseFormScreen(
 
     if (showDiscardDialog) {
         DiscardChangesDialog(
+            subject = "this expense",
             dialogTestTag = TestTags.EXPENSE_FORM_DISCARD_DIALOG,
             confirmTestTag = TestTags.EXPENSE_FORM_DISCARD_CONFIRM,
             onDismiss = { showDiscardDialog = false },
@@ -362,7 +362,7 @@ private fun DateRow(date: Instant, onClick: () -> Unit) {
     ) {
         Text("Date", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Text(
-            text = date.atZone(ZoneId.systemDefault()).toLocalDate().format(dateFormatter),
+            text = date.atZone(ZoneOffset.UTC).toLocalDate().format(dateFormatter),
             style = MaterialTheme.typography.bodyLarge,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -124,7 +124,11 @@ public data class ExpenseFormDraft(
 
     public val unallocated: Long?
         get() {
-            val allocated = includedParticipants.sumOf { shareValue(it) ?: 0L }
+            val allocated = try {
+                includedParticipants.fold(0L) { sum, it -> Math.addExact(sum, shareValue(it) ?: 0L) }
+            } catch (_: ArithmeticException) {
+                return null
+            }
             return when (splitMode) {
                 SplitMode.BY_AMOUNT -> (amountMinorUnits ?: return null) - allocated
                 SplitMode.BY_PERCENTAGE -> WHOLE - allocated
@@ -158,12 +162,23 @@ public data class ExpenseFormDraft(
     public fun withSplitMode(mode: SplitMode): ExpenseFormDraft =
         copy(splitMode = mode, participants = seededShares(mode))
 
-    public fun withParticipantIncluded(id: String, isIncluded: Boolean): ExpenseFormDraft =
-        copy(
+    // A row ticked into an amount or percentage split starts at whatever is still unallocated.
+    public fun withParticipantIncluded(id: String, isIncluded: Boolean): ExpenseFormDraft {
+        val toggled = copy(
             participants = participants.map {
                 if (it.id == id) it.copy(isIncluded = isIncluded) else it
             },
         )
+        val row = toggled.participants.firstOrNull { it.id == id }
+        if (!isIncluded || row == null || row.valueText.isNotBlank()) return toggled
+        val remaining = toggled.unallocated?.takeIf { it > 0 } ?: return toggled
+        val text = when (splitMode) {
+            SplitMode.BY_AMOUNT -> minorUnitsText(remaining, groupCurrencyCode, locale)
+            SplitMode.BY_PERCENTAGE -> hundredthsText(remaining, locale)
+            SplitMode.EVENLY, SplitMode.BY_SHARES -> return toggled
+        }
+        return toggled.copy(participants = toggled.participants.map { if (it.id == id) it.copy(valueText = text) else it })
+    }
 
     public fun withAllParticipantsIncluded(isIncluded: Boolean): ExpenseFormDraft =
         copy(participants = participants.map { it.copy(isIncluded = isIncluded) })
@@ -305,6 +320,10 @@ public data class ExpenseFormDraft(
             override val field: Field get() = Field.PAID_FOR
         }
 
+        public data class ShareTooLarge(override val participantId: String) : Problem {
+            override val field: Field get() = Field.PAID_FOR
+        }
+
         public data class AmountsDoNotSumToTotal(public val difference: Long) : Problem {
             override val field: Field get() = Field.PAID_FOR
         }
@@ -349,12 +368,13 @@ public data class ExpenseFormDraft(
                     when {
                         value == null -> problems += Problem.ShareNotANumber(participant.id)
                         value <= 0 -> problems += Problem.ShareNotPositive(participant.id)
+                        value > maxShare -> problems += Problem.ShareTooLarge(participant.id)
                     }
                 }
             }
 
             val sharesAreUsable = problems.none {
-                it is Problem.ShareNotANumber || it is Problem.ShareNotPositive
+                it is Problem.ShareNotANumber || it is Problem.ShareNotPositive || it is Problem.ShareTooLarge
             }
             val difference = unallocated
             if (sharesAreUsable && included.isNotEmpty() && difference != null && difference != 0L) {
@@ -378,11 +398,20 @@ public data class ExpenseFormDraft(
     public fun problems(participantId: String): List<Problem> =
         problems.filter { it.participantId == participantId }
 
+    // Past these a share no longer fits the wire's Int, and toWire would throw on save.
+    private val maxShare: Long
+        get() = when (splitMode) {
+            SplitMode.BY_AMOUNT -> MAX_AMOUNT_MINOR_UNITS
+            SplitMode.BY_PERCENTAGE -> WHOLE
+            SplitMode.EVENLY, SplitMode.BY_SHARES -> Int.MAX_VALUE.toLong()
+        }
+
+    // The server takes a negative amount (a refund) except split by amount, where every share must be positive.
     private fun amountProblems(amount: Long): List<Problem> = buildList {
         when {
-            amount < 0L -> add(Problem.AmountNegative)
             amount == 0L -> add(Problem.AmountZero)
-            amount > MAX_AMOUNT_MINOR_UNITS -> add(Problem.AmountTooLarge)
+            amount !in -MAX_AMOUNT_MINOR_UNITS..MAX_AMOUNT_MINOR_UNITS -> add(Problem.AmountTooLarge)
+            amount < 0L && splitMode == SplitMode.BY_AMOUNT -> add(Problem.AmountNegative)
         }
     }
 
@@ -393,9 +422,9 @@ public data class ExpenseFormDraft(
             val paid = originalAmountMinorUnits
             when {
                 paid == null -> add(Problem.OriginalAmountNotANumber)
-                paid < 0L -> add(Problem.OriginalAmountNegative)
                 paid == 0L -> add(Problem.OriginalAmountZero)
-                paid > MAX_AMOUNT_MINOR_UNITS -> add(Problem.OriginalAmountTooLarge)
+                paid !in -MAX_AMOUNT_MINOR_UNITS..MAX_AMOUNT_MINOR_UNITS -> add(Problem.OriginalAmountTooLarge)
+                paid < 0L && splitMode == SplitMode.BY_AMOUNT -> add(Problem.OriginalAmountNegative)
             }
         }
 
@@ -421,8 +450,6 @@ public data class ExpenseFormDraft(
                 shares = shareValue(participant) ?: return null,
             )
         }
-        val trimmedNotes = notes.trim()
-
         return ExpenseSubmission(
             title = title.trim(),
             expenseDate = expenseDate,
@@ -433,7 +460,7 @@ public data class ExpenseFormDraft(
             splitMode = splitMode,
             saveDefaultSplittingOptions = saveSplitAsDefault,
             isReimbursement = isReimbursement,
-            notes = trimmedNotes.ifEmpty { null },
+            notes = notes.trim(),
             recurrenceRule = recurrenceRule,
             // originalCurrency is what marks a conversion; null reaches the wire as an explicit JSON null.
             originalCurrency = if (conversionRequired) isoCode(originalCurrencyCode) else null,
@@ -546,16 +573,22 @@ public data class ExpenseFormDraft(
                 splitMode = expense.splitMode,
                 participants = participants.map { participant ->
                     val share = shares[participant.id]
+                    // Someone left out of an amount or percentage split has no figure; "1" would read as money.
+                    val seed = share ?: EVEN_SHARE.takeIf {
+                        expense.splitMode == SplitMode.EVENLY || expense.splitMode == SplitMode.BY_SHARES
+                    }
                     ParticipantShareDraft(
                         id = participant.id,
                         name = participant.name,
                         isIncluded = share != null,
-                        valueText = shareText(
-                            shares = share ?: EVEN_SHARE,
-                            splitMode = expense.splitMode,
-                            groupCurrencyCode = groupCurrencyCode,
-                            locale = locale,
-                        ),
+                        valueText = seed?.let {
+                            shareText(
+                                shares = it,
+                                splitMode = expense.splitMode,
+                                groupCurrencyCode = groupCurrencyCode,
+                                locale = locale,
+                            )
+                        }.orEmpty(),
                     )
                 },
                 isReimbursement = expense.isReimbursement,
@@ -606,8 +639,9 @@ public data class ExpenseFormDraft(
                 hundredthsText(shares, locale)
         }
 
-        // Floor division so refunds apportion like expenses; BigInteger because total * weight overflows Long.
+        // A refund mirrors an expense, so the spare unit lands on the same people. BigInteger: total * weight overflows Long.
         private fun apportion(total: Long, weights: List<Long>): List<Long> {
+            if (total < 0) return apportion(-total, weights).map { -it }
             val divisor = weights.fold(BigInteger.ZERO) { sum, weight -> sum + weight.toBigInteger() }
             if (divisor.signum() <= 0) return weights.map { 0L }
 
@@ -647,7 +681,7 @@ public data class ExpenseSubmission(
     public val splitMode: SplitMode,
     public val saveDefaultSplittingOptions: Boolean,
     public val isReimbursement: Boolean,
-    public val notes: String?,
+    public val notes: String,
     public val recurrenceRule: String,
     public val originalCurrency: String?,
     public val originalAmount: Long?,
@@ -687,7 +721,7 @@ public data class ExpenseSubmission(
         public val splitMode: SplitMode,
         public val saveDefaultSplittingOptions: Boolean,
         public val isReimbursement: Boolean,
-        public val notes: String?,
+        public val notes: String,
         public val recurrenceRule: String,
         public val originalCurrency: String?,
         public val originalAmount: Int?,

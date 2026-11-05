@@ -47,6 +47,7 @@ fun SheetHeader(
 
 @Composable
 fun DiscardChangesDialog(
+    subject: String,
     dialogTestTag: String,
     confirmTestTag: String,
     onDismiss: () -> Unit,
@@ -57,7 +58,7 @@ fun DiscardChangesDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.testTag(dialogTestTag),
         title = { Text("Discard changes?") },
-        text = { Text("What you've typed on this expense won't be kept.") },
+        text = { Text("What you've typed on $subject won't be kept.") },
         confirmButton = {
             TextButton(onClick = onDiscard, modifier = Modifier.testTag(confirmTestTag)) {
                 Text("Discard")

@@ -16,6 +16,7 @@ import app.spliit.core.RefreshLimiter
 import app.spliit.core.LoadState
 import java.time.Clock
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,18 +50,28 @@ class GroupDetailViewModel(
         client = { resolvedInstanceBaseUrl?.let(clientFactory) },
     )
 
+    private var loadJob: Job? = null
+
     fun load() {
-        viewModelScope.launch { refresh() }
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch { refresh() }
     }
 
+    // The screen asks on every composition, rotation included; one load in flight is enough.
     fun loadIfNeeded() {
-        if (_state.value.group is LoadState.Loaded) return
+        if (_state.value.group is LoadState.Loaded || loadJob?.isActive == true) return
         load()
     }
 
+    // A load already running is the retry; cancelling it for one the limiter may refuse would leave the skeleton up.
     fun retry() {
+        if (loadJob?.isActive == true) return
+        loadJob = viewModelScope.launch { retryNow() }
+    }
+
+    suspend fun retryNow() {
         if (!refreshLimiter.allow()) return
-        load()
+        refresh()
     }
 
     fun pullToRefresh() {
@@ -145,10 +156,8 @@ class GroupDetailViewModel(
                 return
             }
 
-            val updated = snapshot.opening(
-                RecentGroup(groupId = group.id, instanceBaseUrl = instanceBaseUrl, groupName = group.name),
-            )
-            recentGroupsStore.save(updated)
+            val opened = RecentGroup(groupId = group.id, instanceBaseUrl = instanceBaseUrl, groupName = group.name)
+            val updated = recentGroupsStore.update { it.opening(opened) } ?: snapshot.opening(opened)
             val actorId = updated.actorId(groupId, group.participants.map { CoreParticipant(it.id, it.name) })
 
             val info = groupInfoOf(group, instanceBaseUrl)
@@ -188,49 +197,32 @@ class GroupDetailViewModel(
         viewModelScope.launch { loadNextExpensesPage() }
     }
 
-    suspend fun loadNextExpensesPage(): Unit = loadNextPage(
+    suspend fun loadNextExpensesPage(): Unit = fetchNextPage(
         current = (_state.value.expenses as? LoadState.Loaded)?.value,
         isLoading = _state.value.isLoadingMoreExpenses,
-        idOf = { it.id },
-        setLoading = { loading -> _state.update { it.copy(isLoadingMoreExpenses = loading) } },
+        client = { resolvedInstanceBaseUrl?.let(clientFactory) },
+        setLoading = { loading ->
+            _state.update { it.copy(isLoadingMoreExpenses = loading, loadMoreExpensesFailed = false) }
+        },
+        setFailed = { _state.update { it.copy(loadMoreExpensesFailed = true) } },
         fetch = { client, cursor ->
             val response = client.call(SpliitEndpoints.expensesList(groupId, cursor, PAGE_SIZE))
             ExpensesPage(response.expenses, response.hasMore, response.nextCursor)
         },
-        onPage = { items, hasMore, cursor ->
-            _state.update { it.copy(expenses = LoadState.Loaded(ExpensesPage(items, hasMore, cursor))) }
+        publish = { fetched, from ->
+            _state.update { state ->
+                val latest = (state.expenses as? LoadState.Loaded)?.value
+                if (latest == null || latest.nextCursor != from) return@update state
+                val items = appendingNew(latest.expenses, fetched.items) { it.id }
+                state.copy(expenses = LoadState.Loaded(ExpensesPage(items, fetched.hasMore, fetched.nextCursor)))
+            }
         },
     )
-
-    private suspend fun <T> loadNextPage(
-        current: CursorPage<T>?,
-        isLoading: Boolean,
-        idOf: (T) -> String,
-        setLoading: (Boolean) -> Unit,
-        fetch: suspend (TrpcClient, Int) -> CursorPage<T>,
-        onPage: (items: List<T>, hasMore: Boolean, nextCursor: Int) -> Unit,
-    ) {
-        if (current == null || !current.hasMore || isLoading) return
-        val baseUrl = resolvedInstanceBaseUrl ?: return
-
-        setLoading(true)
-        try {
-            val fetched = fetch(clientFactory(baseUrl), current.nextCursor)
-            val known = current.items.mapTo(HashSet(), idOf)
-            val merged = current.items + fetched.items.filterNot { idOf(it) in known }
-            onPage(merged, fetched.hasMore, fetched.nextCursor)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: TrpcException) {
-        } finally {
-            setLoading(false)
-        }
-    }
 
     private suspend fun loadBalances(client: TrpcClient, keepOnFailure: Boolean = false) {
         try {
             val response = client.call(SpliitEndpoints.balancesList(groupId))
-            val totals = response.balances.mapValues { (_, balance) -> balance.total.toLong() }
+            val totals = response.balances.mapValues { (_, balance) -> balance.total }
             _state.update { it.copy(balances = LoadState.Loaded(BalancesInfo(totals, response.reimbursements))) }
         } catch (e: CancellationException) {
             throw e
@@ -265,9 +257,7 @@ class GroupDetailViewModel(
         refreshLimiter.reset()
         _state.update { state ->
             val page = (state.expenses as? LoadState.Loaded)?.value ?: return@update state
-            state.copy(
-                expenses = LoadState.Loaded(page.copy(expenses = page.expenses.filterNot { it.id == expenseId })),
-            )
+            state.copy(expenses = LoadState.Loaded(page.withoutRow(expenseId)))
         }
         val baseUrl = resolvedInstanceBaseUrl ?: return
         val client = clientFactory(baseUrl)
@@ -354,7 +344,7 @@ class GroupDetailViewModel(
         )
         _state.update { state ->
             val page = (state.expenses as? LoadState.Loaded)?.value ?: return@update state
-            state.copy(expenses = LoadState.Loaded(page.copy(expenses = placed(page.expenses, row))))
+            state.copy(expenses = LoadState.Loaded(page.withRow(row)))
         }
     }
 
@@ -363,15 +353,13 @@ class GroupDetailViewModel(
     }
 
     suspend fun applyActiveParticipant(participantId: String?) {
-        val snapshot = try {
-            recentGroupsStore.load()
+        val updated = try {
+            recentGroupsStore.update { it.settingParticipantId(groupId, participantId) } ?: return
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             return
         }
-        val updated = snapshot.settingParticipantId(groupId, participantId)
-        recentGroupsStore.save(updated)
 
         val participants = (_state.value.group as? LoadState.Loaded)?.value?.participants.orEmpty()
         val actorId = updated.actorId(groupId, participants.map { CoreParticipant(it.id, it.name) })
@@ -414,8 +402,8 @@ class GroupDetailViewModel(
                 it.copy(
                     stats = LoadState.Loaded(
                         StatsInfo(
-                            totalGroupSpendings = response.totalGroupSpendings.toLong(),
-                            yourSpendings = response.totalParticipantSpendings?.toLong(),
+                            totalGroupSpendings = response.totalGroupSpendings,
+                            yourSpendings = response.totalParticipantSpendings,
                             yourShareMinorUnits = response.totalParticipantShare
                                 ?.takeIf { share -> share.isFinite() }
                                 ?.let { share -> MoneyFormatter.roundMinorUnits(share) },
@@ -481,23 +469,35 @@ class GroupDetailViewModel(
         viewModelScope.launch { loadNextActivitiesPage() }
     }
 
-    suspend fun loadNextActivitiesPage(): Unit = loadNextPage(
+    suspend fun loadNextActivitiesPage(): Unit = fetchNextPage(
         current = (_state.value.activities as? LoadState.Loaded)?.value,
         isLoading = _state.value.isLoadingMoreActivities,
-        idOf = { it.id },
-        setLoading = { loading -> _state.update { it.copy(isLoadingMoreActivities = loading) } },
+        client = { resolvedInstanceBaseUrl?.let(clientFactory) },
+        setLoading = { loading ->
+            _state.update { it.copy(isLoadingMoreActivities = loading, loadMoreActivitiesFailed = false) }
+        },
+        setFailed = { _state.update { it.copy(loadMoreActivitiesFailed = true) } },
         fetch = { client, cursor ->
             val response = client.call(SpliitEndpoints.activitiesList(groupId, cursor, PAGE_SIZE))
             ActivitiesPage(response.activities, response.hasMore, response.nextCursor)
         },
-        onPage = { items, hasMore, cursor ->
-            _state.update { it.copy(activities = LoadState.Loaded(ActivitiesPage(items, hasMore, cursor))) }
+        publish = { fetched, from ->
+            _state.update { state ->
+                val latest = (state.activities as? LoadState.Loaded)?.value
+                if (latest == null || latest.nextCursor != from) return@update state
+                val items = appendingNew(latest.activities, fetched.items) { it.id }
+                state.copy(activities = LoadState.Loaded(ActivitiesPage(items, fetched.hasMore, fetched.nextCursor)))
+            }
         },
     )
 
     fun setSearchActive(active: Boolean): Unit = searcher.setActive(active)
 
     fun search(text: String): Unit = searcher.onQueryChanged(text)
+
+    fun loadMoreSearchResults(): Unit = searcher.loadMore()
+
+    suspend fun loadNextSearchPage(): Unit = searcher.loadNextPage()
 
     suspend fun runSearch(query: String): Unit = searcher.run(query)
 }

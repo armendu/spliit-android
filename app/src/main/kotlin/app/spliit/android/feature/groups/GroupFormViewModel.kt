@@ -24,9 +24,12 @@ enum class GroupFormMode { CREATE, EDIT }
 data class GroupFormUiState(
     val mode: GroupFormMode,
     val draft: GroupFormDraft = GroupFormDraft.creating(),
+    val initialDraft: GroupFormDraft = draft,
     val instanceAddressText: String = DEFAULT_INSTANCE_BASE_URL,
+    val initialInstanceAddressText: String = instanceAddressText,
     val resolvedInstanceBaseUrl: String? = DEFAULT_INSTANCE_BASE_URL,
     val isLoading: Boolean = false,
+    val isLoaded: Boolean = false,
     val loadError: String? = null,
     val hasAttemptedSave: Boolean = false,
     val isSaving: Boolean = false,
@@ -35,6 +38,12 @@ data class GroupFormUiState(
     val savedGroupId: String? = null,
 ) {
     val instanceIsValid: Boolean get() = mode == GroupFormMode.EDIT || resolvedInstanceBaseUrl != null
+
+    // An edit that never loaded holds a blank draft; saving it would overwrite the real group.
+    val canSave: Boolean get() = !isSaving && !isLoading && (mode == GroupFormMode.CREATE || isLoaded)
+
+    val isDirty: Boolean
+        get() = savedGroupId == null && (draft != initialDraft || instanceAddressText != initialInstanceAddressText)
 }
 
 class GroupFormViewModel(
@@ -84,6 +93,10 @@ class GroupFormViewModel(
         viewModelScope.launch { refreshForEdit() }
     }
 
+    fun retry() {
+        viewModelScope.launch { refreshForEdit() }
+    }
+
     suspend fun refreshForEdit() {
         val id = checkNotNull(groupId) { "refreshForEdit requires EDIT mode" }
         _state.update { it.copy(isLoading = true, loadError = null) }
@@ -110,7 +123,7 @@ class GroupFormViewModel(
                 participants = response.group.participants.map { CoreParticipant(it.id, it.name) },
                 participantsWithExpenses = response.participantsWithExpenses.toSet(),
             )
-            _state.update { it.copy(isLoading = false, draft = draft) }
+            _state.update { it.copy(isLoading = false, isLoaded = true, draft = draft, initialDraft = draft) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: TrpcException) {
@@ -170,6 +183,7 @@ class GroupFormViewModel(
     }
 
     suspend fun submit(): Boolean {
+        if (!_state.value.canSave) return false
         _state.update { it.copy(hasAttemptedSave = true, saveError = null) }
         val current = _state.value
         val submission = current.draft.submission()
@@ -189,17 +203,12 @@ class GroupFormViewModel(
             when (current.mode) {
                 GroupFormMode.CREATE -> {
                     val response = client.call(SpliitEndpoints.groupsCreate(values))
-                    val snapshot = recentGroupsStore.load()
-                    val stored = recentGroupsStore.save(
-                        snapshot.opening(
-                            RecentGroup(
-                                groupId = response.groupId,
-                                instanceBaseUrl = instanceBaseUrl,
-                                groupName = submission.name,
-                            ),
-                        ),
+                    val created = RecentGroup(
+                        groupId = response.groupId,
+                        instanceBaseUrl = instanceBaseUrl,
+                        groupName = submission.name,
                     )
-                    if (!stored) {
+                    if (recentGroupsStore.update { it.opening(created) } == null) {
                         _state.update {
                             it.copy(
                                 isSaving = false,

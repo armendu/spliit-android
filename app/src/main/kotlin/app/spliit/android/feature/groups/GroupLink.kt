@@ -15,9 +15,7 @@ data class GroupLink(val groupId: String, val instanceBaseUrl: String?) {
             }
             fromUrl(candidate)?.let { return it }
 
-            if (!trimmed.contains("/") && !trimmed.contains(" ")) {
-                return GroupLink(groupId = trimmed, instanceBaseUrl = null)
-            }
+            if (GROUP_ID.matches(trimmed)) return GroupLink(groupId = trimmed, instanceBaseUrl = null)
             return null
         }
 
@@ -29,10 +27,13 @@ data class GroupLink(val groupId: String, val instanceBaseUrl: String?) {
             val groupsIndex = segments.indexOf("groups")
             if (groupsIndex < 0 || groupsIndex + 1 !in segments.indices) return null
             val groupId = segments[groupsIndex + 1]
-            if (groupId.isBlank()) return null
+            if (!GROUP_ID.matches(groupId)) return null
 
             val instanceBaseUrl = InstanceAddress.baseUrlOf(uri, segments.subList(0, groupsIndex))
             return GroupLink(groupId = groupId, instanceBaseUrl = instanceBaseUrl)
         }
+
+        // Spliit's ids are nanoids. Anything else ends up in a route, where ? or # would misroute it.
+        private val GROUP_ID = Regex("[A-Za-z0-9_-]+")
     }
 }

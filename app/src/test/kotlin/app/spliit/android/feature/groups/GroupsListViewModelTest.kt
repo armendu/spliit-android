@@ -5,6 +5,11 @@ import app.spliit.core.RecentGroup
 import app.spliit.core.RecentGroupsSnapshot
 import app.spliit.core.RefreshLimiter
 import kotlin.time.Duration.Companion.seconds
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -223,6 +228,25 @@ class GroupsListViewModelTest {
         assertEquals("g1", viewModel.pendingRemoval.value?.groupId)
         assertEquals(listOf("g1"), store.load().groups.map { it.groupId })
         assertTrue(store.load().tombstones.isEmpty())
+    }
+
+    @Test
+    fun `leaving the screen inside the undo window still removes the group`() = runBlocking {
+        val store = storeWithOneGroup()
+        val owner = ViewModelStore()
+        val factory = object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                GroupsListViewModel(store, leavingScope = CoroutineScope(Dispatchers.Unconfined)) as T
+        }
+        val viewModel = ViewModelProvider.create(owner, factory)[GroupsListViewModel::class]
+        viewModel.refresh()
+        viewModel.beginRemoval("g1")
+
+        owner.clear()
+
+        assertTrue(store.load().groups.isEmpty(), "backing out is not undo")
+        assertTrue(store.load().tombstones.containsKey("g1"))
     }
 
     @Test

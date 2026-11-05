@@ -191,7 +191,7 @@ fun SpliitNavHost(
                             groupId = groupId,
                             from = reimbursement.from,
                             to = reimbursement.to,
-                            amountMinorUnits = reimbursement.amount.toLong(),
+                            amountMinorUnits = reimbursement.amount,
                         ),
                     )
                 },

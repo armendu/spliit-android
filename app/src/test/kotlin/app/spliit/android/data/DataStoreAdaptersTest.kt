@@ -15,6 +15,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -94,6 +97,52 @@ class DataStoreAdaptersTest {
         store.edit { it[stringPreferencesKey("snapshot")] = "{not json" }
 
         assertEquals(RecentGroupsSnapshot(), DataStoreRecentGroupsStore(store).load())
+    }
+
+    @Test
+    fun `a list this version can't read is kept aside before anything is written over it`() = runBlocking {
+        val store = dataStore("recent")
+        store.edit { it[stringPreferencesKey("snapshot")] = "{not json" }
+
+        assertTrue(DataStoreRecentGroupsStore(store).save(snapshot))
+
+        assertEquals(snapshot, DataStoreRecentGroupsStore(store).load())
+        assertEquals("{not json", store.data.first()[UNREADABLE_SNAPSHOT_KEY])
+    }
+
+    @Test
+    fun `one row this version can't read costs that row, not the list`() = runBlocking {
+        val store = dataStore("recent")
+        store.edit {
+            it[stringPreferencesKey("snapshot")] =
+                """{"groups":[{"groupId":"g1","instanceBaseUrl":"https://spliit.app/","groupName":"Lisbon",""" +
+                """"defaultSplit":{"splitMode":"BY_VIBES"},"updatedAt":"yesterday"},{"groupName":"no id"}],""" +
+                """"tombstones":{}}"""
+        }
+
+        val loaded = DataStoreRecentGroupsStore(store).load()
+
+        assertEquals(listOf("g1"), loaded.groups.map { it.groupId })
+        assertEquals(null, loaded.groups.single().defaultSplit)
+        assertEquals(null, loaded.groups.single().updatedAt)
+
+        DataStoreRecentGroupsStore(store).save(loaded)
+        assertTrue(store.data.first()[UNREADABLE_SNAPSHOT_KEY]!!.contains("no id"), "the unreadable row is kept aside")
+    }
+
+    @Test
+    fun `updates that land together both survive`() = runBlocking {
+        val recent = DataStoreRecentGroupsStore(dataStore("recent"))
+        recent.save(snapshot)
+
+        coroutineScope {
+            launch(Dispatchers.IO) { recent.update { it.settingStarred("g2", true) } }
+            launch(Dispatchers.IO) { recent.update { it.settingParticipantId("g1", "p9") } }
+        }
+
+        val loaded = recent.load()
+        assertTrue(loaded.groups.single { it.groupId == "g2" }.isStarred)
+        assertEquals("p9", loaded.groups.single { it.groupId == "g1" }.participantId)
     }
 
     @Test

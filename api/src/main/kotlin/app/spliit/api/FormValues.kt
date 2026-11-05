@@ -13,9 +13,12 @@ import java.time.Instant
 // |--------------------------------------|-----------|-----------|-----------|
 // | `groupFormValues.information`        | 400       | clears    | leaves    |
 // | `groupFormValues.currencyCode`       | accepted  | clears    | leaves    |
+// | `expenseFormValues.notes`            | 400       | clears    | leaves    |
 // | `expenseFormValues.originalCurrency` | clears    | n/a       | leaves    |
-// | `expenseFormValues.originalAmount`   | 400       | clears    | leaves    |
-// | `expenseFormValues.conversionRate`   | 400       | accepted  | leaves    |
+// | `expenseFormValues.originalAmount`   | 400       | leaves    | leaves    |
+// | `expenseFormValues.conversionRate`   | 400       | leaves    | leaves    |
+// The last two can't be cleared at all; a null originalCurrency is what says "not converted", so readers
+// must ignore whatever they still hold.
 
 @Serializable
 public data class GroupFormValues(
@@ -46,7 +49,8 @@ public data class ExpenseFormValues(
     public val saveDefaultSplittingOptions: Boolean,
     public val isReimbursement: Boolean,
     public val documents: List<ExpenseDocument>,
-    public val notes: String? = null,
+    // No default: encodeDefaults=false would drop "" and keep the old note.
+    public val notes: String,
     public val recurrenceRule: RecurrenceRule,
     public val originalAmount: Int? = null,
     // JsonNull clears the conversion; a String? would omit the key instead. Use conversionCurrency.

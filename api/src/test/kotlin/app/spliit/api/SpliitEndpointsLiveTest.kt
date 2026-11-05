@@ -51,6 +51,7 @@ class SpliitEndpointsLiveTest {
                 saveDefaultSplittingOptions = false,
                 isReimbursement = false,
                 documents = emptyList(),
+                notes = "Keep the receipt",
                 recurrenceRule = RecurrenceRule.None,
             )
             val expenseId = client.call(
@@ -60,12 +61,16 @@ class SpliitEndpointsLiveTest {
 
             val balances = client.call(SpliitEndpoints.balancesList(groupId)).balances
             assertEquals(2, balances.size)
-            assertEquals(500, balances.getValue(ana.id).total)
-            assertEquals(-500, balances.getValue(bruno.id).total)
+            assertEquals(500L, balances.getValue(ana.id).total)
+            assertEquals(-500L, balances.getValue(bruno.id).total)
 
             val stats = client.groupStats(groupId, participantId = ana.id)
-            assertEquals(1000, stats.totalGroupSpendings)
-            assertEquals(1000, stats.totalParticipantSpendings)
+            assertEquals(1000L, stats.totalGroupSpendings)
+            assertEquals(1000L, stats.totalParticipantSpendings)
+
+            assertEquals("Keep the receipt", client.call(SpliitEndpoints.expensesGet(groupId, expenseId)).expense?.notes)
+            client.call(SpliitEndpoints.expensesUpdate(groupId, expenseId, expenseForm.copy(notes = ""), ana.id))
+            assertTrue(client.call(SpliitEndpoints.expensesGet(groupId, expenseId)).expense?.notes.isNullOrEmpty())
         }
 
     @Test
@@ -127,7 +132,7 @@ class SpliitEndpointsLiveTest {
 
         val groupId = client.call(SpliitEndpoints.groupsCreate(group())).groupId
         val ana = client.call(SpliitEndpoints.groupsGet(groupId)).group!!.participants.single()
-        fun expense(title: String = "Dinner", notes: String? = null) = ExpenseFormValues(
+        fun expense(title: String = "Dinner", notes: String = "") = ExpenseFormValues(
             title = title,
             expenseDate = Instant.now(),
             amount = 1000,

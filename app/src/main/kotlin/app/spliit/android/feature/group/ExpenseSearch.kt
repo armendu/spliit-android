@@ -20,6 +20,7 @@ internal class ExpenseSearch(
     private val client: () -> TrpcClient?,
 ) {
     private var job: Job? = null
+    private var moreJob: Job? = null
 
     fun setActive(active: Boolean) {
         if (active) {
@@ -59,13 +60,46 @@ internal class ExpenseSearch(
         fetch(client, query, onFailure = {})
     }
 
+    fun loadMore() {
+        moreJob = scope.launch { loadNextPage() }
+    }
+
+    suspend fun loadNextPage() {
+        val search = state.value.search
+        val query = search.query.trim()
+        fetchNextPage(
+            current = (search.results as? LoadState.Loaded)?.value,
+            isLoading = search.isLoadingMore,
+            client = client,
+            setLoading = { loading ->
+                state.update { it.copy(search = it.search.copy(isLoadingMore = loading, loadMoreFailed = false)) }
+            },
+            setFailed = {
+                if (!isStale(query)) state.update { it.copy(search = it.search.copy(loadMoreFailed = true)) }
+            },
+            fetch = { client, cursor -> page(client, query, cursor) },
+            publish = { fetched, from ->
+                state.update { current ->
+                    val latest = (current.search.results as? LoadState.Loaded)?.value
+                    if (isStale(query) || latest == null || latest.nextCursor != from) return@update current
+                    val merged = ExpensesPage(
+                        appendingNew(latest.expenses, fetched.items) { it.id },
+                        fetched.hasMore,
+                        fetched.nextCursor,
+                    )
+                    current.copy(search = current.search.copy(results = LoadState.Loaded(merged)))
+                }
+            },
+        )
+    }
+
     private suspend fun fetch(client: TrpcClient, query: String, onFailure: (String?) -> Unit) {
         try {
-            val response = client.call(
-                SpliitEndpoints.expensesList(groupId, cursor = 0, limit = pageSize, filter = query),
-            )
+            val page = page(client, query, cursor = 0)
             if (isStale(query)) return
-            state.update { it.copy(search = it.search.copy(results = LoadState.Loaded(response.expenses))) }
+            state.update {
+                it.copy(search = it.search.copy(results = LoadState.Loaded(page), loadMoreFailed = false))
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: TrpcException) {
@@ -73,11 +107,19 @@ internal class ExpenseSearch(
         }
     }
 
+    private suspend fun page(client: TrpcClient, query: String, cursor: Int): ExpensesPage {
+        val response = client.call(SpliitEndpoints.expensesList(groupId, cursor, pageSize, filter = query))
+        // Not narrowed again here: newer servers also match the notes, which the list doesn't carry.
+        return ExpensesPage(response.expenses, response.hasMore, response.nextCursor)
+    }
+
     private fun isStale(query: String): Boolean = state.value.search.query.trim() != query
 
     private fun cancel() {
         job?.cancel()
         job = null
+        moreJob?.cancel()
+        moreJob = null
     }
 
     private companion object {
