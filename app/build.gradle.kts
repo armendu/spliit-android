@@ -48,6 +48,14 @@ android {
         val defaultInstance = (providers.gradleProperty("spliit.baseUrl").orNull ?: "https://spliit.app/")
             .let { if (it.endsWith("/")) it else "$it/" }
         buildConfigField("String", "DEFAULT_INSTANCE_BASE_URL", "\"$defaultInstance\"")
+
+        // Servers don't report their version, so the most Settings can say is which release the
+        // suites ran against: the tag on the pinned e2e image.
+        val testedSpliit = providers.fileContents(rootProject.layout.projectDirectory.file("e2e/compose.yaml"))
+            .asText.get()
+            .let { Regex("""ghcr\.io/spliit-app/spliit:([^@\s]+)@sha256:""").find(it)?.groupValues?.get(1) }
+            ?: error("e2e/compose.yaml should pin the Spliit image as <tag>@sha256:<digest>")
+        buildConfigField("String", "TESTED_SPLIIT_VERSION", "\"$testedSpliit\"")
     }
 
     buildFeatures {

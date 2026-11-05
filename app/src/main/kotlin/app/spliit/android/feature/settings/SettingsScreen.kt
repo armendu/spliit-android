@@ -46,6 +46,7 @@ import app.spliit.android.ui.design.FieldShape
 import app.spliit.android.ui.design.CardShape
 import app.spliit.android.ui.design.FormSectionHeader
 import app.spliit.android.ui.design.FieldError
+import app.spliit.android.ui.design.Footnote
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
@@ -100,23 +101,34 @@ fun SettingsScreen(
             FormSectionHeader("About")
             AboutCard(
                 onVisit = { openUrl(context, "https://spliit.app/?ref=android-app") },
-                onGitHub = { openUrl(context, "https://github.com/spliit-app") },
+                onSpliitGitHub = { openUrl(context, "https://github.com/spliit-app/spliit") },
+                onAppGitHub = { openUrl(context, "https://github.com/armendu/spliit-android") },
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Spliit is an open source project by Sebastien Castiel, with help from " +
-                    "many contributors.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Footnote(
+                "Spliit is an open source project by Sebastien Castiel, with help from many " +
+                    "contributors. This Android app is a separate open source project by " +
+                    "Armend Ukëhaxhaj, ported from Spliit for iOS and released under the MIT licence.",
             )
 
             FormSectionHeader("Feedback")
             FeedbackCard(
-                onReport = { openUrl(context, "https://github.com/spliit-app") },
+                onReport = { openUrl(context, "https://github.com/armendu/spliit-android/issues") },
             )
 
             FormSectionHeader("Version")
-            VersionCard(name = viewModel.versionName, code = viewModel.versionCode)
+            VersionCard(
+                name = viewModel.versionName,
+                code = viewModel.versionCode,
+                testedSpliit = viewModel.testedSpliitVersion,
+            )
+            Footnote(
+                "Spliit servers don't say which release they run, so this is the one the app was " +
+                    "tested against, not necessarily the one your server is on.",
+            )
+
+            FormSectionHeader("Open source libraries")
+            LibrariesCard(onOpen = { openUrl(context, it) })
+            Footnote("Each is used under the Apache License 2.0.")
 
             Spacer(Modifier.height(24.dp))
         }
@@ -210,7 +222,7 @@ private fun InstanceCard(
 }
 
 @Composable
-private fun AboutCard(onVisit: () -> Unit, onGitHub: () -> Unit) {
+private fun AboutCard(onVisit: () -> Unit, onSpliitGitHub: () -> Unit, onAppGitHub: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,7 +231,9 @@ private fun AboutCard(onVisit: () -> Unit, onGitHub: () -> Unit) {
     ) {
         LinkRow("Visit spliit.app", onVisit, TestTags.SETTINGS_ABOUT_VISIT_LINK)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        LinkRow("View on GitHub", onGitHub, TestTags.SETTINGS_ABOUT_GITHUB_LINK)
+        LinkRow("Spliit on GitHub", onSpliitGitHub, TestTags.SETTINGS_ABOUT_GITHUB_LINK)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        LinkRow("This app on GitHub", onAppGitHub, TestTags.SETTINGS_ABOUT_APP_GITHUB_LINK)
     }
 }
 
@@ -236,22 +250,63 @@ private fun FeedbackCard(onReport: () -> Unit) {
 }
 
 @Composable
-private fun VersionCard(name: String, code: Int) {
-    Row(
+private fun VersionCard(name: String, code: Int, testedSpliit: String) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
+    ) {
+        ValueRow("Version", "$name ($code)", TestTags.SETTINGS_VERSION_VALUE)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        ValueRow("Tested with Spliit", testedSpliit, TestTags.SETTINGS_TESTED_SPLIIT_VALUE)
+    }
+}
+
+@Composable
+private fun ValueRow(label: String, value: String, testTag: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text("Version", style = MaterialTheme.typography.bodyLarge)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
         Text(
-            text = "$name ($code)",
+            text = value,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag(TestTags.SETTINGS_VERSION_VALUE),
+            modifier = Modifier.testTag(testTag),
         )
+    }
+}
+
+@Composable
+private fun LibrariesCard(onOpen: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
+    ) {
+        openSourceLibraries.forEach { library ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpen(library.url) }
+                    .testTag(TestTags.settingsLibraryLink(library.name))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Text(library.name, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    library.author,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        LinkRow("Apache License 2.0", { onOpen(APACHE_LICENSE_URL) }, TestTags.SETTINGS_LICENSE_LINK)
     }
 }
 

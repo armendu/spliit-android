@@ -32,6 +32,7 @@ class SettingsViewModel(
     ),
     val versionName: String = BuildConfig.VERSION_NAME,
     val versionCode: Int = BuildConfig.VERSION_CODE,
+    val testedSpliitVersion: String = BuildConfig.TESTED_SPLIIT_VERSION,
     private val applySettings: (AppSettings) -> Unit = {
         AppSettingsHolder.themeMode = it.themeMode
         AppSettingsHolder.instanceBaseUrlOverride = it.instanceBaseUrlOverride

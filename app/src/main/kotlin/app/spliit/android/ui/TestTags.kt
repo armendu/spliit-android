@@ -170,8 +170,12 @@ object TestTags {
     const val SETTINGS_INSTANCE_RESET_BUTTON = "settings_instance_reset_button"
     const val SETTINGS_ABOUT_VISIT_LINK = "settings_about_visit_link"
     const val SETTINGS_ABOUT_GITHUB_LINK = "settings_about_github_link"
+    const val SETTINGS_ABOUT_APP_GITHUB_LINK = "settings_about_app_github_link"
     const val SETTINGS_FEEDBACK_REPORT_LINK = "settings_feedback_report_link"
     const val SETTINGS_VERSION_VALUE = "settings_version_value"
+    const val SETTINGS_TESTED_SPLIIT_VALUE = "settings_tested_spliit_value"
+    const val SETTINGS_LICENSE_LINK = "settings_license_link"
 
     fun settingsThemeOption(mode: String) = "settings_theme_option_${mode.lowercase()}"
+    fun settingsLibraryLink(name: String) = "settings_library_link_$name"
 }
