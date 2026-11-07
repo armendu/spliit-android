@@ -43,6 +43,7 @@ import app.spliit.api.Activity
 import app.spliit.api.ActivityType
 import app.spliit.api.Participant
 import app.spliit.core.DateBucket
+import app.spliit.core.groupedByBucket
 import app.spliit.core.LoadState
 import java.time.Clock
 import java.time.ZoneId
@@ -131,13 +132,9 @@ internal fun bucketActivities(
     activities: List<Activity>,
     clock: Clock = Clock.systemDefaultZone(),
 ): List<ActivitySection> {
-    val byBucket = LinkedHashMap<DateBucket, MutableList<Activity>>()
-    for (activity in activities) {
-        if (!activity.activityType.isRecognised) continue
-        val bucket = DateBucket.of(activity.time, clock)
-        byBucket.getOrPut(bucket) { mutableListOf() }.add(activity)
-    }
-    return byBucket.entries.sortedBy { it.key.ordinal }.map { ActivitySection(it.key, it.value) }
+    return activities.filter { it.activityType.isRecognised }
+        .groupedByBucket { DateBucket.of(it.time, clock) }
+        .map { (bucket, items) -> ActivitySection(bucket, items) }
 }
 
 @Composable

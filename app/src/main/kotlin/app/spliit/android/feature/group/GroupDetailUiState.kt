@@ -6,6 +6,7 @@ import app.spliit.api.Participant
 import app.spliit.api.Reimbursement
 import app.spliit.api.SpliitEndpoints
 import app.spliit.core.DateBucket
+import app.spliit.core.groupedByBucket
 import app.spliit.core.LoadState
 import java.time.Clock
 import java.time.Instant
@@ -95,13 +96,9 @@ data class GroupDetailUiState(
 data class ExpenseSection(val bucket: DateBucket, val expenses: List<ExpenseListItem>)
 
 fun bucketExpenses(expenses: List<ExpenseListItem>, clock: Clock = Clock.systemDefaultZone()): List<ExpenseSection> {
-    val byBucket = LinkedHashMap<DateBucket, MutableList<ExpenseListItem>>()
-    for (expense in expenses) {
-        // An expense date is a calendar day sent as UTC midnight; the device zone would move it a day west of UTC.
-        val bucket = DateBucket.of(expense.expenseDate.atZone(ZoneOffset.UTC).toLocalDate(), clock)
-        byBucket.getOrPut(bucket) { mutableListOf() }.add(expense)
-    }
-    return byBucket.entries.sortedBy { it.key.ordinal }.map { ExpenseSection(it.key, it.value) }
+    // An expense date is a calendar day sent as UTC midnight; the device zone would move it a day west of UTC.
+    return expenses.groupedByBucket { DateBucket.of(it.expenseDate.atZone(ZoneOffset.UTC).toLocalDate(), clock) }
+        .map { (bucket, items) -> ExpenseSection(bucket, items) }
 }
 
 fun placed(expenses: List<ExpenseListItem>, item: ExpenseListItem): List<ExpenseListItem> {

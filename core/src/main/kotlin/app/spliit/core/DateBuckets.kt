@@ -47,3 +47,7 @@ public enum class DateBucket {
             date.get(weekFields.weekBasedYear()) to date.get(weekFields.weekOfWeekBasedYear())
     }
 }
+
+// Sections in bucket order; items keep their order within a section.
+public fun <T> List<T>.groupedByBucket(bucketOf: (T) -> DateBucket): List<Pair<DateBucket, List<T>>> =
+    groupBy(bucketOf).entries.sortedBy { it.key.ordinal }.map { it.key to it.value }

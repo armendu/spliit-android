@@ -109,4 +109,13 @@ class DateBucketsTest {
         assertEquals(DateBucket.YESTERDAY, DateBucket.of(target, Clock.fixed(now, kiritimati)))
         assertEquals(DateBucket.EARLIER_THIS_WEEK, DateBucket.of(target, Clock.fixed(now, niue)))
     }
+
+    @Test
+    fun `grouping orders sections newest first and keeps the order within each`() {
+        val days = listOf(DateBucket.OLDER to "a", DateBucket.TODAY to "b", DateBucket.OLDER to "c", DateBucket.TODAY to "d")
+
+        val grouped = days.groupedByBucket { it.first }.map { (bucket, items) -> bucket to items.map { it.second } }
+
+        assertEquals(listOf(DateBucket.TODAY to listOf("b", "d"), DateBucket.OLDER to listOf("a", "c")), grouped)
+    }
 }
