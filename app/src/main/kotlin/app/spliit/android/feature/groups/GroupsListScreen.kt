@@ -5,8 +5,6 @@ import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -73,7 +70,7 @@ import app.spliit.core.LoadState
 import app.spliit.android.ui.design.CenteredScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import app.spliit.android.ui.design.CardShape
+import app.spliit.android.ui.design.outlinedCard
 import app.spliit.android.ui.design.LoadFailure
 import app.spliit.android.ui.design.SkeletonBlock
 
@@ -372,9 +369,7 @@ private fun GroupRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(CardShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
+                .outlinedCard()
                 .combinedClickable(
                     onClick = { onGroupClick(group) },
                     onLongClick = { isMenuOpen = true },
@@ -532,9 +527,7 @@ private fun GroupRowSkeleton() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(CardShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
+            .outlinedCard()
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

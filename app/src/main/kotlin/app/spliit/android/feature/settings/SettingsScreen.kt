@@ -2,8 +2,6 @@ package app.spliit.android.feature.settings
 
 import android.content.Context
 import android.content.Intent
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,9 +40,10 @@ import app.spliit.android.R
 import app.spliit.android.ui.TestTags
 import app.spliit.core.ThemeMode
 import app.spliit.android.ui.design.FieldShape
-import app.spliit.android.ui.design.CardShape
+import app.spliit.android.ui.design.CardDivider
 import app.spliit.android.ui.design.FormSectionHeader
 import app.spliit.android.ui.design.FieldError
+import app.spliit.android.ui.design.outlinedCard
 import app.spliit.android.ui.design.Footnote
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -89,13 +87,10 @@ fun SettingsScreen(
                 onSave = viewModel::saveInstanceAddress,
                 onReset = viewModel::resetInstanceAddress,
             )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "Where a group you create lives, and what a link naming no server is " +
-                    "looked up against. A pasted link that names its own server always wins, " +
-                    "and a group already on your list stays on the server it was made on.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Footnote(
+                "Where a group you create lives, and what a link naming no server is looked up " +
+                    "against. A pasted link that names its own server always wins, and a group " +
+                    "already on your list stays on the server it was made on.",
             )
 
             FormSectionHeader("About")
@@ -140,8 +135,7 @@ private fun AppearanceCard(themeMode: ThemeMode, onSelect: (ThemeMode) -> Unit) 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
+            .outlinedCard()
             .selectableGroup(),
     ) {
         ThemeOption("Follow system", ThemeMode.FOLLOW_SYSTEM, themeMode, onSelect)
@@ -182,8 +176,7 @@ private fun InstanceCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
+            .outlinedCard()
             .padding(16.dp),
     ) {
         OutlinedTextField(
@@ -226,13 +219,12 @@ private fun AboutCard(onVisit: () -> Unit, onSpliitGitHub: () -> Unit, onAppGitH
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
+            .outlinedCard(),
     ) {
         LinkRow("Visit spliit.app", onVisit, TestTags.SETTINGS_ABOUT_VISIT_LINK)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        CardDivider()
         LinkRow("Spliit on GitHub", onSpliitGitHub, TestTags.SETTINGS_ABOUT_GITHUB_LINK)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        CardDivider()
         LinkRow("This app on GitHub", onAppGitHub, TestTags.SETTINGS_ABOUT_APP_GITHUB_LINK)
     }
 }
@@ -242,8 +234,7 @@ private fun FeedbackCard(onReport: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
+            .outlinedCard(),
     ) {
         LinkRow("Report a problem", onReport, TestTags.SETTINGS_FEEDBACK_REPORT_LINK)
     }
@@ -254,11 +245,10 @@ private fun VersionCard(name: String, code: Int, testedSpliit: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
+            .outlinedCard(),
     ) {
         ValueRow("Version", "$name ($code)", TestTags.SETTINGS_VERSION_VALUE)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        CardDivider()
         ValueRow("Tested with Spliit", testedSpliit, TestTags.SETTINGS_TESTED_SPLIIT_VALUE)
     }
 }
@@ -286,8 +276,7 @@ private fun LibrariesCard(onOpen: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest, CardShape)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape),
+            .outlinedCard(),
     ) {
         openSourceLibraries.forEach { library ->
             Column(
@@ -304,7 +293,7 @@ private fun LibrariesCard(onOpen: (String) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            CardDivider()
         }
         LinkRow("Apache License 2.0", { onOpen(APACHE_LICENSE_URL) }, TestTags.SETTINGS_LICENSE_LINK)
     }
